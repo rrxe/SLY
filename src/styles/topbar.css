@@ -1,0 +1,129 @@
+.topbar{
+  position:fixed;
+  top:0;
+  left:0;
+  right:0;
+  z-index:30;
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-start;
+  gap:14px;
+  padding:14px 16px;
+  min-height:var(--header-h);
+  background:linear-gradient(180deg, rgba(3,5,11,.96), rgba(3,5,11,.76));
+  backdrop-filter:blur(22px);
+  border-bottom:1px solid rgba(255,255,255,.05);
+}
+
+.topbar-left{
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+  min-width:0;
+}
+
+.topbar-kicker{
+  margin:0;
+  color:var(--blue-1);
+  font-size:11px;
+  letter-spacing:4px;
+  font-weight:700;
+  text-transform:uppercase;
+}
+
+.topbar-row{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  flex-wrap:wrap;
+}
+
+.page-chip{
+  display:inline-flex;
+  align-items:center;
+  height:28px;
+  padding:0 12px;
+  border-radius:999px;
+  background:rgba(78,167,255,.10);
+  border:1px solid rgba(78,167,255,.18);
+  color:var(--blue-0);
+  font-size:11px;
+  font-weight:800;
+  letter-spacing:1.8px;
+  text-transform:uppercase;
+}
+
+.topbar-sub{
+  color:var(--muted);
+  font-size:12px;
+  line-height:1.4;
+}
+
+.topbar-stats{
+  display:flex;
+  gap:10px;
+  align-items:center;
+  flex-shrink:0;
+}
+
+.stat-pill{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  min-width:126px;
+  padding:10px 12px;
+  border-radius:18px;
+  background:var(--panel);
+  border:1px solid rgba(255,255,255,.06);
+  box-shadow:var(--shadow-2);
+}
+
+.stat-icon{
+  width:22px;
+  height:22px;
+  color:currentColor;
+  flex:0 0 auto;
+}
+
+.coins-icon{
+  color:var(--gold-1);
+}
+
+.energy-icon{
+  color:#52e7c9;
+}
+
+.stat-pill small{
+  display:block;
+  color:var(--muted);
+  font-size:10px;
+  letter-spacing:1px;
+  text-transform:uppercase;
+}
+
+.stat-pill strong{
+  display:block;
+  color:var(--text);
+  font-size:16px;
+  line-height:1.1;
+}
+
+@media (max-width:680px){
+  .topbar{
+    padding:12px 12px;
+    align-items:flex-start;
+  }
+
+  .topbar-stats{
+    gap:8px;
+  }
+
+  .stat-pill{
+    min-width:auto;
+    padding:9px 10px;
+  }
+
+  .topbar-sub{
+    display:none;
+  }
+}

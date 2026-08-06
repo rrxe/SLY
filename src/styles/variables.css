@@ -1,0 +1,47 @@
+:root {
+  /* Colors */
+  --bg-space: #05070d;
+  --surface-dark: #0b1020;
+  --card-bg: rgba(16, 24, 40, 0.65);
+  --card-border: rgba(255, 255, 255, 0.07);
+  --card-border-glow: rgba(77, 163, 255, 0.25);
+
+  --blue-primary: #4da3ff;
+  --blue-secondary: #275dff;
+  --blue-cyan: #00e5ff;
+  --gold-luxury: #e8c76a;
+  --threat-red: #ff2d2d;
+
+  --text-primary: #ffffff;
+  --text-secondary: #94a3b8;
+  --text-muted: #475569;
+
+  /* Layout */
+  --topbar-height: 70px;
+  --bottomnav-height: 80px;
+
+  /* Visual Effects */
+  --glass-blur: blur(16px);
+  --radius-lg: 20px;
+  --radius-md: 14px;
+  --radius-sm: 8px;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  background-color: var(--bg-space);
+  color: var(--text-primary);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  overflow-x: hidden;
+  background-image: 
+    radial-gradient(circle at 50% 0%, rgba(39, 93, 255, 0.12) 0%, transparent 60%),
+    radial-gradient(circle at 80% 100%, rgba(0, 229, 255, 0.05) 0%, transparent 50%);
+  min-height: 100vh;
+}

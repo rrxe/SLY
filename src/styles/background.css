@@ -1,0 +1,109 @@
+.space{
+  position:fixed;
+  inset:0;
+  overflow:hidden;
+  z-index:-100;
+  background:
+    radial-gradient(circle at 50% -10%, rgba(78,167,255,.18) 0%, rgba(8,12,22,.95) 36%, #020409 100%);
+}
+
+.nebula{
+  position:absolute;
+  border-radius:50%;
+  filter:blur(140px);
+  mix-blend-mode:screen;
+  animation:floatNebula 20s ease-in-out infinite alternate;
+  pointer-events:none;
+}
+
+.nebula1{
+  width:420px;
+  height:420px;
+  background:rgba(78,167,255,.18);
+  top:-160px;
+  left:50%;
+  transform:translateX(-50%);
+}
+
+.nebula2{
+  width:320px;
+  height:320px;
+  background:rgba(255,210,90,.10);
+  right:-100px;
+  bottom:-80px;
+  animation-delay:4s;
+}
+
+.nebula3{
+  width:240px;
+  height:240px;
+  background:rgba(90,232,255,.10);
+  left:-80px;
+  bottom:110px;
+  animation-delay:8s;
+}
+
+.grid{
+  position:absolute;
+  inset:-20%;
+  background-image:
+    linear-gradient(rgba(255,255,255,.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,.05) 1px, transparent 1px);
+  background-size:48px 48px;
+  opacity:.08;
+  transform:perspective(900px) rotateX(76deg);
+  transform-origin:center;
+  mask-image:linear-gradient(to bottom, transparent, black 18%, black 82%, transparent);
+  animation:gridMove 18s linear infinite;
+  pointer-events:none;
+}
+
+.stars{
+  position:absolute;
+  inset:0;
+}
+
+.star{
+  position:absolute;
+  width:2px;
+  height:2px;
+  border-radius:50%;
+  background:#fff;
+  box-shadow:0 0 8px rgba(255,255,255,.95), 0 0 14px rgba(255,255,255,.45);
+  animation:twinkle infinite ease-in-out;
+}
+
+.noise{
+  position:absolute;
+  inset:0;
+  background-image:radial-gradient(rgba(255,255,255,.03) 1px, transparent 1px);
+  background-size:6px 6px;
+  opacity:.08;
+  mix-blend-mode:overlay;
+  pointer-events:none;
+}
+
+.space::after{
+  content:"";
+  position:absolute;
+  inset:0;
+  background:
+    radial-gradient(circle at center, transparent 38%, rgba(0,0,0,.48) 100%);
+  pointer-events:none;
+}
+
+@keyframes twinkle{
+  0%{opacity:.18; transform:scale(.7)}
+  50%{opacity:1; transform:scale(1.45)}
+  100%{opacity:.18; transform:scale(.7)}
+}
+
+@keyframes floatNebula{
+  0%{transform:translate(-10px,-10px) scale(1)}
+  100%{transform:translate(18px,18px) scale(1.12)}
+}
+
+@keyframes gridMove{
+  0%{transform:perspective(900px) rotateX(76deg) translateY(0)}
+  100%{transform:perspective(900px) rotateX(76deg) translateY(56px)}
+}
