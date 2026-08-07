@@ -68,6 +68,24 @@ export default function Profile({
 
   const usdApprox = useMemo(() => `≈ $${usdtBalance.toFixed(2)}`, [usdtBalance]);
 
+  const syncWalletToServer = async (address: string | null) => {
+    try {
+      const tg = window.Telegram?.WebApp;
+      const initData = tg?.initData || "";
+
+      await fetch("/api/profile/wallet", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `tga ${initData}`,
+        },
+        body: JSON.stringify({ walletAddress: address }),
+      });
+    } catch (err) {
+      console.error("Failed to sync wallet with server", err);
+    }
+  };
+
   const handleConnect = () => {
     const trimmed = inputValue.trim();
 
@@ -88,6 +106,7 @@ export default function Profile({
     setConnectedAddress(trimmed);
     setInputValue("");
     setError("");
+    syncWalletToServer(trimmed);
     onWalletConnected?.(trimmed);
   };
 
@@ -98,6 +117,7 @@ export default function Profile({
 
     setConnectedAddress(null);
     setConfirmingDisconnect(false);
+    syncWalletToServer(null);
     onWalletDisconnected?.();
   };
 

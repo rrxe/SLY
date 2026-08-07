@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import "../styles/tasks.css";
 
 type Props = {
@@ -116,6 +116,24 @@ export default function Tasks({ onRewardCoins }: Props) {
     return () => window.clearTimeout(timer);
   }, [toast]);
 
+  const reportRewardToServer = async (rewardAmount: number, taskType: string) => {
+    try {
+      const tg = window.Telegram?.WebApp;
+      const initData = tg?.initData || "";
+
+      await fetch("/api/tasks/complete", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `tga ${initData}`,
+        },
+        body: JSON.stringify({ reward: rewardAmount, taskType }),
+      });
+    } catch (err) {
+      console.error("Failed to sync task reward with server", err);
+    }
+  };
+
   useEffect(() => {
     if (!watchingAd) return;
 
@@ -142,6 +160,7 @@ export default function Tasks({ onRewardCoins }: Props) {
               "Ad watched",
               `Watch ad ${nextCount}/${AD_LIMIT} +${AD_REWARD} coins`
             );
+            reportRewardToServer(AD_REWARD, "watch_ad");
             setToast(`+${AD_REWARD} coins`);
 
             if (nextCount === AD_LIMIT) {
@@ -168,6 +187,7 @@ export default function Tasks({ onRewardCoins }: Props) {
 
     setState((prev) => ({ ...prev, channelClaimed: true }));
     onRewardCoins(CHANNEL_REWARD, "Channel reward", `Joined official channel +${CHANNEL_REWARD} coins`);
+    reportRewardToServer(CHANNEL_REWARD, "join_channel");
     setToast(`+${CHANNEL_REWARD} coins`);
   };
 
