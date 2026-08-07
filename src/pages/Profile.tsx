@@ -1,3 +1,4 @@
+import { useEffect, useMemo, useState } from "react";
 import UiIcons from "../components/UiIcons";
 import "../styles/profile.css";
 
@@ -17,7 +18,27 @@ type Props = {
   usdtBalance: number;
   activities: Activity[];
   onOpenExchange: () => void;
+  onWalletConnected?: (address: string) => void;
+  onWalletDisconnected?: () => void;
 };
+
+const WALLET_STORAGE_KEY = "sly.wallet.bep20.v1";
+const BEP20_ADDRESS_PATTERN = /^0x[a-fA-F0-9]{40}$/;
+
+function loadStoredAddress(): string | null {
+  if (typeof window === "undefined") return null;
+
+  try {
+    const raw = window.localStorage.getItem(WALLET_STORAGE_KEY);
+    return raw && BEP20_ADDRESS_PATTERN.test(raw) ? raw : null;
+  } catch {
+    return null;
+  }
+}
+
+function truncateAddress(address: string) {
+  return `${address.slice(0, 6)}...${address.slice(-4)}`;
+}
 
 export default function Profile({
   walletCoins,
@@ -26,66 +47,206 @@ export default function Profile({
   usdtBalance,
   activities,
   onOpenExchange,
+  onWalletConnected,
+  onWalletDisconnected,
 }: Props) {
+  const [connectedAddress, setConnectedAddress] = useState<string | null>(() =>
+    loadStoredAddress()
+  );
+  const [inputValue, setInputValue] = useState("");
+  const [error, setError] = useState("");
+  const [copied, setCopied] = useState(false);
+  const [confirmingDisconnect, setConfirmingDisconnect] = useState(false);
+
+  useEffect(() => {
+    if (!copied) return;
+    const timer = window.setTimeout(() => setCopied(false), 1600);
+    return () => window.clearTimeout(timer);
+  }, [copied]);
+
+  const availableCoins = useMemo(() => walletCoins, [walletCoins]);
+  const usdApprox = useMemo(() => `≈ $${usdtBalance.toFixed(2)}`, [usdtBalance]);
+
+  const handleConnect = () => {
+    const trimmed = inputValue.trim();
+
+    if (!trimmed) {
+      setError("Enter your BEP20 wallet address.");
+      return;
+    }
+
+    if (!BEP20_ADDRESS_PATTERN.test(trimmed)) {
+      setError("That doesn't look like a valid BEP20 (0x...) address.");
+      return;
+    }
+
+    try {
+      window.localStorage.setItem(WALLET_STORAGE_KEY, trimmed);
+    } catch {
+      // ignore
+    }
+
+    setConnectedAddress(trimmed);
+    setInputValue("");
+    setError("");
+    onWalletConnected?.(trimmed);
+  };
+
+  const handleDisconnect = () => {
+    try {
+      window.localStorage.removeItem(WALLET_STORAGE_KEY);
+    } catch {
+      // ignore
+    }
+
+    setConnectedAddress(null);
+    setConfirmingDisconnect(false);
+    onWalletDisconnected?.();
+  };
+
+  const handleCopy = async () => {
+    if (!connectedAddress) return;
+
+    try {
+      await navigator.clipboard.writeText(connectedAddress);
+      setCopied(true);
+    } catch {
+      // ignore
+    }
+  };
+
+  const activityCount = activities.length;
+
   return (
     <section className="profile-page">
-      <section className="profile-hero">
-        <div>
-          <p className="profile-kicker">WALLET CENTER</p>
-          <h1>Commander profile</h1>
-          <span>
-            Track lifetime coins, spent coins, USDT balance, and wallet activity.
+      <section className="wallet-hero">
+        <div className="wallet-hero-top">
+          <div>
+            <p className="wallet-kicker">WALLET CENTER</p>
+            <h1>{connectedAddress ? "Wallet connected" : "Connect wallet"}</h1>
+            <p className="wallet-lead">
+              Connect your BEP20 address to unlock withdrawals and keep your wallet
+              ready for future transfers.
+            </p>
+          </div>
+
+          <span className="wallet-chip">
+            <span className="wallet-chip-dot" />
+            BNB Smart Chain · BEP20
           </span>
         </div>
 
-        <div className="profile-badge">Premium wallet</div>
+        {connectedAddress ? (
+          <div className="wallet-connected">
+            <div className="wallet-address-row">
+              <div className="wallet-address-info">
+                <span className="wallet-address-label">Connected address</span>
+                <strong className="wallet-address-value">
+                  {truncateAddress(connectedAddress)}
+                </strong>
+              </div>
+
+              <div className="wallet-address-actions">
+                <button className="wallet-icon-btn" onClick={handleCopy} type="button">
+                  {copied ? "Copied" : "Copy"}
+                </button>
+                <button
+                  className="wallet-icon-btn danger"
+                  onClick={() => setConfirmingDisconnect(true)}
+                  type="button"
+                >
+                  Disconnect
+                </button>
+              </div>
+            </div>
+
+            {confirmingDisconnect ? (
+              <div className="wallet-confirm">
+                <span>Disconnect this wallet? You can reconnect anytime.</span>
+                <div className="wallet-confirm-actions">
+                  <button
+                    className="wallet-confirm-btn ghost"
+                    onClick={() => setConfirmingDisconnect(false)}
+                    type="button"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    className="wallet-confirm-btn danger"
+                    onClick={handleDisconnect}
+                    type="button"
+                  >
+                    Disconnect
+                  </button>
+                </div>
+              </div>
+            ) : null}
+          </div>
+        ) : (
+          <div className="wallet-connect-form">
+            <div className="wallet-input-row">
+              <input
+                className="wallet-input"
+                placeholder="0x... BEP20 address"
+                value={inputValue}
+                onChange={(event) => {
+                  setInputValue(event.target.value);
+                  if (error) setError("");
+                }}
+                spellCheck={false}
+                autoCapitalize="off"
+                autoCorrect="off"
+              />
+              <button className="wallet-connect-btn" onClick={handleConnect} type="button">
+                Connect
+              </button>
+            </div>
+
+            {error ? <span className="wallet-error">{error}</span> : null}
+            <span className="wallet-hint">
+              Paste the receiving address from Trust Wallet, Binance, or MetaMask on
+              BNB Chain.
+            </span>
+          </div>
+        )}
       </section>
 
-      <section className="profile-grid">
+      <section className="profile-stats">
         <article className="profile-stat highlight">
-          <div className="profile-stat-top">
-            <UiIcons name="coins" className="profile-stat-icon gold" />
-            <span>Lifetime Coins</span>
+          <div className="stat-label">
+            <UiIcons name="coins" className="stat-icon gold" />
+            <span>Total Earned</span>
           </div>
           <strong>{lifetimeCoins.toLocaleString()}</strong>
-          <small>Total coins you earned over time</small>
+          <small>Total coins earned over time</small>
         </article>
 
         <article className="profile-stat">
-          <div className="profile-stat-top">
-            <UiIcons name="coins" className="profile-stat-icon blue" />
-            <span>Coins Spent</span>
+          <div className="stat-label">
+            <UiIcons name="coins" className="stat-icon blue" />
+            <span>Total Exchanged</span>
           </div>
           <strong>{lifetimeSpent.toLocaleString()}</strong>
-          <small>Coins already exchanged</small>
+          <small>Coins already converted</small>
         </article>
 
         <article className="profile-stat">
-          <div className="profile-stat-top">
-            <UiIcons name="exchange" className="profile-stat-icon cyan" />
-            <span>USDT</span>
+          <div className="stat-label">
+            <UiIcons name="exchange" className="stat-icon cyan" />
+            <span>Available USDT</span>
           </div>
           <strong>{usdtBalance.toFixed(4)}</strong>
-          <small>Withdrawable balance</small>
-        </article>
-
-        <article className="profile-stat full">
-          <div className="profile-stat-top">
-            <div className="profile-dot" />
-            <span>Status</span>
-          </div>
-          <strong>Exchange ready</strong>
-          <small>Withdrawal modal comes next.</small>
+          <small>{usdApprox}</small>
         </article>
       </section>
 
       <section className="profile-actions">
         <button className="profile-action primary" onClick={onOpenExchange}>
-          Exchange
+          Exchange Coins
         </button>
 
-        <button className="profile-action ghost" disabled>
-          Withdrawal next
+        <button className="profile-action ghost" disabled={!connectedAddress}>
+          {connectedAddress ? "Withdraw USDT" : "Connect wallet first"}
         </button>
       </section>
 
@@ -93,29 +254,27 @@ export default function Profile({
         <div className="section-head compact">
           <div>
             <p>Recent activity</p>
-            <h2>Wallet log</h2>
+            <h2>Wallet timeline</h2>
           </div>
           <UiIcons name="leaderboard" className="section-head-icon" />
         </div>
 
         <div className="activity-list">
-          {activities.map((item) => (
-            <div key={item.id} className={`activity-row ${item.tone}`}>
-              <div className="activity-mark" />
-              <div className="activity-copy">
-                <strong>{item.title}</strong>
-                <span>{item.meta}</span>
+          {activityCount === 0 ? (
+            <div className="activity-empty">No wallet activity yet.</div>
+          ) : (
+            activities.map((item, index) => (
+              <div key={item.id} className={`activity-row ${item.tone}`}>
+                <div className="activity-mark" />
+                <div className="activity-copy">
+                  <strong>{item.title}</strong>
+                  <span>{item.meta}</span>
+                </div>
+                <div className="activity-time">{Math.max(1, 12 - index)}m</div>
               </div>
-            </div>
-          ))}
+            ))
+          )}
         </div>
-      </section>
-
-      <section className="profile-note">
-        <p>
-          The profile stays lightweight now. Exchange and withdrawal stay in modals,
-          so the page feels cleaner and faster.
-        </p>
       </section>
     </section>
   );

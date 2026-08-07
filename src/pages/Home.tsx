@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from "react";
-import Ship from "../components/Ship";
 import UiIcons from "../components/UiIcons";
 import "../styles/home.css";
 
@@ -21,7 +20,7 @@ type StoredCheckin = {
   lastClaimed: string | null;
 };
 
-const STORAGE_KEY = "sly.checkin.v4";
+const STORAGE_KEY = "sly.checkin.v5";
 const DAILY_POINTS = 250;
 
 const milestones: Milestone[] = [
@@ -35,6 +34,7 @@ const leaderboard = [
   { rank: 1, name: "Nova", coins: "48,120", tier: "Mythic" },
   { rank: 2, name: "Helix", coins: "44,870", tier: "Legendary" },
   { rank: 3, name: "Orion", coins: "41,200", tier: "Normal" },
+  { rank: 4, name: "Vanta", coins: "39,560", tier: "Normal" },
 ] as const;
 
 function dateKey(date = new Date()) {
@@ -68,46 +68,6 @@ function loadCheckin(): StoredCheckin {
   } catch {
     return { streak: 0, lastClaimed: null };
   }
-}
-
-function oddsByTier(tier: ChestTier) {
-  if (tier === "Common") {
-    return [
-      ["Common", 92],
-      ["Rare", 8],
-      ["Epic", 0],
-      ["Legendary", 0],
-      ["Mythic", 0],
-    ];
-  }
-
-  if (tier === "Epic") {
-    return [
-      ["Common", 72],
-      ["Rare", 20],
-      ["Epic", 8],
-      ["Legendary", 0],
-      ["Mythic", 0],
-    ];
-  }
-
-  if (tier === "Legendary") {
-    return [
-      ["Common", 52],
-      ["Rare", 25],
-      ["Epic", 15],
-      ["Legendary", 8],
-      ["Mythic", 0],
-    ];
-  }
-
-  return [
-    ["Common", 35],
-    ["Rare", 25],
-    ["Epic", 20],
-    ["Legendary", 12],
-    ["Mythic", 8],
-  ];
 }
 
 export default function Home({ onPlay, balanceCoins, onClaimCoins }: Props) {
@@ -186,7 +146,10 @@ export default function Home({ onPlay, balanceCoins, onClaimCoins }: Props) {
           <p className="home-kicker">PREMIUM SPACE REWARD GAME</p>
           <h1>Laser Escape</h1>
           <p className="home-lead">
-            One clean lobby. One full-screen run. Daily streak rewards. No extra noise.
+            Dodge the grid, clear every 
+wave, and cash in daily 
+rewards-all in one 
+seamless run.
           </p>
 
           <div className="hero-chips">
@@ -201,10 +164,8 @@ export default function Home({ onPlay, balanceCoins, onClaimCoins }: Props) {
           </button>
         </div>
 
-        <div className="hero-art">
-          <div className="ship-shell">
-            <Ship />
-          </div>
+        <div className="hero-orb-wrap">
+          <div className="hero-orb" />
         </div>
       </section>
 
@@ -246,7 +207,13 @@ export default function Home({ onPlay, balanceCoins, onClaimCoins }: Props) {
             <h2>+{DAILY_POINTS} points today</h2>
           </div>
 
-          <div className="checkin-badge">{claimedToday ? "Claimed" : "Ready"}</div>
+          <div className="checkin-right">
+            <div className="checkin-streak">
+              <span className="dot" />
+              <strong>{checkin.streak}d</strong>
+            </div>
+            <div className="checkin-badge">{claimedToday ? "Claimed" : "Ready"}</div>
+          </div>
         </div>
 
         <div className="progress-bar">
@@ -275,7 +242,11 @@ export default function Home({ onPlay, balanceCoins, onClaimCoins }: Props) {
             <span>
               Next: {nextMilestone ? `${nextMilestone.days} days` : "All rewards unlocked"}
             </span>
-            <p>Keep the streak alive for stronger chests.</p>
+            <p>
+              {currentChest
+                ? `${currentChest.chest} chest unlocked. Keep the streak alive.`
+                : "Keep the streak alive for stronger chests."}
+            </p>
           </div>
 
           <button className="checkin-button" onClick={handleClaim} disabled={claimedToday}>
@@ -316,19 +287,22 @@ export default function Home({ onPlay, balanceCoins, onClaimCoins }: Props) {
         <article className="mini-card">
           <div className="section-head compact">
             <div>
-              <p>Chest Odds</p>
-              <h2>{currentChest ? currentChest.chest : "Common"} pool</h2>
+              <p>Quick Reward</p>
+              <h2>Streak ladder</h2>
             </div>
             <div className="chest-orb" />
           </div>
 
           <div className="odds-list">
-            {oddsByTier(currentChest ? currentChest.chest : "Common").map(([name, value]) => (
-              <div key={name} className="odds-row">
-                <span>{name}</span>
-                <strong>{value}%</strong>
-              </div>
-            ))}
+            {milestones.map((item) => {
+              const achieved = checkin.streak >= item.days;
+              return (
+                <div key={item.days} className={`odds-row ${achieved ? "done" : ""}`}>
+                  <span>{item.days} days</span>
+                  <strong>{item.chest}</strong>
+                </div>
+              );
+            })}
           </div>
         </article>
       </section>

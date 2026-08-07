@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import "./App.css";
 
 import Background from "./components/Background";
@@ -98,6 +98,11 @@ export default function App() {
     pushActivity(`Daily check-in +${amount}`, "Reward claimed successfully", "reward");
   };
 
+  const handleTaskReward = (amount: number, title: string, meta: string) => {
+    setWallet((prev) => ({ ...prev, coins: prev.coins + amount }));
+    pushActivity(title, meta, "reward");
+  };
+
   const handleExchange = (amountCoins: number) => {
     if (amountCoins <= 0 || amountCoins > wallet.coins) return;
 
@@ -116,11 +121,11 @@ export default function App() {
     );
   };
 
+  const lifetimeCoins = useMemo(() => wallet.coins + wallet.spent, [wallet.coins, wallet.spent]);
+
   if (mode === "game") {
     return <GameCanvas onExit={() => setMode("lobby")} />;
   }
-
-  const lifetimeCoins = wallet.coins + wallet.spent;
 
   return (
     <div className="app">
@@ -137,7 +142,7 @@ export default function App() {
             />
           )}
 
-          {page === "tasks" && <Tasks />}
+          {page === "tasks" && <Tasks onRewardCoins={handleTaskReward} />}
           {page === "collection" && <Collection />}
           {page === "referrals" && <Referrals />}
 
