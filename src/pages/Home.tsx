@@ -5,6 +5,8 @@ import "../styles/home.css";
 
 type Props = {
   onPlay: () => void;
+  balanceCoins: number;
+  onClaimCoins: (amount: number) => void;
 };
 
 type ChestTier = "Common" | "Epic" | "Legendary" | "Mythic";
@@ -12,95 +14,28 @@ type ChestTier = "Common" | "Epic" | "Legendary" | "Mythic";
 type Milestone = {
   days: number;
   chest: ChestTier;
-  title: string;
-  desc: string;
 };
 
 type StoredCheckin = {
   streak: number;
-  points: number;
   lastClaimed: string | null;
-  history: string[];
 };
 
-type LeaderboardRow = {
-  rank: number;
-  name: string;
-  coins: string;
-  tier: "Normal" | "Legendary" | "Mythic";
-};
-
-const STORAGE_KEY = "sly.checkin.v2";
+const STORAGE_KEY = "sly.checkin.v4";
 const DAILY_POINTS = 250;
 
 const milestones: Milestone[] = [
-  {
-    days: 3,
-    chest: "Common",
-    title: "Common Chest",
-    desc: "Simple daily momentum reward.",
-  },
-  {
-    days: 7,
-    chest: "Epic",
-    title: "Epic Chest",
-    desc: "Stronger reward pool with better odds.",
-  },
-  {
-    days: 14,
-    chest: "Legendary",
-    title: "Legendary Chest",
-    desc: "Rare-tier reward bundle.",
-  },
-  {
-    days: 50,
-    chest: "Mythic",
-    title: "Mythic Chest",
-    desc: "Top-end streak reward.",
-  },
+  { days: 3, chest: "Common" },
+  { days: 7, chest: "Epic" },
+  { days: 14, chest: "Legendary" },
+  { days: 50, chest: "Mythic" },
 ];
 
-const chestOdds: Record<
-  ChestTier,
-  { label: string; value: number }[]
-> = {
-  Common: [
-    { label: "Common", value: 92 },
-    { label: "Rare", value: 8 },
-    { label: "Epic", value: 0 },
-    { label: "Legendary", value: 0 },
-    { label: "Mythic", value: 0 },
-  ],
-  Epic: [
-    { label: "Common", value: 72 },
-    { label: "Rare", value: 20 },
-    { label: "Epic", value: 8 },
-    { label: "Legendary", value: 0 },
-    { label: "Mythic", value: 0 },
-  ],
-  Legendary: [
-    { label: "Common", value: 52 },
-    { label: "Rare", value: 25 },
-    { label: "Epic", value: 15 },
-    { label: "Legendary", value: 8 },
-    { label: "Mythic", value: 0 },
-  ],
-  Mythic: [
-    { label: "Common", value: 35 },
-    { label: "Rare", value: 25 },
-    { label: "Epic", value: 20 },
-    { label: "Legendary", value: 12 },
-    { label: "Mythic", value: 8 },
-  ],
-};
-
-const leaderboard: LeaderboardRow[] = [
+const leaderboard = [
   { rank: 1, name: "Nova", coins: "48,120", tier: "Mythic" },
   { rank: 2, name: "Helix", coins: "44,870", tier: "Legendary" },
   { rank: 3, name: "Orion", coins: "41,200", tier: "Normal" },
-  { rank: 4, name: "Vanta", coins: "39,560", tier: "Normal" },
-  { rank: 5, name: "Drift", coins: "36,140", tier: "Legendary" },
-];
+] as const;
 
 function dateKey(date = new Date()) {
   const y = date.getFullYear();
@@ -117,44 +52,79 @@ function shiftDays(days: number) {
 
 function loadCheckin(): StoredCheckin {
   if (typeof window === "undefined") {
-    return { streak: 0, points: 12480, lastClaimed: null, history: [] };
+    return { streak: 0, lastClaimed: null };
   }
 
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) {
-      return { streak: 0, points: 12480, lastClaimed: null, history: [] };
-    }
+    if (!raw) return { streak: 0, lastClaimed: null };
 
     const parsed = JSON.parse(raw) as Partial<StoredCheckin>;
     return {
       streak: typeof parsed.streak === "number" ? parsed.streak : 0,
-      points: typeof parsed.points === "number" ? parsed.points : 12480,
       lastClaimed:
         typeof parsed.lastClaimed === "string" ? parsed.lastClaimed : null,
-      history: Array.isArray(parsed.history) ? parsed.history : [],
     };
   } catch {
-    return { streak: 0, points: 12480, lastClaimed: null, history: [] };
+    return { streak: 0, lastClaimed: null };
   }
 }
 
-export default function Home({ onPlay }: Props) {
+function oddsByTier(tier: ChestTier) {
+  if (tier === "Common") {
+    return [
+      ["Common", 92],
+      ["Rare", 8],
+      ["Epic", 0],
+      ["Legendary", 0],
+      ["Mythic", 0],
+    ];
+  }
+
+  if (tier === "Epic") {
+    return [
+      ["Common", 72],
+      ["Rare", 20],
+      ["Epic", 8],
+      ["Legendary", 0],
+      ["Mythic", 0],
+    ];
+  }
+
+  if (tier === "Legendary") {
+    return [
+      ["Common", 52],
+      ["Rare", 25],
+      ["Epic", 15],
+      ["Legendary", 8],
+      ["Mythic", 0],
+    ];
+  }
+
+  return [
+    ["Common", 35],
+    ["Rare", 25],
+    ["Epic", 20],
+    ["Legendary", 12],
+    ["Mythic", 8],
+  ];
+}
+
+export default function Home({ onPlay, balanceCoins, onClaimCoins }: Props) {
   const [checkin, setCheckin] = useState<StoredCheckin>(() => loadCheckin());
-  const [toast, setToast] = useState<string>("");
+  const [toast, setToast] = useState("");
 
   useEffect(() => {
     try {
       window.localStorage.setItem(STORAGE_KEY, JSON.stringify(checkin));
     } catch {
-      // ignore storage failures
+      // ignore
     }
   }, [checkin]);
 
   useEffect(() => {
     if (!toast) return;
-
-    const timer = window.setTimeout(() => setToast(""), 2400);
+    const timer = window.setTimeout(() => setToast(""), 2000);
     return () => window.clearTimeout(timer);
   }, [toast]);
 
@@ -163,10 +133,7 @@ export default function Home({ onPlay }: Props) {
   const claimedToday = checkin.lastClaimed === today;
 
   const currentChest = useMemo(() => {
-    const unlocked = milestones
-      .filter((item) => checkin.streak >= item.days)
-      .sort((a, b) => a.days - b.days);
-
+    const unlocked = milestones.filter((item) => checkin.streak >= item.days);
     return unlocked[unlocked.length - 1] ?? null;
   }, [checkin.streak]);
 
@@ -177,10 +144,7 @@ export default function Home({ onPlay }: Props) {
   const progressToNext = useMemo(() => {
     if (!nextMilestone) return 1;
     const prevDays =
-      milestones
-        .filter((item) => item.days < nextMilestone.days)
-        .sort((a, b) => b.days - a.days)[0]?.days ?? 0;
-
+      milestones.filter((item) => item.days < nextMilestone.days).at(-1)?.days ?? 0;
     const span = nextMilestone.days - prevDays;
     if (span <= 0) return 0;
     return Math.min(1, Math.max(0, (checkin.streak - prevDays) / span));
@@ -193,22 +157,24 @@ export default function Home({ onPlay }: Props) {
     }
 
     const nextStreak = checkin.lastClaimed === yesterday ? checkin.streak + 1 : 1;
-    const unlockedMilestone = milestones.find((item) => item.days === nextStreak);
 
-    const nextState: StoredCheckin = {
+    onClaimCoins(DAILY_POINTS);
+    setCheckin({
       streak: nextStreak,
-      points: checkin.points + DAILY_POINTS,
       lastClaimed: today,
-      history: [today, ...checkin.history].slice(0, 10),
-    };
+    });
 
-    setCheckin(nextState);
-
-    if (unlockedMilestone) {
-      setToast(`${unlockedMilestone.title} unlocked.`);
-    } else {
-      setToast(`+${DAILY_POINTS} points claimed.`);
-    }
+    setToast(
+      nextStreak === 3
+        ? "Common Chest unlocked."
+        : nextStreak === 7
+          ? "Epic Chest unlocked."
+          : nextStreak === 14
+            ? "Legendary Chest unlocked."
+            : nextStreak === 50
+              ? "Mythic Chest unlocked."
+              : `+${DAILY_POINTS} points claimed.`
+    );
   };
 
   return (
@@ -216,24 +182,17 @@ export default function Home({ onPlay }: Props) {
       {toast ? <div className="home-toast">{toast}</div> : null}
 
       <section className="home-hero">
-        <div className="home-hero-copy">
+        <div className="hero-copy">
           <p className="home-kicker">PREMIUM SPACE REWARD GAME</p>
           <h1>Laser Escape</h1>
           <p className="home-lead">
-            A smooth space lobby with daily check-in streaks, elite rewards, and
-            a full-screen run when you hit Play.
+            One clean lobby. One full-screen run. Daily streak rewards. No extra noise.
           </p>
 
-          <div className="home-mini-row">
-            <span className="mini-pill">5 Waves</span>
-            <span className="mini-pill">150 / Wave</span>
-            <span className="mini-pill">Full Screen Play</span>
-          </div>
-        </div>
-
-        <div className="home-hero-visual">
-          <div className="ship-stage">
-            <Ship />
+          <div className="hero-chips">
+            <span>5 Waves</span>
+            <span>150 / Wave</span>
+            <span>5 Energy</span>
           </div>
 
           <button className="home-play" onClick={onPlay}>
@@ -241,37 +200,41 @@ export default function Home({ onPlay }: Props) {
             <span>PLAY</span>
           </button>
         </div>
+
+        <div className="hero-art">
+          <div className="ship-shell">
+            <Ship />
+          </div>
+        </div>
       </section>
 
-      <section className="home-metrics">
-        <article className="metric-card coins">
-          <div className="metric-top">
-            <UiIcons name="coins" className="metric-icon" />
+      <section className="home-stats">
+        <article className="stat-card">
+          <div className="stat-label">
+            <UiIcons name="coins" className="stat-icon gold" />
             <span>Coins</span>
           </div>
-          <strong>{checkin.points.toLocaleString()}</strong>
+          <strong>{balanceCoins.toLocaleString()}</strong>
           <small>Reward balance</small>
         </article>
 
-        <article className="metric-card energy">
-          <div className="metric-top">
-            <UiIcons name="energy" className="metric-icon" />
+        <article className="stat-card">
+          <div className="stat-label">
+            <UiIcons name="energy" className="stat-icon blue" />
             <span>Energy</span>
           </div>
           <strong>5 / 5</strong>
           <small>Run capacity</small>
         </article>
 
-        <article className="metric-card streak">
-          <div className="metric-top">
-            <span className="metric-dot" />
-            <span>Daily Streak</span>
+        <article className="stat-card">
+          <div className="stat-label">
+            <span className="dot" />
+            <span>Streak</span>
           </div>
-          <strong>{checkin.streak} days</strong>
+          <strong>{checkin.streak}d</strong>
           <small>
-            {currentChest
-              ? `${currentChest.title} unlocked`
-              : "Build your streak for bigger chests"}
+            {currentChest ? `${currentChest.chest} chest unlocked` : "Build your streak"}
           </small>
         </article>
       </section>
@@ -280,64 +243,53 @@ export default function Home({ onPlay }: Props) {
         <div className="section-head">
           <div>
             <p>Daily Check-in</p>
-            <h2>
-              +{DAILY_POINTS} points today
-            </h2>
+            <h2>+{DAILY_POINTS} points today</h2>
           </div>
 
-          <div className="checkin-badge">
-            {claimedToday ? "Claimed" : "Ready"}
-          </div>
+          <div className="checkin-badge">{claimedToday ? "Claimed" : "Ready"}</div>
         </div>
 
-        <div className="checkin-progress">
-          <div className="checkin-progress-bar">
-            <span style={{ width: `${progressToNext * 100}%` }} />
-          </div>
-
-          <div className="checkin-track">
-            {milestones.map((item) => {
-              const achieved = checkin.streak >= item.days;
-              const active = nextMilestone?.days === item.days;
-              return (
-                <div
-                  key={item.days}
-                  className={`milestone ${achieved ? "achieved" : ""} ${
-                    active ? "active" : ""
-                  }`}
-                >
-                  <strong>{item.days}</strong>
-                  <span>{item.chest}</span>
-                </div>
-              );
-            })}
-          </div>
+        <div className="progress-bar">
+          <span style={{ width: `${progressToNext * 100}%` }} />
         </div>
 
-        <div className="checkin-footer">
-          <div className="checkin-copy">
+        <div className="milestones">
+          {milestones.map((item) => {
+            const achieved = checkin.streak >= item.days;
+            const active = nextMilestone?.days === item.days;
+
+            return (
+              <div
+                key={item.days}
+                className={`milestone ${achieved ? "achieved" : ""} ${active ? "active" : ""}`}
+              >
+                <strong>{item.days}</strong>
+                <span>{item.chest}</span>
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="checkin-bottom">
+          <div className="checkin-text">
             <span>
-              Next chest:{" "}
-              {nextMilestone ? `${nextMilestone.days} days` : "All rewards unlocked"}
+              Next: {nextMilestone ? `${nextMilestone.days} days` : "All rewards unlocked"}
             </span>
-            <p>
-              Claim daily, keep the streak alive, and unlock stronger chests at
-              3, 7, 14, and 50 days.
-            </p>
+            <p>Keep the streak alive for stronger chests.</p>
           </div>
 
           <button className="checkin-button" onClick={handleClaim} disabled={claimedToday}>
-            {claimedToday ? "Claimed Today" : "Claim Reward"}
+            {claimedToday ? "Claimed Today" : "Claim"}
           </button>
         </div>
       </section>
 
       <section className="home-grid">
-        <article className="leader-card">
+        <article className="mini-card">
           <div className="section-head compact">
             <div>
               <p>Top 50</p>
-              <h2>Leaderboard Preview</h2>
+              <h2>Leaderboard</h2>
             </div>
             <UiIcons name="leaderboard" className="section-head-icon" />
           </div>
@@ -350,63 +302,35 @@ export default function Home({ onPlay }: Props) {
                   player.tier === "Mythic" ? "mythic" : ""
                 }`}
               >
-                <div className="leader-rank">#{player.rank}</div>
-                <div className="leader-info">
+                <span className="rank">#{player.rank}</span>
+                <div className="leader-copy">
                   <strong>{player.name}</strong>
-                  <span>{player.coins} coins</span>
+                  <small>{player.coins} coins</small>
                 </div>
-                <div className={`leader-tag ${player.tier.toLowerCase()}`}>
-                  {player.tier}
-                </div>
+                <span className={`tier ${player.tier.toLowerCase()}`}>{player.tier}</span>
               </div>
             ))}
           </div>
         </article>
 
-        <article className="chest-card">
+        <article className="mini-card">
           <div className="section-head compact">
             <div>
-              <p>Chest Ladder</p>
-              <h2>Reward Pool Odds</h2>
+              <p>Chest Odds</p>
+              <h2>{currentChest ? currentChest.chest : "Common"} pool</h2>
             </div>
             <div className="chest-orb" />
           </div>
 
-          <div className="odds-grid">
-            {(
-              (currentChest ? chestOdds[currentChest.chest] : chestOdds.Common) as {
-                label: string;
-                value: number;
-              }[]
-            ).map((item) => (
-              <div key={item.label} className="odds-row">
-                <span>{item.label}</span>
-                <strong>{item.value}%</strong>
+          <div className="odds-list">
+            {oddsByTier(currentChest ? currentChest.chest : "Common").map(([name, value]) => (
+              <div key={name} className="odds-row">
+                <span>{name}</span>
+                <strong>{value}%</strong>
               </div>
             ))}
           </div>
-
-          <div className="chest-note">
-            <p>
-              Common chests keep higher tiers extremely rare. Epic improves the
-              pool slightly. Legendary and Mythic unlock the strongest chances.
-            </p>
-          </div>
         </article>
-      </section>
-
-      <section className="home-footer">
-        <div className="footer-card">
-          <span>Mission</span>
-          <strong>5 waves · 750 coins max</strong>
-          <small>Survive the run, keep your energy, and grow your streak.</small>
-        </div>
-
-        <div className="footer-card">
-          <span>Profile</span>
-          <strong>Exchange & withdraw</strong>
-          <small>Coins convert later into USDT from the profile tab.</small>
-        </div>
       </section>
     </section>
   );

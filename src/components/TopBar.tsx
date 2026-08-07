@@ -5,6 +5,8 @@ type Page = "home" | "tasks" | "collection" | "referrals" | "profile";
 
 type Props = {
   page: Page;
+  coins: number;
+  energy?: number;
 };
 
 const titles: Record<Page, { label: string; sub: string }> = {
@@ -15,7 +17,7 @@ const titles: Record<Page, { label: string; sub: string }> = {
   profile: { label: "Profile", sub: "Exchange & withdraw" },
 };
 
-export default function TopBar({ page }: Props) {
+export default function TopBar({ page, coins, energy = 5 }: Props) {
   const current = titles[page];
 
   return (
@@ -33,7 +35,7 @@ export default function TopBar({ page }: Props) {
           <UiIcons name="coins" className="stat-icon coins-icon" />
           <div>
             <small>Coins</small>
-            <strong>12,480</strong>
+            <strong>{coins.toLocaleString()}</strong>
           </div>
         </div>
 
@@ -41,7 +43,7 @@ export default function TopBar({ page }: Props) {
           <UiIcons name="energy" className="stat-icon energy-icon" />
           <div>
             <small>Energy</small>
-            <strong>5/5</strong>
+            <strong>{energy}/5</strong>
           </div>
         </div>
       </div>
