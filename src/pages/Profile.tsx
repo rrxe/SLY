@@ -18,6 +18,7 @@ type Props = {
   usdtBalance: number;
   activities: Activity[];
   onOpenExchange: () => void;
+  onOpenWithdraw: () => void;
   onWalletConnected?: (address: string) => void;
   onWalletDisconnected?: () => void;
 };
@@ -47,6 +48,7 @@ export default function Profile({
   usdtBalance,
   activities,
   onOpenExchange,
+  onOpenWithdraw,
   onWalletConnected,
   onWalletDisconnected,
 }: Props) {
@@ -64,7 +66,6 @@ export default function Profile({
     return () => window.clearTimeout(timer);
   }, [copied]);
 
-  const availableCoins = useMemo(() => walletCoins, [walletCoins]);
   const usdApprox = useMemo(() => `≈ $${usdtBalance.toFixed(2)}`, [usdtBalance]);
 
   const handleConnect = () => {
@@ -82,9 +83,7 @@ export default function Profile({
 
     try {
       window.localStorage.setItem(WALLET_STORAGE_KEY, trimmed);
-    } catch {
-      // ignore
-    }
+    } catch {}
 
     setConnectedAddress(trimmed);
     setInputValue("");
@@ -95,9 +94,7 @@ export default function Profile({
   const handleDisconnect = () => {
     try {
       window.localStorage.removeItem(WALLET_STORAGE_KEY);
-    } catch {
-      // ignore
-    }
+    } catch {}
 
     setConnectedAddress(null);
     setConfirmingDisconnect(false);
@@ -106,16 +103,11 @@ export default function Profile({
 
   const handleCopy = async () => {
     if (!connectedAddress) return;
-
     try {
       await navigator.clipboard.writeText(connectedAddress);
       setCopied(true);
-    } catch {
-      // ignore
-    }
+    } catch {}
   };
-
-  const activityCount = activities.length;
 
   return (
     <section className="profile-page">
@@ -123,16 +115,15 @@ export default function Profile({
         <div className="wallet-hero-top">
           <div>
             <p className="wallet-kicker">WALLET CENTER</p>
-            <h1>{connectedAddress ? "Wallet connected" : "Connect wallet"}</h1>
+            <h1>{connectedAddress ? "Wallet connected" : "Connect your USDT wallet"}</h1>
             <p className="wallet-lead">
-              Connect your BEP20 address to unlock withdrawals and keep your wallet
-              ready for future transfers.
+              Link a BEP20 address to enable withdrawals. Only USDT on BNB Smart Chain (BEP20) is supported.
             </p>
           </div>
 
           <span className="wallet-chip">
             <span className="wallet-chip-dot" />
-            BNB Smart Chain · BEP20
+            BEP20
           </span>
         </div>
 
@@ -160,9 +151,9 @@ export default function Profile({
               </div>
             </div>
 
-            {confirmingDisconnect ? (
+            {confirmingDisconnect && (
               <div className="wallet-confirm">
-                <span>Disconnect this wallet? You can reconnect anytime.</span>
+                <span>Disconnect this wallet?</span>
                 <div className="wallet-confirm-actions">
                   <button
                     className="wallet-confirm-btn ghost"
@@ -180,7 +171,7 @@ export default function Profile({
                   </button>
                 </div>
               </div>
-            ) : null}
+            )}
           </div>
         ) : (
           <div className="wallet-connect-form">
@@ -203,10 +194,6 @@ export default function Profile({
             </div>
 
             {error ? <span className="wallet-error">{error}</span> : null}
-            <span className="wallet-hint">
-              Paste the receiving address from Trust Wallet, Binance, or MetaMask on
-              BNB Chain.
-            </span>
           </div>
         )}
       </section>
@@ -230,7 +217,7 @@ export default function Profile({
           <small>Coins already converted</small>
         </article>
 
-        <article className="profile-stat">
+        <article className="profile-stat full">
           <div className="stat-label">
             <UiIcons name="exchange" className="stat-icon cyan" />
             <span>Available USDT</span>
@@ -244,9 +231,13 @@ export default function Profile({
         <button className="profile-action primary" onClick={onOpenExchange}>
           Exchange Coins
         </button>
-
-        <button className="profile-action ghost" disabled={!connectedAddress}>
-          {connectedAddress ? "Withdraw USDT" : "Connect wallet first"}
+        
+        <button 
+          className="profile-action ghost" 
+          disabled={!connectedAddress}
+          onClick={onOpenWithdraw}
+        >
+          {connectedAddress ? "Withdraw USDT" : "Connect Wallet First"}
         </button>
       </section>
 
@@ -260,7 +251,7 @@ export default function Profile({
         </div>
 
         <div className="activity-list">
-          {activityCount === 0 ? (
+          {activities.length === 0 ? (
             <div className="activity-empty">No wallet activity yet.</div>
           ) : (
             activities.map((item, index) => (

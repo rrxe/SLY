@@ -38,85 +38,60 @@
    PROFILE
 =========================== */
 
-@import "./pages/Profile.css";
-
 /* Smooth modal animation */
-
 .modal-backdrop{
-animation:fadeIn .25s ease;
+  animation:fadeIn .25s ease;
 }
 
 @keyframes fadeIn{
-from{
-opacity:0;
-}
-to{
-opacity:1;
-}
+  from{ opacity:0; }
+  to{ opacity:1; }
 }
 
 /* Custom Scrollbar */
-
 ::-webkit-scrollbar{
-width:8px;
+  width:8px;
 }
-
 ::-webkit-scrollbar-track{
-background:#0b0d12;
+  background:#0b0d12;
 }
-
 ::-webkit-scrollbar-thumb{
-background:#2c5eff;
-border-radius:20px;
+  background:#2c5eff;
+  border-radius:20px;
 }
-
 ::-webkit-scrollbar-thumb:hover{
-background:#4d7dff;
+  background:#4d7dff;
 }
 
 /* Better buttons */
-
 button{
-transition:
-transform .18s,
-box-shadow .18s,
-opacity .18s;
+  transition: transform .18s, box-shadow .18s, opacity .18s;
 }
-
 button:active{
-transform:scale(.97);
+  transform:scale(.97);
 }
-
 button:disabled{
-opacity:.45;
-cursor:not-allowed;
+  opacity:.45;
+  cursor:not-allowed;
 }
 
 /* Better Inputs */
-
 input:focus{
-outline:none;
-box-shadow:
-0 0 0 2px #4f84ff,
-0 0 30px rgba(79,132,255,.25);
+  outline:none;
+  box-shadow: 0 0 0 2px #4f84ff, 0 0 30px rgba(79,132,255,.25);
 }
 
 /* Glass effect */
-
 .glass{
-background:rgba(255,255,255,.05);
-backdrop-filter:blur(20px);
-border:1px solid rgba(255,255,255,.08);
+  background:rgba(255,255,255,.05);
+  backdrop-filter:blur(20px);
+  border:1px solid rgba(255,255,255,.08);
 }
 
 /* Premium shadow */
-
 .premium-shadow{
-box-shadow:
-0 20px 60px rgba(0,0,0,.35),
-0 0 40px rgba(73,126,255,.12);
+  box-shadow: 0 20px 60px rgba(0,0,0,.35), 0 0 40px rgba(73,126,255,.12);
 }
-
 
 .page-scroll{
   scroll-behavior:smooth;

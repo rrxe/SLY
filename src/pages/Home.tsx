@@ -6,6 +6,8 @@ type Props = {
   onPlay: () => void;
   balanceCoins: number;
   onClaimCoins: (amount: number) => void;
+  energyCurrent: number;
+  energyMax: number;
 };
 
 type ChestTier = "Common" | "Epic" | "Legendary" | "Mythic";
@@ -15,12 +17,13 @@ type Milestone = {
   chest: ChestTier;
 };
 
-type StoredCheckin = {
-  streak: number;
-  lastClaimed: string | null;
+type LeaderUser = {
+  rank: number;
+  name: string;
+  coins: string;
+  tier: string;
 };
 
-const STORAGE_KEY = "sly.checkin.v5";
 const DAILY_POINTS = 250;
 
 const milestones: Milestone[] = [
@@ -30,57 +33,49 @@ const milestones: Milestone[] = [
   { days: 50, chest: "Mythic" },
 ];
 
-const leaderboard = [
-  { rank: 1, name: "Nova", coins: "48,120", tier: "Mythic" },
-  { rank: 2, name: "Helix", coins: "44,870", tier: "Legendary" },
-  { rank: 3, name: "Orion", coins: "41,200", tier: "Normal" },
-  { rank: 4, name: "Vanta", coins: "39,560", tier: "Normal" },
-] as const;
-
-function dateKey(date = new Date()) {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, "0");
-  const d = String(date.getDate()).padStart(2, "0");
-  return `${y}-${m}-${d}`;
-}
-
-function shiftDays(days: number) {
-  const d = new Date();
-  d.setDate(d.getDate() + days);
-  return dateKey(d);
-}
-
-function loadCheckin(): StoredCheckin {
-  if (typeof window === "undefined") {
-    return { streak: 0, lastClaimed: null };
-  }
-
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return { streak: 0, lastClaimed: null };
-
-    const parsed = JSON.parse(raw) as Partial<StoredCheckin>;
-    return {
-      streak: typeof parsed.streak === "number" ? parsed.streak : 0,
-      lastClaimed:
-        typeof parsed.lastClaimed === "string" ? parsed.lastClaimed : null,
-    };
-  } catch {
-    return { streak: 0, lastClaimed: null };
-  }
-}
-
-export default function Home({ onPlay, balanceCoins, onClaimCoins }: Props) {
-  const [checkin, setCheckin] = useState<StoredCheckin>(() => loadCheckin());
+export default function Home({
+  onPlay,
+  balanceCoins,
+  onClaimCoins,
+  energyCurrent,
+  energyMax,
+}: Props) {
+  const [streak, setStreak] = useState(0);
+  const [claimedToday, setClaimedToday] = useState(false);
+  const [leaderboard, setLeaderboard] = useState<LeaderUser[]>([]);
   const [toast, setToast] = useState("");
 
   useEffect(() => {
-    try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(checkin));
-    } catch {
-      // ignore
-    }
-  }, [checkin]);
+    // Fetch real leaderboard data from server 📊
+    fetch("/api/leaderboard")
+      .then((res) => res.json())
+      .then((data) => {
+        if (Array.isArray(data)) {
+          setLeaderboard(data);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    // Fetch user status from server on load
+    const tg = window.Telegram?.WebApp;
+    const initData = tg?.initData || "";
+
+    fetch("/api/user-status", {
+      headers: {
+        "Authorization": `tga ${initData}`,
+      },
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        if (data && typeof data.streak === "number") {
+          setStreak(data.streak);
+          setClaimedToday(data.claimedToday || false);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (!toast) return;
@@ -88,18 +83,14 @@ export default function Home({ onPlay, balanceCoins, onClaimCoins }: Props) {
     return () => window.clearTimeout(timer);
   }, [toast]);
 
-  const today = dateKey();
-  const yesterday = shiftDays(-1);
-  const claimedToday = checkin.lastClaimed === today;
-
   const currentChest = useMemo(() => {
-    const unlocked = milestones.filter((item) => checkin.streak >= item.days);
+    const unlocked = milestones.filter((item) => streak >= item.days);
     return unlocked[unlocked.length - 1] ?? null;
-  }, [checkin.streak]);
+  }, [streak]);
 
   const nextMilestone = useMemo(() => {
-    return milestones.find((item) => item.days > checkin.streak) ?? null;
-  }, [checkin.streak]);
+    return milestones.find((item) => item.days > streak) ?? null;
+  }, [streak]);
 
   const progressToNext = useMemo(() => {
     if (!nextMilestone) return 1;
@@ -107,34 +98,48 @@ export default function Home({ onPlay, balanceCoins, onClaimCoins }: Props) {
       milestones.filter((item) => item.days < nextMilestone.days).at(-1)?.days ?? 0;
     const span = nextMilestone.days - prevDays;
     if (span <= 0) return 0;
-    return Math.min(1, Math.max(0, (checkin.streak - prevDays) / span));
-  }, [checkin.streak, nextMilestone]);
+    return Math.min(1, Math.max(0, (streak - prevDays) / span));
+  }, [streak, nextMilestone]);
 
-  const handleClaim = () => {
+  const handleClaim = async () => {
     if (claimedToday) {
       setToast("Already claimed today.");
       return;
     }
 
-    const nextStreak = checkin.lastClaimed === yesterday ? checkin.streak + 1 : 1;
+    const tg = window.Telegram?.WebApp;
+    const initData = tg?.initData || "";
 
-    onClaimCoins(DAILY_POINTS);
-    setCheckin({
-      streak: nextStreak,
-      lastClaimed: today,
-    });
+    try {
+      const res = await fetch("/api/daily-checkin", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `tga ${initData}`,
+        },
+      });
+      const data = await res.json();
 
-    setToast(
-      nextStreak === 3
-        ? "Common Chest unlocked."
-        : nextStreak === 7
-          ? "Epic Chest unlocked."
-          : nextStreak === 14
-            ? "Legendary Chest unlocked."
-            : nextStreak === 50
-              ? "Mythic Chest unlocked."
-              : `+${DAILY_POINTS} points claimed.`
-    );
+      if (data.success) {
+        onClaimCoins(DAILY_POINTS);
+        setClaimedToday(true);
+        setStreak(data.streak ?? (streak + 1));
+        setToast(`+${DAILY_POINTS} points claimed successfully! 🪙`);
+      } else {
+        setToast(data.error || "You already claimed today.");
+        setClaimedToday(true);
+      }
+    } catch {
+      setToast("Server connection error.");
+    }
+  };
+
+  const handlePlayClick = () => {
+    if (energyCurrent <= 0) {
+      setToast("Not enough energy. Wait for a refill ⚡");
+      return;
+    }
+    onPlay();
   };
 
   return (
@@ -155,12 +160,18 @@ seamless run.
           <div className="hero-chips">
             <span>5 Waves</span>
             <span>150 / Wave</span>
-            <span>5 Energy</span>
+            <span>{energyMax} Energy</span>
           </div>
 
-          <button className="home-play" onClick={onPlay}>
-            <UiIcons name="play" className="home-play-icon" />
-            <span>PLAY</span>
+          <button
+            className="home-play"
+            onClick={handlePlayClick}
+            disabled={energyCurrent <= 0}
+          >
+            <span className="home-play-icon-wrap">
+              <UiIcons name="play" className="home-play-icon" />
+            </span>
+            <span className="home-play-label">PLAY</span>
           </button>
         </div>
 
@@ -184,7 +195,7 @@ seamless run.
             <UiIcons name="energy" className="stat-icon blue" />
             <span>Energy</span>
           </div>
-          <strong>5 / 5</strong>
+          <strong>{energyCurrent} / {energyMax}</strong>
           <small>Run capacity</small>
         </article>
 
@@ -193,7 +204,7 @@ seamless run.
             <span className="dot" />
             <span>Streak</span>
           </div>
-          <strong>{checkin.streak}d</strong>
+          <strong>{streak}d</strong>
           <small>
             {currentChest ? `${currentChest.chest} chest unlocked` : "Build your streak"}
           </small>
@@ -210,7 +221,7 @@ seamless run.
           <div className="checkin-right">
             <div className="checkin-streak">
               <span className="dot" />
-              <strong>{checkin.streak}d</strong>
+              <strong>{streak}d</strong>
             </div>
             <div className="checkin-badge">{claimedToday ? "Claimed" : "Ready"}</div>
           </div>
@@ -222,7 +233,7 @@ seamless run.
 
         <div className="milestones">
           {milestones.map((item) => {
-            const achieved = checkin.streak >= item.days;
+            const achieved = streak >= item.days;
             const active = nextMilestone?.days === item.days;
 
             return (
@@ -266,21 +277,27 @@ seamless run.
           </div>
 
           <div className="leader-list">
-            {leaderboard.map((player) => (
-              <div
-                key={player.rank}
-                className={`leader-row ${player.tier === "Legendary" ? "legendary" : ""} ${
-                  player.tier === "Mythic" ? "mythic" : ""
-                }`}
-              >
-                <span className="rank">#{player.rank}</span>
-                <div className="leader-copy">
-                  <strong>{player.name}</strong>
-                  <small>{player.coins} coins</small>
-                </div>
-                <span className={`tier ${player.tier.toLowerCase()}`}>{player.tier}</span>
+            {leaderboard.length === 0 ? (
+              <div style={{ color: "#8c98b5", padding: "10px 0", textAlign: "center" }}>
+                No leaderboard data from server
               </div>
-            ))}
+            ) : (
+              leaderboard.map((player) => (
+                <div
+                  key={player.rank}
+                  className={`leader-row ${player.tier === "Legendary" ? "legendary" : ""} ${
+                    player.tier === "Mythic" ? "mythic" : ""
+                  }`}
+                >
+                  <span className="rank">#{player.rank}</span>
+                  <div className="leader-copy">
+                    <strong>{player.name}</strong>
+                    <small>{player.coins} coins</small>
+                  </div>
+                  <span className={`tier ${player.tier.toLowerCase()}`}>{player.tier}</span>
+                </div>
+              ))
+            )}
           </div>
         </article>
 
@@ -295,7 +312,7 @@ seamless run.
 
           <div className="odds-list">
             {milestones.map((item) => {
-              const achieved = checkin.streak >= item.days;
+              const achieved = streak >= item.days;
               return (
                 <div key={item.days} className={`odds-row ${achieved ? "done" : ""}`}>
                   <span>{item.days} days</span>
