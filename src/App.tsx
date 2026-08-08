@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import "./App.css";
 
 import Background from "./components/Background";
@@ -82,6 +82,15 @@ export default function App() {
   const [activities, setActivities] = useState<Activity[]>([]);
   const [booting, setBooting] = useState(true);
   const [bootError, setBootError] = useState("");
+
+  // مرجع لحاوية محتوى الصفحة (page-scroll). هذي الحاوية ثابتة بين
+  // الصفحات (بس المحتوى جواها يتبدل)، فيبقى موضع السكرول القديم عالق
+  // عند الانتقال لصفحة جديدة. نصفره يدوياً كل مرة تتغير فيها page.
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    scrollRef.current?.scrollTo({ top: 0, left: 0, behavior: "auto" });
+  }, [page]);
 
   const loadPlayerData = async () => {
     const data = await callApi("/api/auth/me", { method: "GET" });
@@ -336,7 +345,7 @@ export default function App() {
       <TopBar page={page} coins={wallet.coins} energy={wallet.energy} />
 
       <main className="page-container">
-        <div className="page-scroll">
+        <div className="page-scroll" ref={scrollRef}>
           {page === "home" && (
             <Home
               onPlay={handlePlay}
