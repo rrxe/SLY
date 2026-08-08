@@ -67,6 +67,7 @@ export default function App() {
   const [mode, setMode] = useState<Mode>("lobby");
   const [exchangeOpen, setExchangeOpen] = useState(false);
   const [withdrawOpen, setWithdrawOpen] = useState(false);
+  const [startingGame, setStartingGame] = useState(false);
 
   const [wallet, setWallet] = useState<WalletState>({
     coins: 0,
@@ -89,6 +90,7 @@ export default function App() {
           ...prev,
           coins: data.coins ?? 0,
           usdt: data.usdtBalance ?? 0,
+          energy: data.energy ?? ENERGY_MAX,
           walletAddress: data.walletAddress ?? null,
         }));
       })
@@ -178,10 +180,41 @@ export default function App() {
     setWallet((prev) => ({ ...prev, walletAddress: null }));
   };
 
-  const handlePlay = () => {
-    if (wallet.energy <= 0) return;
-    setWallet((prev) => ({ ...prev, energy: prev.energy - 1 }));
-    setMode("game");
+  const handlePlay = async () => {
+    if (startingGame) return;
+
+    if (wallet.energy <= 0) {
+      pushActivity(
+        "Not enough energy",
+        "You need energy to start Laser Escape",
+        "info"
+      );
+      return;
+    }
+
+    setStartingGame(true);
+
+    try {
+      const data = await callApi("/api/auth/me", {
+        method: "POST",
+        body: JSON.stringify({ action: "consume_energy" }),
+      });
+
+      setWallet((prev) => ({
+        ...prev,
+        energy: data.energy ?? prev.energy - 1,
+      }));
+
+      setMode("game");
+    } catch (err: any) {
+      pushActivity(
+        "Unable to start game",
+        err.message || "Not enough energy",
+        "info"
+      );
+    } finally {
+      setStartingGame(false);
+    }
   };
 
   const handleGameExit = (coinsEarned = 0) => {
