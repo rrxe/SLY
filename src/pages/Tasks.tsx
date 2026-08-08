@@ -23,8 +23,8 @@ type TaskProgress = {
 type ProgressMap = Record<string, TaskProgress>;
 type OpenedMap = Record<string, number>;
 
-const PROGRESS_KEY = "sly.tasks.progress.v2";
-const OPENED_KEY = "sly.tasks.opened.v2";
+const PROGRESS_KEY = "sly.tasks.progress.v3";
+const OPENED_KEY = "sly.tasks.opened.v3";
 const CLAIM_DELAY_MS = 3000;
 
 function loadProgress(): ProgressMap {
@@ -34,7 +34,11 @@ function loadProgress(): ProgressMap {
     const raw = window.localStorage.getItem(PROGRESS_KEY);
     if (!raw) return {};
 
-    const parsed = JSON.parse(raw) as Record<string, Partial<TaskProgress>>;
+    const parsed = JSON.parse(raw) as Record<
+      string,
+      Partial<TaskProgress>
+    >;
+
     const out: ProgressMap = {};
 
     for (const [key, value] of Object.entries(parsed)) {
@@ -42,8 +46,14 @@ function loadProgress(): ProgressMap {
       const max = Number(value?.max_completions || 1);
 
       out[key] = {
-        completed: Number.isFinite(completed) && completed >= 0 ? completed : 0,
-        max_completions: Number.isFinite(max) && max > 0 ? max : 1,
+        completed:
+          Number.isFinite(completed) && completed >= 0
+            ? completed
+            : 0,
+        max_completions:
+          Number.isFinite(max) && max > 0
+            ? max
+            : 1,
       };
     }
 
@@ -60,11 +70,16 @@ function loadOpenedMap(): OpenedMap {
     const raw = window.localStorage.getItem(OPENED_KEY);
     if (!raw) return {};
 
-    const parsed = JSON.parse(raw) as Record<string, number>;
+    const parsed = JSON.parse(raw) as Record<
+      string,
+      number
+    >;
+
     const out: OpenedMap = {};
 
     for (const [key, value] of Object.entries(parsed)) {
       const ts = Number(value);
+
       if (Number.isFinite(ts) && ts > 0) {
         out[key] = ts;
       }
@@ -81,9 +96,20 @@ function getInitData() {
   return tg?.initData || "";
 }
 
+function isWatchAdTask(task: ServerTask) {
+  return (
+    String(task.task_type || "").toLowerCase() ===
+    "watch_ad"
+  );
+}
+
 function TaskIcon() {
   return (
-    <svg viewBox="0 0 24 24" className="task-svg" aria-hidden="true">
+    <svg
+      viewBox="0 0 24 24"
+      className="task-svg"
+      aria-hidden="true"
+    >
       <rect
         x="4"
         y="4"
@@ -94,6 +120,7 @@ function TaskIcon() {
         stroke="currentColor"
         strokeWidth="1.8"
       />
+
       <path
         d="M8 12h8M8 8h4M8 16h6"
         fill="none"
@@ -107,9 +134,29 @@ function TaskIcon() {
 
 function CoinsIcon() {
   return (
-    <svg viewBox="0 0 24 24" className="hero-svg" aria-hidden="true">
-      <circle cx="9" cy="9" r="6.2" fill="none" stroke="currentColor" strokeWidth="1.6" />
-      <circle cx="15" cy="15" r="6.2" fill="none" stroke="currentColor" strokeWidth="1.6" />
+    <svg
+      viewBox="0 0 24 24"
+      className="hero-svg"
+      aria-hidden="true"
+    >
+      <circle
+        cx="9"
+        cy="9"
+        r="6.2"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.6"
+      />
+
+      <circle
+        cx="15"
+        cy="15"
+        r="6.2"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.6"
+      />
+
       <path
         d="M9 6.6v4.8M6.6 9h4.8"
         stroke="currentColor"
@@ -120,143 +167,379 @@ function CoinsIcon() {
   );
 }
 
-export default function Tasks({ onRewardCoins }: Props) {
+export default function Tasks({
+  onRewardCoins,
+}: Props) {
   const [toast, setToast] = useState("");
-  const [serverTasks, setServerTasks] = useState<ServerTask[]>([]);
-  const [loadingTasks, setLoadingTasks] = useState(true);
-  const [progressById, setProgressById] = useState<ProgressMap>(() => loadProgress());
-  const [openedAtById, setOpenedAtById] = useState<OpenedMap>(() => loadOpenedMap());
-  const [claimingIds, setClaimingIds] = useState<Record<string, boolean>>({});
+  const [serverTasks, setServerTasks] =
+    useState<ServerTask[]>([]);
+
+  const [loadingTasks, setLoadingTasks] =
+    useState(true);
+
+  const [progressById, setProgressById] =
+    useState<ProgressMap>(() =>
+      loadProgress()
+    );
+
+  const [openedAtById, setOpenedAtById] =
+    useState<OpenedMap>(() =>
+      loadOpenedMap()
+    );
+
+  const [openingIds, setOpeningIds] =
+    useState<Record<string, boolean>>({});
+
+  const [claimingIds, setClaimingIds] =
+    useState<Record<string, boolean>>({});
 
   useEffect(() => {
-    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+    window.scrollTo({
+      top: 0,
+      left: 0,
+      behavior: "auto",
+    });
   }, []);
 
   useEffect(() => {
     try {
-      window.localStorage.setItem(PROGRESS_KEY, JSON.stringify(progressById));
+      window.localStorage.setItem(
+        PROGRESS_KEY,
+        JSON.stringify(progressById)
+      );
     } catch {}
   }, [progressById]);
 
   useEffect(() => {
     try {
-      window.localStorage.setItem(OPENED_KEY, JSON.stringify(openedAtById));
+      window.localStorage.setItem(
+        OPENED_KEY,
+        JSON.stringify(openedAtById)
+      );
     } catch {}
   }, [openedAtById]);
 
   useEffect(() => {
     if (!toast) return;
-    const timer = window.setTimeout(() => setToast(""), 1600);
-    return () => window.clearTimeout(timer);
+
+    const timer = window.setTimeout(
+      () => setToast(""),
+      1800
+    );
+
+    return () =>
+      window.clearTimeout(timer);
   }, [toast]);
 
   useEffect(() => {
     fetch("/api/tasks/list")
       .then((res) => res.json())
       .then((data) => {
-        if (data?.success && Array.isArray(data.tasks)) {
+        if (
+          data?.success &&
+          Array.isArray(data.tasks)
+        ) {
           setServerTasks(data.tasks);
         } else {
           setServerTasks([]);
         }
       })
-      .catch(() => setServerTasks([]))
-      .finally(() => setLoadingTasks(false));
+      .catch(() => {
+        setServerTasks([]);
+      })
+      .finally(() => {
+        setLoadingTasks(false);
+      });
   }, []);
 
-  const reportRewardToServer = async (body: Record<string, unknown>) => {
+  /*
+  ========================================================
+  POST TASK ACTION
+  ========================================================
+  */
+
+  const postTaskAction = async (
+    body: Record<string, unknown>
+  ) => {
     const initData = getInitData();
 
-    const res = await fetch("/api/tasks/complete", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `tga ${initData}`,
-      },
-      body: JSON.stringify(body),
-    });
+    const res = await fetch(
+      "/api/tasks/complete",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `tga ${initData}`,
+        },
+        body: JSON.stringify(body),
+      }
+    );
 
     const data = await res.json();
 
     if (!res.ok || !data.success) {
-      throw new Error(data.error || "Failed to claim reward");
+      throw new Error(
+        data.error ||
+          "Failed to process task"
+      );
     }
 
-    return data as {
-      success: true;
-      coins: number;
-      reward: number;
-      progress?: {
-        completed: number;
-        max_completions: number;
-      };
-    };
+    return data;
   };
 
-  const handleOpenTask = (task: ServerTask) => {
+  /*
+  ========================================================
+  OPEN TASK
+  ========================================================
+  */
+
+  const handleOpenTask = async (
+    task: ServerTask
+  ) => {
     const id = String(task.id);
-    const url = String(task.url || "").trim();
+    const url = String(
+      task.url || ""
+    ).trim();
 
     if (!url) {
-      setToast("Task has no URL.");
+      setToast(
+        "Task has no URL."
+      );
       return;
     }
 
-    window.open(url, "_blank", "noopener,noreferrer");
+    if (openingIds[id]) return;
 
-    setOpenedAtById((prev) => ({
+    const progress =
+      progressById[id] || {
+        completed: 0,
+        max_completions: Math.max(
+          1,
+          Number(
+            task.max_completions || 1
+          )
+        ),
+      };
+
+    if (
+      progress.completed >=
+      progress.max_completions
+    ) {
+      setToast(
+        "Task limit reached."
+      );
+      return;
+    }
+
+    setOpeningIds((prev) => ({
       ...prev,
-      [id]: Date.now(),
+      [id]: true,
     }));
 
-    setToast("Opened. Wait 3 seconds.");
+    try {
+      /*
+      ------------------------------------------------------
+      ADSGRAM TASK
+      ------------------------------------------------------
+      */
+
+      if (isWatchAdTask(task)) {
+        /*
+          IMPORTANT:
+
+          First register the session on our server.
+          No coins are given here.
+        */
+
+        await postTaskAction({
+          taskId: task.id,
+          action: "open",
+        });
+
+        /*
+          Save local timestamp only for UI.
+          It is NOT trusted for the reward.
+        */
+
+        setOpenedAtById((prev) => ({
+          ...prev,
+          [id]: Date.now(),
+        }));
+
+        /*
+          Open AdsGram / ad URL.
+
+          The actual reward MUST come from
+          AdsGram Reward URL callback.
+        */
+
+        const popup = window.open(
+          url,
+          "_blank",
+          "noopener,noreferrer"
+        );
+
+        if (!popup) {
+          setToast(
+            "Popup blocked. Please allow popups."
+          );
+          return;
+        }
+
+        setToast(
+          "Ad opened. Reward is automatic."
+        );
+
+        return;
+      }
+
+      /*
+      ------------------------------------------------------
+      NORMAL TASK
+      ------------------------------------------------------
+      */
+
+      window.open(
+        url,
+        "_blank",
+        "noopener,noreferrer"
+      );
+
+      setOpenedAtById((prev) => ({
+        ...prev,
+        [id]: Date.now(),
+      }));
+
+      setToast(
+        "Opened. Wait 3 seconds."
+      );
+    } catch (err: any) {
+      setToast(
+        err.message ||
+          "Failed to open task."
+      );
+    } finally {
+      setOpeningIds((prev) => {
+        const copy = {
+          ...prev,
+        };
+
+        delete copy[id];
+
+        return copy;
+      });
+    }
   };
 
-  const handleClaimServerTask = async (task: ServerTask) => {
+  /*
+  ========================================================
+  NORMAL TASK CLAIM
+  ========================================================
+
+  AdsGram tasks NEVER use this function.
+  */
+
+  const handleClaimServerTask = async (
+    task: ServerTask
+  ) => {
+    if (isWatchAdTask(task)) {
+      return;
+    }
+
     const id = String(task.id);
 
     if (claimingIds[id]) return;
 
-    const openedAt = openedAtById[id];
+    const openedAt =
+      openedAtById[id];
+
     if (!openedAt) {
-      setToast("Open the task link first.");
+      setToast(
+        "Open the task link first."
+      );
       return;
     }
 
-    if (Date.now() - openedAt < CLAIM_DELAY_MS) {
-      setToast("Wait 3 seconds after opening.");
+    if (
+      Date.now() - openedAt <
+      CLAIM_DELAY_MS
+    ) {
+      setToast(
+        "Wait 3 seconds after opening."
+      );
       return;
     }
 
-    const current = progressById[id] || {
-      completed: 0,
-      max_completions: Math.max(1, Number(task.max_completions || 1)),
-    };
+    const current =
+      progressById[id] || {
+        completed: 0,
+        max_completions: Math.max(
+          1,
+          Number(
+            task.max_completions || 1
+          )
+        ),
+      };
 
-    if (current.completed >= current.max_completions) return;
+    if (
+      current.completed >=
+      current.max_completions
+    ) {
+      return;
+    }
 
-    setClaimingIds((prev) => ({ ...prev, [id]: true }));
+    setClaimingIds((prev) => ({
+      ...prev,
+      [id]: true,
+    }));
 
     try {
-      const data = await reportRewardToServer({ taskId: task.id });
+      const data =
+        await postTaskAction({
+          taskId: task.id,
+        });
 
-      const nextCompleted = Number(data.progress?.completed ?? current.completed + 1);
-      const nextMax = Number(data.progress?.max_completions ?? current.max_completions);
-      const reward = Number(data.reward ?? task.reward ?? 0);
+      const nextCompleted =
+        Number(
+          data.progress?.completed ??
+            current.completed + 1
+        );
+
+      const nextMax =
+        Number(
+          data.progress
+            ?.max_completions ??
+            current.max_completions
+        );
+
+      const reward =
+        Number(
+          data.reward ??
+            task.reward ??
+            0
+        );
 
       setProgressById((prev) => ({
         ...prev,
         [id]: {
           completed: nextCompleted,
-          max_completions: nextMax,
+          max_completions:
+            nextMax,
         },
       }));
 
-      // مهم: بعد كل Claim ناجح، نلغي "جلسة الفتح"
-      // حتى ما يقدر يكرر Claim بنفس الفتح.
+      /*
+        Consume local open session.
+        Server also consumes its own session.
+      */
+
       setOpenedAtById((prev) => {
-        const copy = { ...prev };
+        const copy = {
+          ...prev,
+        };
+
         delete copy[id];
+
         return copy;
       });
 
@@ -266,13 +549,22 @@ export default function Tasks({ onRewardCoins }: Props) {
         `Task ${nextCompleted}/${nextMax} +${reward} coins`
       );
 
-      setToast(`+${reward} coins`);
+      setToast(
+        `+${reward} coins`
+      );
     } catch (err: any) {
-      setToast(err.message || "Failed to claim reward");
+      setToast(
+        err.message ||
+          "Failed to claim reward"
+      );
     } finally {
       setClaimingIds((prev) => {
-        const copy = { ...prev };
+        const copy = {
+          ...prev,
+        };
+
         delete copy[id];
+
         return copy;
       });
     }
@@ -280,7 +572,11 @@ export default function Tasks({ onRewardCoins }: Props) {
 
   return (
     <section className="tasks-page">
-      {toast ? <div className="tasks-toast">{toast}</div> : null}
+      {toast ? (
+        <div className="tasks-toast">
+          {toast}
+        </div>
+      ) : null}
 
       <section className="tasks-hero">
         <div className="tasks-hero-icon">
@@ -289,31 +585,78 @@ export default function Tasks({ onRewardCoins }: Props) {
 
         <div className="tasks-hero-text">
           <h1>Earn Coins</h1>
-          <p>Complete tasks to earn coins</p>
+          <p>
+            Complete tasks to earn coins
+          </p>
         </div>
       </section>
 
       <section className="task-strip">
         {loadingTasks ? (
-          <div className="task-empty">Loading tasks...</div>
-        ) : serverTasks.length === 0 ? (
-          <div className="task-empty">No tasks available right now.</div>
+          <div className="task-empty">
+            Loading tasks...
+          </div>
+        ) : serverTasks.length ===
+          0 ? (
+          <div className="task-empty">
+            No tasks available right now.
+          </div>
         ) : (
           serverTasks.map((task) => {
-            const id = String(task.id);
-            const progress = progressById[id] || {
-              completed: 0,
-              max_completions: Math.max(1, Number(task.max_completions || 1)),
-            };
+            const id =
+              String(task.id);
 
-            const openedAt = openedAtById[id];
-            const opened = Boolean(openedAt);
-            const waitedEnough = opened && Date.now() - openedAt >= CLAIM_DELAY_MS;
-            const claimedAll = progress.completed >= progress.max_completions;
-            const claiming = Boolean(claimingIds[id]);
+            const isWatchAd =
+              isWatchAdTask(task);
+
+            const progress =
+              progressById[id] || {
+                completed: 0,
+                max_completions:
+                  Math.max(
+                    1,
+                    Number(
+                      task.max_completions ||
+                        1
+                    )
+                  ),
+              };
+
+            const openedAt =
+              openedAtById[id];
+
+            const opened =
+              Boolean(openedAt);
+
+            const waitedEnough =
+              opened &&
+              Date.now() -
+                openedAt >=
+                CLAIM_DELAY_MS;
+
+            const claimedAll =
+              progress.completed >=
+              progress.max_completions;
+
+            const opening =
+              Boolean(
+                openingIds[id]
+              );
+
+            const claiming =
+              Boolean(
+                claimingIds[id]
+              );
 
             return (
-              <article key={id} className={`task-row ${claimedAll ? "done" : ""}`}>
+              <article
+                key={id}
+                className={`task-row ${
+                  claimedAll
+                    ? "done"
+                    : ""
+                }`}
+              >
                 <div className="task-icon channel">
                   <TaskIcon />
                 </div>
@@ -321,22 +664,62 @@ export default function Tasks({ onRewardCoins }: Props) {
                 <div className="task-main">
                   <div className="task-topline">
                     <div>
-                      <p className="task-type">{task.task_type || "task"}</p>
-                      <h2>{task.title}</h2>
+                      <p className="task-type">
+                        {task.task_type ||
+                          "task"}
+                      </p>
+
+                      <h2>
+                        {task.title}
+                      </h2>
                     </div>
-                    <strong className="task-reward">+{Number(task.reward || 0)}</strong>
+
+                    <strong className="task-reward">
+                      +
+                      {Number(
+                        task.reward ||
+                          0
+                      )}
+                    </strong>
                   </div>
 
                   <div className="task-mini-status">
-                    {claimedAll ? (
-                      <span className="green">Completed</span>
+                    {isWatchAd ? (
+                      claimedAll ? (
+                        <span className="green">
+                          Completed
+                        </span>
+                      ) : opened ? (
+                        <span className="green">
+                          Reward automatic
+                        </span>
+                      ) : (
+                        <span className="gray">
+                          Open ad to start
+                        </span>
+                      )
+                    ) : claimedAll ? (
+                      <span className="green">
+                        Completed
+                      </span>
                     ) : !opened ? (
-                      <span className="gray">Open link first</span>
+                      <span className="gray">
+                        Open link first
+                      </span>
                     ) : !waitedEnough ? (
-                      <span className="blue">Wait 3 seconds</span>
+                      <span className="blue">
+                        Wait 3 seconds
+                      </span>
                     ) : (
                       <span className="green">
-                        Ready {progress.completed}/{progress.max_completions}
+                        Ready{" "}
+                        {
+                          progress.completed
+                        }
+                        /
+                        {
+                          progress.max_completions
+                        }
                       </span>
                     )}
                   </div>
@@ -346,20 +729,51 @@ export default function Tasks({ onRewardCoins }: Props) {
                   <button
                     type="button"
                     className="task-btn join"
-                    onClick={() => handleOpenTask(task)}
-                    disabled={claiming}
+                    onClick={() =>
+                      handleOpenTask(
+                        task
+                      )
+                    }
+                    disabled={
+                      opening ||
+                      claimedAll
+                    }
                   >
-                    Open
+                    {opening
+                      ? "Opening..."
+                      : isWatchAd
+                      ? "Open Ad"
+                      : "Open"}
                   </button>
 
-                  <button
-                    type="button"
-                    className="task-btn claim"
-                    onClick={() => handleClaimServerTask(task)}
-                    disabled={claiming || claimedAll || !opened || !waitedEnough}
-                  >
-                    {claiming ? "Claiming..." : claimedAll ? "Claimed" : "Claim"}
-                  </button>
+                  /*
+                    AdsGram:
+                    NO CLAIM BUTTON.
+                  */
+
+                  {!isWatchAd ? (
+                    <button
+                      type="button"
+                      className="task-btn claim"
+                      onClick={() =>
+                        handleClaimServerTask(
+                          task
+                        )
+                      }
+                      disabled={
+                        claiming ||
+                        claimedAll ||
+                        !opened ||
+                        !waitedEnough
+                      }
+                    >
+                      {claiming
+                        ? "Claiming..."
+                        : claimedAll
+                        ? "Claimed"
+                        : "Claim"}
+                    </button>
+                  ) : null}
                 </div>
               </article>
             );
