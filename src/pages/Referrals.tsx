@@ -15,24 +15,35 @@ export default function Referrals() {
     const initData = tg?.initData || "";
 
     fetch("/api/auth/me", {
-      method: "POST",
+      method: "GET",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `tga ${initData}`,
+        Authorization: `tga ${initData}`,
       },
     })
-      .then((res) => res.json())
-      .then((data) => {
-        if (!data.error) {
-          setUser(data);
+      .then(async (res) => {
+        const data = await res.json().catch(() => ({}));
+
+        if (!res.ok || data.error) {
+          throw new Error(data.error || `Request failed (${res.status})`);
         }
-        setLoading(false);
+
+        setUser({
+          telegramId: String(data.telegramId || ""),
+          referralsCount: Number(data.referralsCount || 0),
+        });
       })
-      .catch(() => setLoading(false));
+      .catch((err) => {
+        console.error("Referrals load error:", err);
+        setUser(null);
+      })
+      .finally(() => {
+        setLoading(false);
+      });
   }, []);
 
-  const botUsername = "SLYmint_bot"; 
-  const referralLink = user
+  const botUsername = "SLYmint_bot";
+  const referralLink = user?.telegramId
     ? `https://t.me/${botUsername}?start=ref_${user.telegramId}`
     : "";
 
@@ -44,8 +55,21 @@ export default function Referrals() {
   };
 
   return (
-    <section style={{ padding: "6px 0", color: "#eaf3ff", fontFamily: "system-ui, sans-serif" }}>
-      <div style={{ padding: 18, borderRadius: 24, background: "rgba(15,23,40,.76)", border: "1px solid rgba(255,255,255,.06)" }}>
+    <section
+      style={{
+        padding: "6px 0",
+        color: "#eaf3ff",
+        fontFamily: "system-ui, sans-serif",
+      }}
+    >
+      <div
+        style={{
+          padding: 18,
+          borderRadius: 24,
+          background: "rgba(15,23,40,.76)",
+          border: "1px solid rgba(255,255,255,.06)",
+        }}
+      >
         <h2 style={{ margin: 0, fontSize: 28 }}>Referrals</h2>
         <p style={{ marginTop: 8, color: "#92a1b7", lineHeight: 1.6 }}>
           Referral rewards, 500 coins first bonus, and extra bonuses for invited users.
@@ -55,20 +79,46 @@ export default function Referrals() {
           <p style={{ color: "#92a1b7", marginTop: 20 }}>Loading...</p>
         ) : (
           <div style={{ marginTop: 20 }}>
-            <div style={{ background: "rgba(255,255,255,0.04)", padding: 14, borderRadius: 16, marginBottom: 16 }}>
-              <span style={{ fontSize: 14, color: "#92a1b7" }}>Total Referrals</span>
-              <div style={{ fontSize: 24, fontWeight: "bold", marginTop: 4, color: "#40a7e3" }}>
+            <div
+              style={{
+                background: "rgba(255,255,255,0.04)",
+                padding: 14,
+                borderRadius: 16,
+                marginBottom: 16,
+              }}
+            >
+              <span style={{ fontSize: 14, color: "#92a1b7" }}>
+                Total Referrals
+              </span>
+              <div
+                style={{
+                  fontSize: 24,
+                  fontWeight: "bold",
+                  marginTop: 4,
+                  color: "#40a7e3",
+                }}
+              >
                 {user?.referralsCount || 0}
               </div>
             </div>
 
             <div style={{ marginBottom: 16 }}>
-              <label style={{ fontSize: 13, color: "#92a1b7", display: "block", marginBottom: 6 }}>Your Referral Link</label>
+              <label
+                style={{
+                  fontSize: 13,
+                  color: "#92a1b7",
+                  display: "block",
+                  marginBottom: 6,
+                }}
+              >
+                Your Referral Link
+              </label>
               <div style={{ display: "flex", gap: 8 }}>
                 <input
                   type="text"
                   readOnly
                   value={referralLink}
+                  placeholder={user ? "" : "Referral link unavailable"}
                   style={{
                     flex: 1,
                     background: "rgba(0,0,0,0.3)",
@@ -77,20 +127,25 @@ export default function Referrals() {
                     padding: "10px 14px",
                     color: "#fff",
                     fontSize: 13,
-                    outline: "none"
+                    outline: "none",
                   }}
                 />
                 <button
                   onClick={handleCopy}
+                  disabled={!referralLink}
                   style={{
-                    background: copied ? "#4caf50" : "#40a7e3",
+                    background: !referralLink
+                      ? "rgba(64,167,227,0.35)"
+                      : copied
+                      ? "#4caf50"
+                      : "#40a7e3",
                     color: "#fff",
                     border: "none",
                     borderRadius: 12,
                     padding: "0 18px",
                     fontWeight: "bold",
-                    cursor: "pointer",
-                    transition: "background 0.2s"
+                    cursor: !referralLink ? "not-allowed" : "pointer",
+                    transition: "background 0.2s",
                   }}
                 >
                   {copied ? "Copied!" : "Copy"}
