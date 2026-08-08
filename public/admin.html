@@ -369,12 +369,17 @@
     <input
       type="url"
       id="taskLink"
-      placeholder="رابط المهمة URL"
+      placeholder="رابط المهمة URL (اختياري لمهام مشاهدة الإعلان)"
     >
+
+    <div class="field-hint">
+      اتركه فارغًا إذا كانت المهمة من نوع مشاهدة إعلان.
+    </div>
 
     <button onclick="addTask()">إضافة المهمة</button>
   </div>
-<div class="card">
+
+  <div class="card">
     <h3>إدارة المهام</h3>
 
     <div class="tasks-toolbar">
@@ -569,11 +574,7 @@
                   <div class="info-box">
                     <div class="info-label">رابط المهمة</div>
                     <div class="info-value">
-                      ${
-                        url
-                          ? `<a href="${url}" target="_blank" rel="noopener noreferrer">${url}</a>`
-                          : "لا يوجد"
-                      }
+                      ${url ? `<a href="${url}" target="_blank" rel="noopener noreferrer">${url}</a>` : "لا يوجد"}
                     </div>
                   </div>
                 </div>
@@ -659,12 +660,21 @@
     async function addTask() {
       const title = document.getElementById("taskTitle").value.trim();
       const reward = Number(document.getElementById("taskCoins").value);
-      const url = document.getElementById("taskLink").value.trim();
+      const rawUrl = document.getElementById("taskLink").value.trim();
       const taskType = document.getElementById("taskType").value;
       const maxCompletions = Number(document.getElementById("taskMaxCompletions").value);
 
-      if (!title || !Number.isFinite(reward) || reward <= 0 || !url) {
-        alert("يرجى تعبئة جميع الحقول بشكل صحيح.");
+      const normalizedTaskType = taskType === "custom" ? "normal" : taskType;
+      const isWatchAd = normalizedTaskType === "watch_ad";
+      const url = isWatchAd ? "" : rawUrl;
+
+      if (!title || !Number.isFinite(reward) || reward <= 0) {
+        alert("يرجى تعبئة العنوان والمكافأة بشكل صحيح.");
+        return;
+      }
+
+      if (!isWatchAd && !url) {
+        alert("يرجى إدخال رابط المهمة، أو اختر مشاهدة إعلان لتركه فارغًا.");
         return;
       }
 
@@ -679,7 +689,7 @@
           reward,
           url,
           is_active: true,
-          task_type: taskType === "custom" ? "normal" : taskType,
+          task_type: normalizedTaskType,
           max_completions: maxCompletions
         });
 
@@ -722,8 +732,7 @@
           container.innerHTML = '<p class="muted">لا توجد طلبات سحب معلقة.</p>';
           return;
         }
-
-        container.innerHTML = withdrawals.map(withdrawal => {
+container.innerHTML = withdrawals.map(withdrawal => {
           const telegramId = withdrawal.telegram_id || withdrawal.telegramId || "";
           const username = withdrawal.username || "NoUsername";
           const amount = withdrawal.amount_usdt ?? withdrawal.withdrawal_amount ?? withdrawal.amount ?? 0;
@@ -743,16 +752,12 @@
                 <span class="status-${escapeHtml(status)}">${escapeHtml(String(rawStatus))}</span>
               </p>
 
-              ${
-                isPending
-                  ? `
-                    <div class="withdraw-actions">
-                      <button class="approve" onclick="updateWithdrawal('${escapeJs(String(telegramId))}', 'approve')">موافقة</button>
-                      <button class="reject" onclick="updateWithdrawal('${escapeJs(String(telegramId))}', 'reject')">رفض</button>
-                    </div>
-                  `
-                  : ""
-              }
+              ${isPending ? `
+                <div class="withdraw-actions">
+                  <button class="approve" onclick="updateWithdrawal('${escapeJs(String(telegramId))}', 'approve')">موافقة</button>
+                  <button class="reject" onclick="updateWithdrawal('${escapeJs(String(telegramId))}', 'reject')">رفض</button>
+                </div>
+              ` : ""}
             </div>
           `;
         }).join("");
@@ -810,7 +815,8 @@
         alert("يرجى كتابة رسالة أولاً.");
         return;
       }
-if (!confirm("هل تريد إرسال هذه الرسالة إلى جميع اللاعبين؟")) {
+
+      if (!confirm("هل تريد إرسال هذه الرسالة إلى جميع اللاعبين؟")) {
         return;
       }
 
