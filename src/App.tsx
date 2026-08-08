@@ -80,19 +80,26 @@ export default function App() {
   const [booting, setBooting] = useState(true);
   const [bootError, setBootError] = useState("");
 
+  const loadPlayerData = async (showBootError: boolean) => {
+    const data = await callApi("/api/auth/me", { method: "GET" });
+
+    setWallet((prev) => ({
+      ...prev,
+      coins: data.coins ?? 0,
+      usdt: data.usdtBalance ?? 0,
+      energy: data.energy ?? ENERGY_MAX,
+      walletAddress: data.walletAddress ?? null,
+    }));
+
+    return data;
+  };
+
   useEffect(() => {
     let cancelled = false;
 
-    callApi("/api/auth/me", { method: "GET" })
-      .then((data) => {
+    loadPlayerData(true)
+      .then(() => {
         if (cancelled) return;
-        setWallet((prev) => ({
-          ...prev,
-          coins: data.coins ?? 0,
-          usdt: data.usdtBalance ?? 0,
-          energy: data.energy ?? ENERGY_MAX,
-          walletAddress: data.walletAddress ?? null,
-        }));
       })
       .catch((err) => {
         if (cancelled) return;
@@ -106,8 +113,30 @@ export default function App() {
         if (!cancelled) setBooting(false);
       });
 
+    const refreshPlayerData = async () => {
+      try {
+        await loadPlayerData(false);
+      } catch {
+        // تجاهل فشل التحديث الخلفي
+      }
+    };
+
+    const intervalId = window.setInterval(refreshPlayerData, 60 * 1000);
+
+    const handleFocus = () => {
+      if (document.visibilityState === "visible") {
+        refreshPlayerData();
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleFocus);
+    window.addEventListener("focus", refreshPlayerData);
+
     return () => {
       cancelled = true;
+      window.clearInterval(intervalId);
+      document.removeEventListener("visibilitychange", handleFocus);
+      window.removeEventListener("focus", refreshPlayerData);
     };
   }, []);
 
@@ -202,7 +231,7 @@ export default function App() {
 
       setWallet((prev) => ({
         ...prev,
-        energy: data.energy ?? prev.energy - 1,
+        energy: data.energy ?? Math.max(0, prev.energy - 1),
       }));
 
       setMode("game");
