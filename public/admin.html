@@ -854,3 +854,189 @@ container.innerHTML = withdrawals.map(withdrawal => {
   </script>
 </body>
 </html>
+
+<script>
+(function () {
+  const taskTypeEl = document.getElementById("taskType");
+  const taskLinkEl = document.getElementById("taskLink");
+
+  if (!taskTypeEl || !taskLinkEl) {
+    console.error("Task form elements not found.");
+    return;
+  }
+
+  /*
+   * AdsGram tasks do NOT need a task URL.
+   * Tasks.tsx uses AdsGram block 41930 directly.
+   *
+   * However, the current backend/admin validation expects
+   * a non-empty URL. So for watch_ad we silently use a
+   * valid internal URL. It is NOT opened as the ad URL.
+   */
+
+  const ADSGRAM_INTERNAL_URL =
+    window.location.origin + "/";
+
+  function updateTaskUrlField() {
+    const isAdsGram =
+      taskTypeEl.value === "watch_ad";
+
+    if (isAdsGram) {
+      taskLinkEl.value = ADSGRAM_INTERNAL_URL;
+
+      taskLinkEl.placeholder =
+        "AdsGram — الرابط غير مطلوب";
+
+      taskLinkEl.disabled = true;
+
+      taskLinkEl.removeAttribute("required");
+
+      taskLinkEl.style.opacity = "0.55";
+    } else {
+      taskLinkEl.disabled = false;
+
+      taskLinkEl.placeholder =
+        "رابط المهمة URL";
+
+      taskLinkEl.style.opacity = "1";
+    }
+  }
+
+  taskTypeEl.addEventListener(
+    "change",
+    updateTaskUrlField
+  );
+
+  updateTaskUrlField();
+
+  /*
+   * Replace the original addTask().
+   */
+  window.addTask = async function () {
+    const titleEl =
+      document.getElementById("taskTitle");
+
+    const coinsEl =
+      document.getElementById("taskCoins");
+
+    const maxEl =
+      document.getElementById(
+        "taskMaxCompletions"
+      );
+
+    const title =
+      titleEl?.value.trim() || "";
+
+    const reward =
+      Number(coinsEl?.value);
+
+    const taskType =
+      taskTypeEl.value;
+
+    const maxCompletions =
+      Number(maxEl?.value);
+
+    /*
+     * For normal tasks use the user's URL.
+     * For AdsGram use an internal valid URL.
+     */
+    const url =
+      taskType === "watch_ad"
+        ? ADSGRAM_INTERNAL_URL
+        : taskLinkEl.value.trim();
+
+    if (!title) {
+      alert("يرجى كتابة عنوان المهمة.");
+      return;
+    }
+
+    if (
+      !Number.isFinite(reward) ||
+      reward <= 0
+    ) {
+      alert("يرجى إدخال مكافأة صحيحة.");
+      return;
+    }
+
+    if (
+      !Number.isFinite(maxCompletions) ||
+      maxCompletions < 1
+    ) {
+      alert(
+        "عدد مرات الإكمال يجب أن يكون 1 أو أكثر."
+      );
+      return;
+    }
+
+    /*
+     * Normal tasks MUST have a URL.
+     * AdsGram tasks do not.
+     */
+    if (
+      taskType !== "watch_ad" &&
+      !url
+    ) {
+      alert(
+        "يرجى إدخال رابط المهمة."
+      );
+      return;
+    }
+
+    try {
+      const result =
+        await apiCall(
+          "/api/tasks/manage",
+          "POST",
+          {
+            title,
+            reward,
+            url,
+            is_active: true,
+            task_type:
+              taskType === "custom"
+                ? "normal"
+                : taskType,
+            max_completions:
+              maxCompletions
+          }
+        );
+
+      if (!result.success) {
+        alert(
+          result.error ||
+            "فشل حفظ المهمة."
+        );
+        return;
+      }
+
+      alert(
+        taskType === "watch_ad"
+          ? "تمت إضافة مهمة AdsGram بنجاح."
+          : "تمت إضافة المهمة بنجاح."
+      );
+
+      titleEl.value = "";
+      coinsEl.value = "";
+      maxEl.value = "1";
+
+      taskTypeEl.value = "normal";
+      taskLinkEl.value = "";
+
+      updateTaskUrlField();
+
+      if (
+        typeof loadTasks ===
+        "function"
+      ) {
+        await loadTasks();
+      }
+    } catch (err) {
+      alert(
+        err?.message ||
+          "تعذر الاتصال بالسيرفر."
+      );
+    }
+  };
+})();
+</script>
+
