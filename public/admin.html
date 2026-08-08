@@ -3,222 +3,823 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Admin Panel 🛠️</title>
+
+  <title>SLY Admin Panel</title>
+
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
+
   <style>
+    * {
+      box-sizing: border-box;
+    }
+
     body {
-      font-family: system-ui, -apple-system, sans-serif;
-      background-color: #121212;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #0b0f17;
       color: #ffffff;
       padding: 16px;
       margin: 0;
     }
-    h2, h3 { color: #40a7e3; margin-bottom: 12px; }
+
+    h2,
+    h3 {
+      color: #40a7e3;
+      margin-top: 0;
+    }
+
+    h2 {
+      margin-bottom: 20px;
+      font-size: 26px;
+    }
+
+    h3 {
+      margin-bottom: 12px;
+      font-size: 18px;
+    }
+
     .card {
-      background: #1e1e1e;
-      border-radius: 12px;
+      background: #151c29;
+      border-radius: 16px;
       padding: 16px;
       margin-bottom: 16px;
-      border: 1px solid #333;
+      border: 1px solid rgba(255, 255, 255, 0.07);
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.18);
     }
-    input, textarea, button {
+
+    input,
+    textarea,
+    button {
       width: 100%;
-      padding: 10px;
+      padding: 12px;
       margin: 6px 0;
-      border-radius: 8px;
-      border: 1px solid #444;
-      background: #2a2a2a;
+      border-radius: 10px;
+      border: 1px solid #303b4d;
+      background: #0f1520;
       color: white;
-      box-sizing: border-box;
+      font-family: inherit;
+      font-size: 14px;
+      outline: none;
     }
+
+    input:focus,
+    textarea:focus {
+      border-color: #40a7e3;
+    }
+
+    textarea {
+      resize: vertical;
+      min-height: 90px;
+    }
+
     button {
       background: #40a7e3;
       border: none;
       font-weight: bold;
       cursor: pointer;
+      transition: opacity 0.2s ease, transform 0.1s ease;
     }
-    button.reject { background: #e53935; }
-    button.approve { background: #4caf50; }
+
+    button:hover {
+      opacity: 0.9;
+    }
+
+    button:active {
+      transform: scale(0.98);
+    }
+
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    button.reject {
+      background: #e53935;
+    }
+
+    button.approve {
+      background: #4caf50;
+    }
+
     .item {
-      border-bottom: 1px solid #333;
-      padding: 8px 0;
+      border-bottom: 1px solid #293243;
+      padding: 14px 0;
     }
-    .status-PENDING { color: #ffb74d; }
-    .status-APPROVED { color: #81c784; }
-    .status-REJECTED { color: #e57373; }
+
+    .item:last-child {
+      border-bottom: none;
+    }
+
+    .item p {
+      margin: 6px 0;
+      line-height: 1.5;
+    }
+
+    .status-PENDING {
+      color: #ffb74d;
+      font-weight: bold;
+    }
+
+    .status-pending {
+      color: #ffb74d;
+      font-weight: bold;
+    }
+
+    .status-APPROVED,
+    .status-completed,
+    .status-COMPLETED {
+      color: #81c784;
+      font-weight: bold;
+    }
+
+    .status-REJECTED,
+    .status-rejected,
+    .status-REJECTED {
+      color: #e57373;
+      font-weight: bold;
+    }
+
+    .muted {
+      color: #92a1b7;
+    }
+
+    .error {
+      color: #ff6b6b;
+    }
+
+    .success {
+      color: #81c784;
+    }
+
+    .loading {
+      color: #92a1b7;
+    }
+
+    .refresh-btn {
+      background: #273449;
+      margin-top: 8px;
+    }
+
+    .withdraw-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .withdraw-actions button {
+      flex: 1;
+      margin: 0;
+    }
+
+    code {
+      color: #b9dfff;
+      word-break: break-all;
+    }
+
+    a {
+      color: #40a7e3;
+      word-break: break-all;
+    }
+
+    .admin-status {
+      padding: 10px 12px;
+      border-radius: 10px;
+      margin-top: 10px;
+      background: rgba(255, 255, 255, 0.04);
+      font-size: 13px;
+    }
   </style>
 </head>
+
 <body>
 
-  <h2>Admin Panel 🛠️</h2>
+  <h2>SLY Admin Panel</h2>
 
+  <!-- ADMIN SECRET -->
   <div class="card">
-    <h3>🔐 إعدادات المشرف (Admin Secret)</h3>
-    <input type="password" id="adminSecretInput" placeholder="أدخل مفتاح المشرف (ADMIN_SECRET)" onchange="saveSecret(this.value)">
+    <h3>إعدادات المشرف</h3>
+
+    <input
+      type="password"
+      id="adminSecretInput"
+      placeholder="أدخل ADMIN_SECRET"
+      autocomplete="off"
+      onchange="saveSecret(this.value)"
+    >
+
+    <button onclick="testConnection()">
+      اختبار الاتصال
+    </button>
+
+    <div id="adminStatus" class="admin-status muted">
+      أدخل ADMIN_SECRET ثم اضغط اختبار الاتصال.
+    </div>
   </div>
 
+
+  <!-- BROADCAST -->
   <div class="card">
-    <h3>📢 إرسال رسالة جماعية (Broadcast)</h3>
-    <textarea id="broadcastMsg" rows="3" placeholder="اكتب رسالتك هنا..."></textarea>
-    <button onclick="sendBroadcast()">إرسال للجميع 🚀</button>
+    <h3>إرسال رسالة جماعية</h3>
+
+    <textarea
+      id="broadcastMsg"
+      rows="4"
+      placeholder="اكتب الرسالة التي تريد إرسالها لجميع اللاعبين..."
+    ></textarea>
+
+    <button onclick="sendBroadcast()">
+      إرسال للجميع
+    </button>
   </div>
 
+
+  <!-- ADD TASK -->
   <div class="card">
-    <h3>➕ إضافة مهمة جديدة</h3>
-    <input type="text" id="taskTitle" placeholder="عنوان المهمة">
-    <input type="number" id="taskCoins" placeholder="مكافأة العملات (Reward)">
-    <input type="url" id="taskLink" placeholder="رابط المهمة (URL)">
-    <button onclick="addTask()">إضافة المهمة 📝</button>
+    <h3>إضافة مهمة جديدة</h3>
+
+    <input
+      type="text"
+      id="taskTitle"
+      placeholder="عنوان المهمة"
+    >
+
+    <input
+      type="number"
+      id="taskCoins"
+      placeholder="مكافأة العملات"
+      min="0"
+      step="1"
+    >
+
+    <input
+      type="url"
+      id="taskLink"
+      placeholder="رابط المهمة URL"
+    >
+
+    <button onclick="addTask()">
+      إضافة المهمة
+    </button>
   </div>
 
+
+  <!-- TASKS -->
   <div class="card">
-    <h3>📋 إدارة المهام الحالية</h3>
-    <div id="tasksList">جاري التحميل...</div>
+    <h3>إدارة المهام الحالية</h3>
+
+    <div id="tasksList" class="loading">
+      جاري التحميل...
+    </div>
+
+    <button class="refresh-btn" onclick="loadTasks()">
+      تحديث المهام
+    </button>
   </div>
 
+
+  <!-- WITHDRAWALS -->
   <div class="card">
-    <h3>💰 طلبات السحب المعلقة</h3>
-    <div id="withdrawalsList">جاري التحميل...</div>
+    <h3>طلبات السحب</h3>
+
+    <div id="withdrawalsList" class="loading">
+      جاري التحميل...
+    </div>
+
+    <button class="refresh-btn" onclick="loadWithdrawals()">
+      تحديث طلبات السحب
+    </button>
   </div>
+
 
   <script>
-    const tg = window.Telegram.WebApp;
-    tg.expand();
+    const tg = window.Telegram?.WebApp;
 
-    document.addEventListener("DOMContentLoaded", () => {
-      const savedSecret = localStorage.getItem("admin_secret") || "";
-      document.getElementById("adminSecretInput").value = savedSecret;
-      loadTasks();
-      loadWithdrawals();
-    });
-
-    function saveSecret(val) {
-      localStorage.setItem("admin_secret", val.trim());
+    if (tg) {
+      tg.expand();
     }
 
     const API_BASE = "";
 
+    document.addEventListener("DOMContentLoaded", () => {
+      const savedSecret = localStorage.getItem("admin_secret") || "";
+
+      document.getElementById("adminSecretInput").value = savedSecret;
+
+      loadTasks();
+      loadWithdrawals();
+    });
+
+
+    function saveSecret(value) {
+      localStorage.setItem("admin_secret", String(value || "").trim());
+
+      setAdminStatus(
+        "تم حفظ مفتاح المشرف محلياً.",
+        "success"
+      );
+    }
+
+
+    function getSecret() {
+      return (
+        localStorage.getItem("admin_secret") ||
+        document.getElementById("adminSecretInput").value ||
+        ""
+      ).trim();
+    }
+
+
+    function setAdminStatus(message, type = "muted") {
+      const element = document.getElementById("adminStatus");
+
+      element.className = "admin-status " + type;
+      element.textContent = message;
+    }
+
+
     async function apiCall(endpoint, method = "GET", body = null) {
-      const secret = localStorage.getItem("admin_secret") || "";
+      const secret = getSecret();
+
       const headers = {
         "Content-Type": "application/json",
-        "x-admin-secret": secret,
-        "Authorization": `tga ${tg.initData || ""}`
+        "x-admin-secret": secret
       };
-      const options = { method, headers };
-      if (body) options.body = JSON.stringify(body);
 
-      const res = await fetch(`${API_BASE}${endpoint}`, options);
-      return await res.json();
+      /*
+       * نرسل Telegram initData أيضاً إذا كانت اللوحة مفتوحة
+       * داخل Telegram، لكن الـ Admin APIs تعتمد على ADMIN_SECRET.
+       */
+      if (tg && tg.initData) {
+        headers["Authorization"] = `tga ${tg.initData}`;
+      }
+
+      const options = {
+        method,
+        headers
+      };
+
+      if (body !== null) {
+        options.body = JSON.stringify(body);
+      }
+
+      const response = await fetch(
+        `${API_BASE}${endpoint}`,
+        options
+      );
+
+      const text = await response.text();
+
+      let data = {};
+
+      try {
+        data = text ? JSON.parse(text) : {};
+      } catch {
+        data = {
+          success: false,
+          error: text || `HTTP ${response.status}`
+        };
+      }
+
+      if (!response.ok) {
+        throw new Error(
+          data.error ||
+          data.message ||
+          `Request failed (${response.status})`
+        );
+      }
+
+      return data;
     }
+
+
+    async function testConnection() {
+      const secret = getSecret();
+
+      if (!secret) {
+        setAdminStatus(
+          "أدخل ADMIN_SECRET أولاً.",
+          "error"
+        );
+        return;
+      }
+
+      saveSecret(secret);
+
+      try {
+        /*
+         * نختبر endpoint المهام لأنه يدعم GET
+         * ويستخدم نفس ADMIN_SECRET.
+         */
+        const data = await apiCall("/api/tasks/manage", "GET");
+
+        if (data && data.success !== false) {
+          setAdminStatus(
+            "الاتصال بالسيرفر ناجح وصلاحيات المشرف تعمل.",
+            "success"
+          );
+        } else {
+          setAdminStatus(
+            data.error || "فشل التحقق من صلاحيات المشرف.",
+            "error"
+          );
+        }
+      } catch (err) {
+        setAdminStatus(
+          err.message || "تعذر الاتصال بالسيرفر.",
+          "error"
+        );
+      }
+    }
+
 
     async function loadTasks() {
       const container = document.getElementById("tasksList");
+
+      container.innerHTML =
+        '<p class="loading">جاري تحميل المهام...</p>';
+
       try {
-        const data = await apiCall("/api/tasks/manage");
+        const data = await apiCall(
+          "/api/tasks/manage",
+          "GET"
+        );
+
         if (!data.success) {
-          container.innerHTML = `<p style="color:red">${data.error || "خطأ في الصلاحيات"}</p>`;
+          container.innerHTML =
+            `<p class="error">${escapeHtml(
+              data.error || "خطأ في الصلاحيات"
+            )}</p>`;
           return;
         }
 
-        if (!data.tasks || data.tasks.length === 0) {
-          container.innerHTML = "<p>لا توجد مهام حالياً.</p>";
+        if (!Array.isArray(data.tasks) || data.tasks.length === 0) {
+          container.innerHTML =
+            '<p class="muted">لا توجد مهام حالياً.</p>';
           return;
         }
 
-        container.innerHTML = data.tasks.map(t => `
-          <div class="item">
-            <p><strong>العنوان:</strong> ${t.title}</p>
-            <p><strong>المكافأة:</strong> ${t.reward} 🪙</p>
-            <p><strong>الرابط:</strong> <a href="${t.url}" target="_blank" style="color: #40a7e3;">${t.url}</a></p>
-            <p><strong>الحالة:</strong> ${t.is_active ? '✅ مفعلة' : '❌ معطلة'}</p>
-          </div>
-        `).join("");
+        container.innerHTML = data.tasks.map(task => {
+          const title = escapeHtml(task.title || "");
+          const reward = Number(task.reward || 0);
+          const url = escapeHtml(task.url || "");
+          const active = Boolean(task.is_active);
+
+          return `
+            <div class="item">
+              <p>
+                <strong>العنوان:</strong>
+                ${title}
+              </p>
+
+              <p>
+                <strong>المكافأة:</strong>
+                ${reward.toLocaleString()} Coins
+              </p>
+
+              <p>
+                <strong>الرابط:</strong>
+                ${
+                  url
+                    ? `<a href="${url}" target="_blank" rel="noopener noreferrer">${url}</a>`
+                    : "لا يوجد"
+                }
+              </p>
+
+              <p>
+                <strong>الحالة:</strong>
+                ${
+                  active
+                    ? '<span class="success">مفعلة</span>'
+                    : '<span class="error">معطلة</span>'
+                }
+              </p>
+            </div>
+          `;
+        }).join("");
+
       } catch (err) {
-        container.innerHTML = "<p style="color:red">خطأ في الاتصال بالسيرفر.</p>";
+        container.innerHTML =
+          `<p class="error">${escapeHtml(
+            err.message || "خطأ في الاتصال بالسيرفر."
+          )}</p>`;
       }
     }
+
 
     async function addTask() {
-      const title = document.getElementById("taskTitle").value;
-      const reward = Number(document.getElementById("taskCoins").value);
-      const url = document.getElementById("taskLink").value;
+      const title =
+        document.getElementById("taskTitle").value.trim();
 
-      if (!title || isNaN(reward) || !url) {
-        alert("يرجى تعبئة جميع الحقول بشكل صحيح");
+      const reward =
+        Number(document.getElementById("taskCoins").value);
+
+      const url =
+        document.getElementById("taskLink").value.trim();
+
+      if (!title || !Number.isFinite(reward) || reward < 0 || !url) {
+        alert("يرجى تعبئة جميع الحقول بشكل صحيح.");
         return;
       }
 
-      const res = await apiCall("/api/tasks/manage", "POST", { title, reward, url, is_active: true });
-      if (res.success) {
-        alert("تمت إضافة المهمة بنجاح ✅");
-        document.getElementById("taskTitle").value = "";
-        document.getElementById("taskCoins").value = "";
-        document.getElementById("taskLink").value = "";
-        loadTasks();
-      } else {
-        alert(res.error || "فشل حفظ المهمة ❌");
+      try {
+        const result = await apiCall(
+          "/api/tasks/manage",
+          "POST",
+          {
+            title,
+            reward,
+            url,
+            is_active: true
+          }
+        );
+
+        if (result.success) {
+          alert("تمت إضافة المهمة بنجاح.");
+
+          document.getElementById("taskTitle").value = "";
+          document.getElementById("taskCoins").value = "";
+          document.getElementById("taskLink").value = "";
+
+          await loadTasks();
+        } else {
+          alert(
+            result.error ||
+            "فشل حفظ المهمة."
+          );
+        }
+
+      } catch (err) {
+        alert(
+          err.message ||
+          "تعذر الاتصال بالسيرفر."
+        );
       }
     }
+
 
     async function loadWithdrawals() {
-      const container = document.getElementById("withdrawalsList");
+      const container =
+        document.getElementById("withdrawalsList");
+
+      container.innerHTML =
+        '<p class="loading">جاري تحميل طلبات السحب...</p>';
+
       try {
-        const data = await apiCall("/api/admin/withdrawals");
-        if (data.error) {
-          container.innerHTML = `<p style="color:red">${data.error}</p>`;
+        const data = await apiCall(
+          "/api/admin/withdrawals",
+          "GET"
+        );
+
+        /*
+         * الـ API قد يرجع array مباشرة
+         * أو object يحتوي على withdrawals.
+         */
+        let withdrawals = [];
+
+        if (Array.isArray(data)) {
+          withdrawals = data;
+        } else if (Array.isArray(data.withdrawals)) {
+          withdrawals = data.withdrawals;
+        } else if (Array.isArray(data.data)) {
+          withdrawals = data.data;
+        }
+
+        if (withdrawals.length === 0) {
+          container.innerHTML =
+            '<p class="muted">لا توجد طلبات سحب معلقة.</p>';
           return;
         }
 
-        if (!Array.isArray(data) || data.length === 0) {
-          container.innerHTML = "<p>لا توجد طلبات سحب معلقة.</p>";
-          return;
-        }
+        container.innerHTML = withdrawals.map(withdrawal => {
+          const telegramId =
+            withdrawal.telegram_id ||
+            withdrawal.telegramId ||
+            "";
 
-        container.innerHTML = data.map(w => `
-          <div class="item">
-            <p><strong>المستخدم:</strong> @${w.username || 'NoUsername'} (${w.telegram_id})</p>
-            <p><strong>المبلغ:</strong> $${w.amount_usdt} USDT</p>
-            <p><strong>المحفظة:</strong> <code style="word-break:break-all">${w.wallet_address}</code></p>
-            <p><strong>الحالة:</strong> <span class="status-${w.status}">${w.status}</span></p>
-            ${w.status === 'PENDING' ? `
-              <div style="display:flex; gap:8px;">
-                <button class="approve" onclick="updateWithdrawal('${w.id}', 'APPROVED')">موافقة ✅</button>
-                <button class="reject" onclick="updateWithdrawal('${w.id}', 'REJECTED')">رفض ❌</button>
-              </div>
-            ` : ''}
-          </div>
-        `).join("");
+          const username =
+            withdrawal.username ||
+            "NoUsername";
+
+          const amount =
+            withdrawal.amount_usdt ??
+            withdrawal.withdrawal_amount ??
+            withdrawal.amount ??
+            0;
+
+          const wallet =
+            withdrawal.wallet_address ||
+            withdrawal.walletAddress ||
+            "غير محددة";
+
+          const rawStatus =
+            withdrawal.status ||
+            withdrawal.withdrawal_status ||
+            "pending";
+
+          const status =
+            String(rawStatus).toLowerCase();
+
+          const isPending =
+            status === "pending";
+
+          return `
+            <div class="item">
+
+              <p>
+                <strong>المستخدم:</strong>
+                @${escapeHtml(String(username))}
+              </p>
+
+              <p>
+                <strong>Telegram ID:</strong>
+                <code>${escapeHtml(String(telegramId))}</code>
+              </p>
+
+              <p>
+                <strong>المبلغ:</strong>
+                $${Number(amount).toFixed(4)} USDT
+              </p>
+
+              <p>
+                <strong>المحفظة:</strong>
+                <code>${escapeHtml(String(wallet))}</code>
+              </p>
+
+              <p>
+                <strong>الحالة:</strong>
+                <span class="status-${escapeHtml(status)}">
+                  ${escapeHtml(String(rawStatus))}
+                </span>
+              </p>
+
+              ${
+                isPending
+                  ? `
+                    <div class="withdraw-actions">
+
+                      <button
+                        class="approve"
+                        onclick="updateWithdrawal('${escapeJs(String(telegramId))}', 'approve')"
+                      >
+                        موافقة
+                      </button>
+
+                      <button
+                        class="reject"
+                        onclick="updateWithdrawal('${escapeJs(String(telegramId))}', 'reject')"
+                      >
+                        رفض
+                      </button>
+
+                    </div>
+                  `
+                  : ""
+              }
+
+            </div>
+          `;
+        }).join("");
+
       } catch (err) {
-        container.innerHTML = "<p>خطأ في تحميل البيانات.</p>";
+        container.innerHTML =
+          `<p class="error">${escapeHtml(
+            err.message ||
+            "خطأ في تحميل طلبات السحب."
+          )}</p>`;
       }
     }
 
-    async function updateWithdrawal(withdrawalId, status) {
-      const res = await apiCall("/api/admin/withdrawals/status", "POST", { withdrawalId, status });
-      if (res.success) {
-        alert("تم تحديث الحالة بنجاح");
-        loadWithdrawals();
-      } else {
-        alert(res.error || "فشل تنفيذ العملية");
-      }
-    }
 
-    async function sendBroadcast() {
-      const message = document.getElementById("broadcastMsg").value;
-      if (!message) {
-        alert("يرجى كتابة رسالة أولاً");
+    async function updateWithdrawal(telegramId, action) {
+      if (!telegramId) {
+        alert("Telegram ID غير موجود.");
         return;
       }
 
-      const res = await apiCall("/api/admin/broadcast", "POST", { message });
-      if (res.success) {
-        alert(`تم الإرسال إلى ${res.sentCount} مستخدم`);
-        document.getElementById("broadcastMsg").value = "";
-      } else {
-        alert(res.error || "خطأ في إرسال البث");
+      if (!["approve", "reject"].includes(action)) {
+        alert("إجراء غير صالح.");
+        return;
+      }
+
+      const confirmationText =
+        action === "approve"
+          ? "هل أنت متأكد من الموافقة على طلب السحب؟"
+          : "هل أنت متأكد من رفض طلب السحب وإعادة المبلغ للاعب؟";
+
+      if (!confirm(confirmationText)) {
+        return;
+      }
+
+      try {
+        /*
+         * مهم:
+         * api/admin/withdrawals/status.js عندك ينتظر:
+         *
+         * {
+         *   telegramId,
+         *   action: "approve" | "reject"
+         * }
+         */
+        const result = await apiCall(
+          "/api/admin/withdrawals/status",
+          "POST",
+          {
+            telegramId,
+            action
+          }
+        );
+
+        if (result.success) {
+          alert(
+            action === "approve"
+              ? "تمت الموافقة على طلب السحب."
+              : "تم رفض طلب السحب وإعادة المبلغ."
+          );
+
+          await loadWithdrawals();
+        } else {
+          alert(
+            result.error ||
+            "فشل تنفيذ العملية."
+          );
+        }
+
+      } catch (err) {
+        alert(
+          err.message ||
+          "تعذر تنفيذ العملية."
+        );
       }
     }
+
+
+    async function sendBroadcast() {
+      const textarea =
+        document.getElementById("broadcastMsg");
+
+      const message =
+        textarea.value.trim();
+
+      if (!message) {
+        alert("يرجى كتابة رسالة أولاً.");
+        return;
+      }
+
+      if (!confirm(
+        "هل تريد إرسال هذه الرسالة إلى جميع اللاعبين؟"
+      )) {
+        return;
+      }
+
+      try {
+        const result = await apiCall(
+          "/api/admin/broadcast",
+          "POST",
+          {
+            message
+          }
+        );
+
+        if (result.success) {
+          alert(
+            `تم الإرسال بنجاح إلى ${result.sentCount || 0} مستخدم.`
+          );
+
+          textarea.value = "";
+        } else {
+          alert(
+            result.error ||
+            "فشل إرسال الرسالة."
+          );
+        }
+
+      } catch (err) {
+        alert(
+          err.message ||
+          "تعذر الاتصال بالسيرفر."
+        );
+      }
+    }
+
+
+    function escapeHtml(value) {
+      return String(value)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    }
+
+
+    function escapeJs(value) {
+      return String(value)
+        .replace(/\\/g, "\\\\")
+        .replace(/'/g, "\\'")
+        .replace(/"/g, '\\"')
+        .replace(/\n/g, "\\n")
+        .replace(/\r/g, "\\r");
+    }
   </script>
+
 </body>
 </html>
