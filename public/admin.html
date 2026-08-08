@@ -100,6 +100,10 @@
       background: #4caf50;
     }
 
+    button.toggle {
+      background: #273449;
+    }
+
     .item {
       border-bottom: 1px solid #293243;
       padding: 14px 0;
@@ -132,8 +136,7 @@
     }
 
     .status-REJECTED,
-    .status-rejected,
-    .status-REJECTED {
+    .status-rejected {
       color: #e57373;
       font-weight: bold;
     }
@@ -168,6 +171,10 @@
     .withdraw-actions button {
       flex: 1;
       margin: 0;
+    }
+
+    .task-actions {
+      margin-top: 10px;
     }
 
     code {
@@ -344,10 +351,6 @@
         "x-admin-secret": secret
       };
 
-      /*
-       * نرسل Telegram initData أيضاً إذا كانت اللوحة مفتوحة
-       * داخل Telegram، لكن الـ Admin APIs تعتمد على ADMIN_SECRET.
-       */
       if (tg && tg.initData) {
         headers["Authorization"] = `tga ${tg.initData}`;
       }
@@ -405,10 +408,6 @@
       saveSecret(secret);
 
       try {
-        /*
-         * نختبر endpoint المهام لأنه يدعم GET
-         * ويستخدم نفس ADMIN_SECRET.
-         */
         const data = await apiCall("/api/tasks/manage", "GET");
 
         if (data && data.success !== false) {
@@ -458,6 +457,7 @@
         }
 
         container.innerHTML = data.tasks.map(task => {
+          const taskId = task.id;
           const title = escapeHtml(task.title || "");
           const reward = Number(task.reward || 0);
           const url = escapeHtml(task.url || "");
@@ -465,6 +465,11 @@
 
           return `
             <div class="item">
+              <p>
+                <strong>ID:</strong>
+                <code>${escapeHtml(String(taskId))}</code>
+              </p>
+
               <p>
                 <strong>العنوان:</strong>
                 ${title}
@@ -492,6 +497,15 @@
                     : '<span class="error">معطلة</span>'
                 }
               </p>
+
+              <div class="task-actions">
+                <button
+                  class="toggle"
+                  onclick="toggleTask('${escapeJs(String(taskId))}')"
+                >
+                  ${active ? "تعطيل المهمة" : "تفعيل المهمة"}
+                </button>
+              </div>
             </div>
           `;
         }).join("");
@@ -501,6 +515,45 @@
           `<p class="error">${escapeHtml(
             err.message || "خطأ في الاتصال بالسيرفر."
           )}</p>`;
+      }
+    }
+
+
+    async function toggleTask(taskId) {
+      if (!taskId) {
+        alert("Task ID غير موجود.");
+        return;
+      }
+
+      if (!confirm("هل تريد تغيير حالة هذه المهمة؟")) {
+        return;
+      }
+
+      try {
+        const result = await apiCall(
+          "/api/tasks/manage",
+          "POST",
+          {
+            id: taskId,
+            action: "toggle"
+          }
+        );
+
+        if (result.success) {
+          alert("تم تغيير حالة المهمة بنجاح.");
+          await loadTasks();
+        } else {
+          alert(
+            result.error ||
+            "فشل تغيير حالة المهمة."
+          );
+        }
+
+      } catch (err) {
+        alert(
+          err.message ||
+          "تعذر تغيير حالة المهمة."
+        );
       }
     }
 
@@ -569,10 +622,6 @@
           "GET"
         );
 
-        /*
-         * الـ API قد يرجع array مباشرة
-         * أو object يحتوي على withdrawals.
-         */
         let withdrawals = [];
 
         if (Array.isArray(data)) {
@@ -710,15 +759,6 @@
       }
 
       try {
-        /*
-         * مهم:
-         * api/admin/withdrawals/status.js عندك ينتظر:
-         *
-         * {
-         *   telegramId,
-         *   action: "approve" | "reject"
-         * }
-         */
         const result = await apiCall(
           "/api/admin/withdrawals/status",
           "POST",
