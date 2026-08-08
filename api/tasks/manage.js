@@ -6,6 +6,26 @@ function isAuthorized(req) {
   return Boolean(expected) && provided === expected
 }
 
+function normalizeTaskType(value) {
+  const type = String(value || 'normal').trim()
+
+  if (['normal', 'watch_ad', 'join_channel', 'custom'].includes(type)) {
+    return type
+  }
+
+  return 'normal'
+}
+
+function normalizeMaxCompletions(value) {
+  const num = Number(value)
+
+  if (!Number.isFinite(num) || num < 1) {
+    return 1
+  }
+
+  return Math.floor(num)
+}
+
 export default async function handler(req, res) {
   if (!isAuthorized(req)) {
     return res.status(401).json({
@@ -41,7 +61,7 @@ export default async function handler(req, res) {
   }
 
   // =========================
-  // POST — إضافة / تعديل / تفعيل / تعطيل
+  // POST — إضافة / تعديل / تفعيل / تعطيل / حذف
   // =========================
   if (req.method === 'POST') {
     try {
@@ -54,24 +74,27 @@ export default async function handler(req, res) {
         url,
         is_active,
         action,
+        task_type,
+        max_completions,
       } = body
 
       // =========================
       // TOGGLE TASK
       // =========================
       if (action === 'toggle') {
-        if (!id) {
+        if (id === undefined || id === null || String(id).trim() === '') {
           return res.status(400).json({
             success: false,
             error: 'Task ID is required',
           })
         }
 
-        // أولاً نجيب الحالة الحالية
+        const normalizedId = String(id).trim()
+
         const { data: task, error: fetchError } = await supabase
           .from('tasks')
           .select('*')
-          .eq('id', id)
+          .eq('id', normalizedId)
           .single()
 
         if (fetchError || !task) {
@@ -81,7 +104,6 @@ export default async function handler(req, res) {
           })
         }
 
-        // نعكس الحالة
         const newStatus = !Boolean(task.is_active)
 
         const { data: updated, error: updateError } = await supabase
@@ -89,7 +111,7 @@ export default async function handler(req, res) {
           .update({
             is_active: newStatus,
           })
-          .eq('id', id)
+          .eq('id', normalizedId)
           .select()
           .single()
 
@@ -106,17 +128,19 @@ export default async function handler(req, res) {
       // DELETE — حذف مهمة
       // =========================
       if (action === 'delete') {
-        if (!id) {
+        if (id === undefined || id === null || String(id).trim() === '') {
           return res.status(400).json({
             success: false,
             error: 'Task ID is required',
           })
         }
 
+        const normalizedId = String(id).trim()
+
         const { error: deleteError } = await supabase
           .from('tasks')
           .delete()
-          .eq('id', id)
+          .eq('id', normalizedId)
 
         if (deleteError) throw deleteError
 
@@ -129,7 +153,6 @@ export default async function handler(req, res) {
       // =========================
       // CREATE / UPDATE
       // =========================
-
       if (typeof title !== 'string' || !title.trim()) {
         return res.status(400).json({
           success: false,
@@ -166,20 +189,21 @@ export default async function handler(req, res) {
         title: title.trim(),
         reward: rewardNum,
         url: url.trim(),
-        is_active:
-          typeof is_active === 'boolean'
-            ? is_active
-            : true,
+        is_active: typeof is_active === 'boolean' ? is_active : true,
+        task_type: normalizeTaskType(task_type),
+        max_completions: normalizeMaxCompletions(max_completions),
       }
 
       let result
 
       // UPDATE
-      if (id) {
+      if (id !== undefined && id !== null && String(id).trim() !== '') {
+        const normalizedId = String(id).trim()
+
         result = await supabase
           .from('tasks')
           .update(payload)
-          .eq('id', id)
+          .eq('id', normalizedId)
           .select()
       }
 
