@@ -24,7 +24,7 @@ type ProgressMap = Record<string, TaskProgress>;
 type OpenedMap = Record<string, number>;
 
 const PROGRESS_KEY = "sly.tasks.progress.v2";
-const OPENED_KEY = "sly.tasks.opened.v1";
+const OPENED_KEY = "sly.tasks.opened.v2";
 const CLAIM_DELAY_MS = 3000;
 
 function loadProgress(): ProgressMap {
@@ -204,27 +204,12 @@ export default function Tasks({ onRewardCoins }: Props) {
 
     window.open(url, "_blank", "noopener,noreferrer");
 
-    const now = Date.now();
     setOpenedAtById((prev) => ({
       ...prev,
-      [id]: now,
+      [id]: Date.now(),
     }));
 
     setToast("Opened. Wait 3 seconds.");
-  };
-
-  const canClaimTask = (task: ServerTask) => {
-    const id = String(task.id);
-    const progress = progressById[id] || {
-      completed: 0,
-      max_completions: Math.max(1, Number(task.max_completions || 1)),
-    };
-
-    const openedAt = openedAtById[id];
-    const waitedEnough =
-      typeof openedAt === "number" && Date.now() - openedAt >= CLAIM_DELAY_MS;
-
-    return Boolean(openedAt) && waitedEnough && progress.completed < progress.max_completions;
   };
 
   const handleClaimServerTask = async (task: ServerTask) => {
@@ -232,12 +217,13 @@ export default function Tasks({ onRewardCoins }: Props) {
 
     if (claimingIds[id]) return;
 
-    if (!openedAtById[id]) {
+    const openedAt = openedAtById[id];
+    if (!openedAt) {
       setToast("Open the task link first.");
       return;
     }
 
-    if (Date.now() - openedAtById[id] < CLAIM_DELAY_MS) {
+    if (Date.now() - openedAt < CLAIM_DELAY_MS) {
       setToast("Wait 3 seconds after opening.");
       return;
     }
@@ -265,6 +251,14 @@ export default function Tasks({ onRewardCoins }: Props) {
           max_completions: nextMax,
         },
       }));
+
+      // مهم: بعد كل Claim ناجح، نلغي "جلسة الفتح"
+      // حتى ما يقدر يكرر Claim بنفس الفتح.
+      setOpenedAtById((prev) => {
+        const copy = { ...prev };
+        delete copy[id];
+        return copy;
+      });
 
       onRewardCoins(
         reward,
@@ -313,10 +307,8 @@ export default function Tasks({ onRewardCoins }: Props) {
             };
 
             const openedAt = openedAtById[id];
-            const waitedEnough =
-              typeof openedAt === "number" && Date.now() - openedAt >= CLAIM_DELAY_MS;
-
             const opened = Boolean(openedAt);
+            const waitedEnough = opened && Date.now() - openedAt >= CLAIM_DELAY_MS;
             const claimedAll = progress.completed >= progress.max_completions;
             const claiming = Boolean(claimingIds[id]);
 
