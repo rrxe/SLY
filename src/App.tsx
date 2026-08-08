@@ -31,47 +31,35 @@ type WalletState = {
   usdt: number;
   spent: number;
   energy: number;
+  walletAddress: string | null;
 };
 
-const STORAGE_KEY = "sly.wallet.v2";
-const DEFAULT_COINS = 12480;
-const DEFAULT_USDT = 0.13;
 export const ENERGY_MAX = 5;
 
 function makeId() {
   return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
-function loadWallet(): WalletState {
-  if (typeof window === "undefined") {
-    return { coins: DEFAULT_COINS, usdt: DEFAULT_USDT, spent: 0, energy: ENERGY_MAX };
-  }
-
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return { coins: DEFAULT_COINS, usdt: DEFAULT_USDT, spent: 0, energy: ENERGY_MAX };
-
-    const parsed = JSON.parse(raw) as Partial<WalletState>;
-    return {
-      coins: typeof parsed.coins === "number" ? parsed.coins : DEFAULT_COINS,
-      usdt: typeof parsed.usdt === "number" ? parsed.usdt : DEFAULT_USDT,
-      spent: typeof parsed.spent === "number" ? parsed.spent : 0,
-      energy: typeof parsed.energy === "number" ? parsed.energy : ENERGY_MAX,
-    };
-  } catch {
-    return { coins: DEFAULT_COINS, usdt: DEFAULT_USDT, spent: 0, energy: ENERGY_MAX };
-  }
+function getInitData() {
+  const tg = (window as any).Telegram?.WebApp;
+  return tg?.initData || "";
 }
 
-function loadActivities(): Activity[] {
-  return [
-    {
-      id: makeId(),
-      title: "Wallet ready",
-      meta: "Premium reward wallet online",
-      tone: "info",
+async function callApi(path: string, options: RequestInit = {}) {
+  const initData = getInitData();
+  const res = await fetch(path, {
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `tga ${initData}`,
+      ...(options.headers || {}),
     },
-  ];
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(data.error || `Request failed (${res.status})`);
+  }
+  return data;
 }
 
 export default function App() {
@@ -80,22 +68,49 @@ export default function App() {
   const [exchangeOpen, setExchangeOpen] = useState(false);
   const [withdrawOpen, setWithdrawOpen] = useState(false);
 
-  const [wallet, setWallet] = useState<WalletState>(() => loadWallet());
-  const [activities, setActivities] = useState<Activity[]>(() => loadActivities());
+  const [wallet, setWallet] = useState<WalletState>({
+    coins: 0,
+    usdt: 0,
+    spent: 0,
+    energy: ENERGY_MAX,
+    walletAddress: null,
+  });
+  const [activities, setActivities] = useState<Activity[]>([]);
+  const [booting, setBooting] = useState(true);
+  const [bootError, setBootError] = useState("");
 
   useEffect(() => {
-    try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(wallet));
-    } catch {
-      // ignore storage failures
-    }
-  }, [wallet]);
+    let cancelled = false;
+
+    callApi("/api/auth/me", { method: "GET" })
+      .then((data) => {
+        if (cancelled) return;
+        setWallet((prev) => ({
+          ...prev,
+          coins: data.coins ?? 0,
+          usdt: data.usdtBalance ?? 0,
+          walletAddress: data.walletAddress ?? null,
+        }));
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setBootError(
+          String(err.message || "").includes("authentication")
+            ? "افتح اللعبة من داخل تطبيق تيليجرام حتى يتم التعرف على حسابك."
+            : "تعذر الاتصال بالخادم، حاول إغلاق التطبيق وفتحه مرة أخرى."
+        );
+      })
+      .finally(() => {
+        if (!cancelled) setBooting(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const pushActivity = (title: string, meta: string, tone: ActivityTone) => {
-    setActivities((prev) => [
-      { id: makeId(), title, meta, tone },
-      ...prev,
-    ].slice(0, 8));
+    setActivities((prev) => [{ id: makeId(), title, meta, tone }, ...prev].slice(0, 8));
   };
 
   const handleClaimDaily = (amount: number) => {
@@ -108,57 +123,121 @@ export default function App() {
     pushActivity(title, meta, "reward");
   };
 
-  const handleExchange = (amountCoins: number) => {
+  const handleExchange = async (amountCoins: number) => {
     if (amountCoins <= 0 || amountCoins > wallet.coins) return;
 
-    const usdt = Number((amountCoins * 0.0000025).toFixed(4));
+    try {
+      const data = await callApi("/api/exchange", {
+        method: "POST",
+        body: JSON.stringify({ amountCoins }),
+      });
 
-    setWallet((prev) => ({
-      ...prev,
-      coins: prev.coins - amountCoins,
-      usdt: Number((prev.usdt + usdt).toFixed(4)),
-      spent: prev.spent + amountCoins,
-    }));
+      setWallet((prev) => ({
+        ...prev,
+        coins: data.coins,
+        usdt: data.usdtBalance,
+        spent: prev.spent + amountCoins,
+      }));
 
-    pushActivity(
-      "Exchange completed",
-      `${amountCoins.toLocaleString()} Coins → ${usdt.toFixed(4)} USDT`,
-      "exchange"
-    );
+      pushActivity(
+        "Exchange completed",
+        `${amountCoins.toLocaleString()} Coins → ${data.usdtGained} USDT`,
+        "exchange"
+      );
+    } catch (err: any) {
+      pushActivity("Exchange failed", err.message, "info");
+    }
   };
 
-  const handleWithdraw = (amount: number) => {
+  const handleWithdraw = async (amount: number) => {
     if (amount <= 0 || amount > wallet.usdt) return;
 
-    setWallet((prev) => ({
-      ...prev,
-      usdt: Number((prev.usdt - amount).toFixed(4)),
-    }));
+    try {
+      const data = await callApi("/api/withdraw", {
+        method: "POST",
+        body: JSON.stringify({ amount }),
+      });
 
-    pushActivity(
-      "Withdrawal requested",
-      `${amount.toFixed(4)} USDT sent for processing`,
-      "exchange"
-    );
+      setWallet((prev) => ({ ...prev, usdt: data.usdtBalance }));
+
+      pushActivity(
+        "Withdrawal requested",
+        `${amount.toFixed(4)} USDT sent for processing`,
+        "exchange"
+      );
+    } catch (err: any) {
+      pushActivity("Withdrawal failed", err.message, "info");
+    }
   };
 
-  // Starts a run: costs 1 energy. Blocked if no energy left.
+  const handleWalletConnected = (address: string) => {
+    setWallet((prev) => ({ ...prev, walletAddress: address }));
+  };
+
+  const handleWalletDisconnected = () => {
+    setWallet((prev) => ({ ...prev, walletAddress: null }));
+  };
+
   const handlePlay = () => {
     if (wallet.energy <= 0) return;
     setWallet((prev) => ({ ...prev, energy: prev.energy - 1 }));
     setMode("game");
   };
 
-  // Called by GameCanvas when a run ends. Pass the coins earned in that run (0 if none).
   const handleGameExit = (coinsEarned = 0) => {
     if (coinsEarned > 0) {
       setWallet((prev) => ({ ...prev, coins: prev.coins + coinsEarned }));
       pushActivity(`Run reward +${coinsEarned}`, "Coins earned from Laser Escape", "reward");
+
+      callApi("/api/tasks/complete", {
+        method: "POST",
+        body: JSON.stringify({ taskType: "game_run", reward: coinsEarned }),
+      }).catch(() => {});
     }
     setMode("lobby");
   };
 
   const lifetimeCoins = useMemo(() => wallet.coins + wallet.spent, [wallet.coins, wallet.spent]);
+
+  if (booting) {
+    return (
+      <div className="app">
+        <Background />
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            height: "100%",
+            color: "#eaf3ff",
+          }}
+        >
+          جارِ التحميل...
+        </div>
+      </div>
+    );
+  }
+
+  if (bootError) {
+    return (
+      <div className="app">
+        <Background />
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            height: "100%",
+            color: "#eaf3ff",
+            padding: 24,
+            textAlign: "center",
+          }}
+        >
+          {bootError}
+        </div>
+      </div>
+    );
+  }
 
   if (mode === "game") {
     return <GameCanvas onExit={handleGameExit} />;
@@ -192,8 +271,11 @@ export default function App() {
               lifetimeSpent={wallet.spent}
               usdtBalance={wallet.usdt}
               activities={activities}
+              serverWalletAddress={wallet.walletAddress}
               onOpenExchange={() => setExchangeOpen(true)}
               onOpenWithdraw={() => setWithdrawOpen(true)}
+              onWalletConnected={handleWalletConnected}
+              onWalletDisconnected={handleWalletDisconnected}
             />
           )}
         </div>

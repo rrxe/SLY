@@ -46,7 +46,6 @@ export default function Home({
   const [toast, setToast] = useState("");
 
   useEffect(() => {
-    // Fetch real leaderboard data from server 📊
     fetch("/api/leaderboard")
       .then((res) => res.json())
       .then((data) => {
@@ -58,11 +57,10 @@ export default function Home({
   }, []);
 
   useEffect(() => {
-    // Fetch user status from server on load
     const tg = window.Telegram?.WebApp;
     const initData = tg?.initData || "";
 
-    fetch("/api/user-status", {
+    fetch("/api/auth/me", {
       headers: {
         "Authorization": `tga ${initData}`,
       },

@@ -1,33 +1,114 @@
-import { createClient } from '@supabase/supabase-js'
+import { supabase } from '../../lib/supabase.js'
+import { authenticateRequest } from '../../lib/telegram-auth.js'
 
-const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SECRET_KEY)
+// هذا الملف كان ناقص بالكامل من مشروعك، وهو سبب أساسي إن صفحة Referrals
+// ما تطلع (كانت تسوي fetch على /api/auth/me وترجع 404 دائماً).
+// نفس الشي يستخدمه App.tsx لجلب رصيد اللاعب الحقيقي بدل الأرقام الوهمية
+// اللي كانت مخزنة بالـ localStorage بالمتصفح.
+
+function isSameUtcDay(dateA, dateB) {
+  return (
+    dateA.getUTCFullYear() === dateB.getUTCFullYear() &&
+    dateA.getUTCMonth() === dateB.getUTCMonth() &&
+    dateA.getUTCDate() === dateB.getUTCDate()
+  )
+}
 
 export default async function handler(req, res) {
-  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
+  if (req.method !== 'GET' && req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' })
+  }
+
+  const auth = authenticateRequest(req)
+  if (!auth) {
+    return res.status(401).json({
+      error: 'Invalid or missing Telegram authentication',
+    })
+  }
+
+  const telegramId = auth.id
 
   try {
-    const authHeader = req.headers.authorization || ''
-    const initData = authHeader.replace('tga ', '')
-    const urlParams = new URLSearchParams(initData)
-    const userStr = urlParams.get('user')
-
-    if (!userStr) return res.status(400).json({ error: 'No user data' })
-
-    const telegramId = JSON.parse(userStr).id
-
-    const { data, error } = await supabase
+    let { data: player, error } = await supabase
       .from('players')
-      .select('telegram_id, referrals_count')
+      .select('*')
       .eq('telegram_id', telegramId)
       .single()
 
-    if (error) return res.status(200).json({ telegramId, referralsCount: 0 })
+    if (error && error.code !== 'PGRST116') throw error
+
+    if (!player) {
+      // لاعب جديد -> يبدأ دائماً برصيد 0 عملة و 0 USDT (حسب طلبك)
+      const newPlayerPayload = {
+        telegram_id: telegramId,
+        username: auth.username,
+        coin: 0,
+        usdt_balance: 0,
+      }
+
+      // ربط الإحالة: لو دخل عن طريق رابط صديق start_param = ref_<telegram_id>
+      let referrerId = null
+      if (auth.startParam && auth.startParam.startsWith('ref_')) {
+        const candidate = auth.startParam.replace('ref_', '')
+        if (candidate && String(candidate) !== String(telegramId)) {
+          referrerId = candidate
+          newPlayerPayload.referred_by = candidate
+        }
+      }
+
+      const { data: created, error: insertError } = await supabase
+        .from('players')
+        .insert([newPlayerPayload])
+        .select()
+        .single()
+
+      if (insertError) throw insertError
+      player = created
+
+      // مكافأة 500 عملة للمُحيل عند أول إحالة ناجحة
+      if (referrerId) {
+        const { data: referrer } = await supabase
+          .from('players')
+          .select('coin')
+          .eq('telegram_id', referrerId)
+          .single()
+
+        if (referrer) {
+          await supabase
+            .from('players')
+            .update({ coin: (referrer.coin || 0) + 500 })
+            .eq('telegram_id', referrerId)
+        }
+      }
+    } else if (auth.username && auth.username !== player.username) {
+      await supabase.from('players').update({ username: auth.username }).eq('telegram_id', telegramId)
+      player.username = auth.username
+    }
+
+    // حالة تسجيل الحضور اليومي
+    let claimedToday = false
+    if (player.last_checkin) {
+      claimedToday = isSameUtcDay(new Date(player.last_checkin), new Date())
+    }
+
+    // عدد الأشخاص اللي دخلوا برابط إحالة هذا اللاعب
+    const { count: referralsCount } = await supabase
+      .from('players')
+      .select('telegram_id', { count: 'exact', head: true })
+      .eq('referred_by', telegramId)
 
     return res.status(200).json({
-      telegramId: data.telegram_id,
-      referralsCount: data.referrals_count || 0
+      telegramId: String(player.telegram_id),
+      username: player.username,
+      coins: player.coin || 0,
+      usdtBalance: player.usdt_balance || 0,
+      walletAddress: player.wallet_address || null,
+      streak: player.streak || 0,
+      claimedToday,
+      referralsCount: referralsCount || 0,
     })
   } catch (err) {
+    console.error('auth/me error:', err)
     return res.status(500).json({ error: err.message })
   }
 }

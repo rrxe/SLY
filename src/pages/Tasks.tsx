@@ -11,7 +11,16 @@ type StoredTasks = {
   adsWatched: number;
 };
 
+type ServerTask = {
+  id: string | number;
+  title: string;
+  reward: number;
+  url: string;
+  is_active: boolean;
+};
+
 const STORAGE_KEY = "sly.tasks.simple.v2";
+const CLAIMED_TASKS_KEY = "sly.tasks.claimed.v1";
 const CHANNEL_URL = "https://t.me/SLYMint_Channel";
 const CHANNEL_REWARD = 500;
 const AD_REWARD = 150;
@@ -35,6 +44,21 @@ function loadState(): StoredTasks {
   } catch {
     return { channelJoined: false, channelClaimed: false, adsWatched: 0 };
   }
+}
+
+function loadClaimedServerTasks(): string[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.localStorage.getItem(CLAIMED_TASKS_KEY);
+    return raw ? (JSON.parse(raw) as string[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+function getInitData() {
+  const tg = (window as any).Telegram?.WebApp;
+  return tg?.initData || "";
 }
 
 function ChannelIcon() {
@@ -98,6 +122,11 @@ export default function Tasks({ onRewardCoins }: Props) {
   const [watchingAd, setWatchingAd] = useState(false);
   const [adProgress, setAdProgress] = useState(0);
 
+  const [serverTasks, setServerTasks] = useState<ServerTask[]>([]);
+  const [claimedIds, setClaimedIds] = useState<string[]>(() => loadClaimedServerTasks());
+  const [openedIds, setOpenedIds] = useState<string[]>([]);
+  const [loadingTasks, setLoadingTasks] = useState(true);
+
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: "auto" });
   }, []);
@@ -105,10 +134,14 @@ export default function Tasks({ onRewardCoins }: Props) {
   useEffect(() => {
     try {
       window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-    } catch {
-      // ignore
-    }
+    } catch {}
   }, [state]);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(CLAIMED_TASKS_KEY, JSON.stringify(claimedIds));
+    } catch {}
+  }, [claimedIds]);
 
   useEffect(() => {
     if (!toast) return;
@@ -116,22 +149,33 @@ export default function Tasks({ onRewardCoins }: Props) {
     return () => window.clearTimeout(timer);
   }, [toast]);
 
-  const reportRewardToServer = async (rewardAmount: number, taskType: string) => {
-    try {
-      const tg = window.Telegram?.WebApp;
-      const initData = tg?.initData || "";
+  useEffect(() => {
+    fetch("/api/tasks/list")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data?.success && Array.isArray(data.tasks)) {
+          setServerTasks(data.tasks);
+        }
+      })
+      .catch(() => {})
+      .finally(() => setLoadingTasks(false));
+  }, []);
 
-      await fetch("/api/tasks/complete", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `tga ${initData}`,
-        },
-        body: JSON.stringify({ reward: rewardAmount, taskType }),
-      });
-    } catch (err) {
-      console.error("Failed to sync task reward with server", err);
+  const reportRewardToServer = async (body: Record<string, unknown>) => {
+    const initData = getInitData();
+    const res = await fetch("/api/tasks/complete", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `tga ${initData}`,
+      },
+      body: JSON.stringify(body),
+    });
+    const data = await res.json();
+    if (!res.ok || !data.success) {
+      throw new Error(data.error || "Failed to claim reward");
     }
+    return data as { success: true; coins: number; reward: number };
   };
 
   useEffect(() => {
@@ -147,24 +191,28 @@ export default function Tasks({ onRewardCoins }: Props) {
       if (progress >= 100) {
         window.clearInterval(interval);
 
-        window.setTimeout(() => {
+        window.setTimeout(async () => {
           setWatchingAd(false);
           setAdProgress(0);
 
           if (state.adsWatched < AD_LIMIT) {
-            const nextCount = state.adsWatched + 1;
+            try {
+              await reportRewardToServer({ taskType: "watch_ad" });
 
-            setState((prev) => ({ ...prev, adsWatched: nextCount }));
-            onRewardCoins(
-              AD_REWARD,
-              "Ad watched",
-              `Watch ad ${nextCount}/${AD_LIMIT} +${AD_REWARD} coins`
-            );
-            reportRewardToServer(AD_REWARD, "watch_ad");
-            setToast(`+${AD_REWARD} coins`);
+              const nextCount = state.adsWatched + 1;
+              setState((prev) => ({ ...prev, adsWatched: nextCount }));
+              onRewardCoins(
+                AD_REWARD,
+                "Ad watched",
+                `Watch ad ${nextCount}/${AD_LIMIT} +${AD_REWARD} coins`
+              );
+              setToast(`+${AD_REWARD} coins`);
 
-            if (nextCount === AD_LIMIT) {
-              setToast("Ad limit completed.");
+              if (nextCount === AD_LIMIT) {
+                setToast("Ad limit completed.");
+              }
+            } catch (err: any) {
+              setToast(err.message || "Failed to claim reward");
             }
           }
         }, 250);
@@ -182,13 +230,17 @@ export default function Tasks({ onRewardCoins }: Props) {
     setToast("Channel opened.");
   };
 
-  const handleClaimChannel = () => {
+  const handleClaimChannel = async () => {
     if (!state.channelJoined || state.channelClaimed) return;
 
-    setState((prev) => ({ ...prev, channelClaimed: true }));
-    onRewardCoins(CHANNEL_REWARD, "Channel reward", `Joined official channel +${CHANNEL_REWARD} coins`);
-    reportRewardToServer(CHANNEL_REWARD, "join_channel");
-    setToast(`+${CHANNEL_REWARD} coins`);
+    try {
+      await reportRewardToServer({ taskType: "join_channel" });
+      setState((prev) => ({ ...prev, channelClaimed: true }));
+      onRewardCoins(CHANNEL_REWARD, "Channel reward", `Joined official channel +${CHANNEL_REWARD} coins`);
+      setToast(`+${CHANNEL_REWARD} coins`);
+    } catch (err: any) {
+      setToast(err.message || "Failed to claim reward");
+    }
   };
 
   const handleWatchAd = () => {
@@ -196,6 +248,25 @@ export default function Tasks({ onRewardCoins }: Props) {
     if (state.adsWatched >= AD_LIMIT) return;
     setWatchingAd(true);
     setToast("Watching ad...");
+  };
+
+  const handleOpenServerTask = (task: ServerTask) => {
+    window.open(task.url, "_blank", "noopener,noreferrer");
+    setOpenedIds((prev) => (prev.includes(String(task.id)) ? prev : [...prev, String(task.id)]));
+  };
+
+  const handleClaimServerTask = async (task: ServerTask) => {
+    const id = String(task.id);
+    if (claimedIds.includes(id)) return;
+
+    try {
+      const data = await reportRewardToServer({ taskId: task.id });
+      setClaimedIds((prev) => [...prev, id]);
+      onRewardCoins(data.reward ?? task.reward, task.title, `+${data.reward ?? task.reward} coins`);
+      setToast(`+${data.reward ?? task.reward} coins`);
+    } catch (err: any) {
+      setToast(err.message || "Failed to claim reward");
+    }
   };
 
   return (
@@ -288,6 +359,57 @@ export default function Tasks({ onRewardCoins }: Props) {
             </button>
           </div>
         </article>
+
+        {!loadingTasks &&
+          serverTasks.map((task) => {
+            const id = String(task.id);
+            const claimed = claimedIds.includes(id);
+            const opened = openedIds.includes(id);
+
+            return (
+              <article key={id} className={`task-row ${claimed ? "done" : ""}`}>
+                <div className="task-icon channel">
+                  <ChannelIcon />
+                </div>
+
+                <div className="task-main">
+                  <div className="task-topline">
+                    <div>
+                      <p className="task-type">Special</p>
+                      <h2>{task.title}</h2>
+                    </div>
+                    <strong className="task-reward">+{task.reward}</strong>
+                  </div>
+
+                  <div className="task-mini-status">
+                    <span className={claimed ? "green" : opened ? "blue" : "gray"}>
+                      {claimed ? "Claimed" : opened ? "Ready to claim" : "Not started"}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="task-actions">
+                  <button
+                    type="button"
+                    className="task-btn join"
+                    onClick={() => handleOpenServerTask(task)}
+                    disabled={opened}
+                  >
+                    {opened ? "Opened" : "Open"}
+                  </button>
+
+                  <button
+                    type="button"
+                    className="task-btn claim"
+                    onClick={() => handleClaimServerTask(task)}
+                    disabled={!opened || claimed}
+                  >
+                    {claimed ? "Claimed" : "Claim"}
+                  </button>
+                </div>
+              </article>
+            );
+          })}
       </section>
     </section>
   );

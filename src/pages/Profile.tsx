@@ -17,6 +17,7 @@ type Props = {
   lifetimeSpent: number;
   usdtBalance: number;
   activities: Activity[];
+  serverWalletAddress?: string | null;
   onOpenExchange: () => void;
   onOpenWithdraw: () => void;
   onWalletConnected?: (address: string) => void;
@@ -47,13 +48,14 @@ export default function Profile({
   lifetimeSpent,
   usdtBalance,
   activities,
+  serverWalletAddress,
   onOpenExchange,
   onOpenWithdraw,
   onWalletConnected,
   onWalletDisconnected,
 }: Props) {
   const [connectedAddress, setConnectedAddress] = useState<string | null>(() =>
-    loadStoredAddress()
+    serverWalletAddress ?? loadStoredAddress()
   );
   const [inputValue, setInputValue] = useState("");
   const [error, setError] = useState("");

@@ -1,29 +1,32 @@
-import { createClient } from '@supabase/supabase-js'
+import { supabase } from '../../lib/supabase.js'
+import { authenticateRequest } from '../../lib/telegram-auth.js'
 
-const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SECRET_KEY)
+const BEP20_PATTERN = /^0x[a-fA-F0-9]{40}$/
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
 
+  const auth = authenticateRequest(req)
+  if (!auth) return res.status(401).json({ error: 'Invalid or missing Telegram authentication' })
+
+  const telegramId = auth.id
+
   try {
-    const authHeader = req.headers.authorization || ''
-    const initData = authHeader.replace('tga ', '')
-    const urlParams = new URLSearchParams(initData)
-    const userStr = urlParams.get('user')
+    const { walletAddress } = req.body || {}
 
-    if (!userStr) return res.status(400).json({ error: 'No user data' })
-
-    const telegramId = JSON.parse(userStr).id
-    const { walletAddress } = req.body
+    // نسمح بـ null لفك ربط المحفظة، لكن أي قيمة نصية لازم تكون عنوان BEP20 صحيح
+    if (walletAddress !== null && walletAddress !== undefined && !BEP20_PATTERN.test(walletAddress)) {
+      return res.status(400).json({ error: 'Invalid BEP20 wallet address' })
+    }
 
     const { error: updateError } = await supabase
       .from('players')
-      .update({ wallet_address: walletAddress })
+      .update({ wallet_address: walletAddress ?? null })
       .eq('telegram_id', telegramId)
 
     if (updateError) throw updateError
 
-    return res.status(200).json({ success: true, walletAddress })
+    return res.status(200).json({ success: true, walletAddress: walletAddress ?? null })
   } catch (err) {
     return res.status(500).json({ error: err.message })
   }
