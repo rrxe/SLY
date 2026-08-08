@@ -73,6 +73,16 @@
   gap: 10px;
 }
 
+.task-empty {
+  border-radius: 18px;
+  background: #0d1627;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  padding: 16px;
+  color: #9fb0cc;
+  font-size: 13px;
+  text-align: center;
+}
+
 .task-row {
   border-radius: 18px;
   background: #0d1627;
@@ -100,11 +110,6 @@
 .task-icon.channel {
   background: rgba(124, 196, 255, 0.1);
   color: #7cc4ff;
-}
-
-.task-icon.ad {
-  background: rgba(255, 176, 46, 0.1);
-  color: #ffb02e;
 }
 
 .task-svg {
@@ -177,32 +182,6 @@
   background: rgba(0, 240, 156, 0.12);
 }
 
-.task-progress {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.task-progress-bar {
-  height: 7px;
-  border-radius: 999px;
-  background: #15233b;
-  overflow: hidden;
-}
-
-.task-progress-bar span {
-  display: block;
-  height: 100%;
-  border-radius: 999px;
-  background: linear-gradient(90deg, #00f09c, #0ff0d0);
-  transition: width 0.25s ease;
-}
-
-.task-progress small {
-  color: #7f8fac;
-  font-size: 11px;
-}
-
 .task-actions {
   display: flex;
   flex-direction: column;
@@ -236,11 +215,6 @@
   border: 1px solid rgba(255, 255, 255, 0.05);
 }
 
-.task-btn.watch {
-  color: #06130c;
-  background: linear-gradient(90deg, #ffb02e, #ffd65c);
-}
-
 .task-btn:disabled {
   cursor: default;
   opacity: 0.72;
@@ -249,10 +223,6 @@
 @media (max-width: 420px) {
   .tasks-page {
     padding: 14px 14px 100px;
-  }
-
-  .task-row {
-    border-radius: 18px;
   }
 
   .task-row {
