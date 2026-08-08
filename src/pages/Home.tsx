@@ -242,28 +242,6 @@ seamless run.
             )}
           </div>
         </article>
-
-        <article className="mini-card">
-          <div className="section-head compact">
-            <div>
-              <p>Quick Reward</p>
-              <h2>Streak ladder</h2>
-            </div>
-            <div className="chest-orb" />
-          </div>
-
-          <div className="odds-list">
-            {milestones.map((item) => {
-              const achieved = streak >= item.days;
-              return (
-                <div key={item.days} className={`odds-row ${achieved ? "done" : ""}`}>
-                  <span>{item.days} days</span>
-                  <strong>{item.chest}</strong>
-                </div>
-              );
-            })}
-          </div>
-        </article>
       </section>
     </section>
   );

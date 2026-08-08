@@ -337,25 +337,3 @@
 
 .tier.legendary{ background:rgba(255,166,0,.15); color:#ffb238; }
 .tier.mythic{ background:rgba(255,80,220,.15); color:#ff6cf0; }
-
-.chest-orb{
-  width:28px;
-  height:28px;
-  border-radius:50%;
-  background:radial-gradient(circle,#00f09c,#0d1627 70%);
-}
-
-.odds-list{ display:flex; flex-direction:column; gap:8px; }
-
-.odds-row{
-  display:flex;
-  justify-content:space-between;
-  padding:8px 10px;
-  border-radius:12px;
-  background:#12192b;
-  color:#8fa0bd;
-  font-size:13px;
-}
-
-.odds-row.done{ background:#1b3358; color:#fff; }
-.odds-row strong{ color:#fff; }
