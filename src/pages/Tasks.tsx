@@ -21,8 +21,11 @@ type TaskProgress = {
 };
 
 type ProgressMap = Record<string, TaskProgress>;
+type OpenedMap = Record<string, number>;
 
 const PROGRESS_KEY = "sly.tasks.progress.v2";
+const OPENED_KEY = "sly.tasks.opened.v1";
+const CLAIM_DELAY_MS = 3000;
 
 function loadProgress(): ProgressMap {
   if (typeof window === "undefined") return {};
@@ -42,6 +45,29 @@ function loadProgress(): ProgressMap {
         completed: Number.isFinite(completed) && completed >= 0 ? completed : 0,
         max_completions: Number.isFinite(max) && max > 0 ? max : 1,
       };
+    }
+
+    return out;
+  } catch {
+    return {};
+  }
+}
+
+function loadOpenedMap(): OpenedMap {
+  if (typeof window === "undefined") return {};
+
+  try {
+    const raw = window.localStorage.getItem(OPENED_KEY);
+    if (!raw) return {};
+
+    const parsed = JSON.parse(raw) as Record<string, number>;
+    const out: OpenedMap = {};
+
+    for (const [key, value] of Object.entries(parsed)) {
+      const ts = Number(value);
+      if (Number.isFinite(ts) && ts > 0) {
+        out[key] = ts;
+      }
     }
 
     return out;
@@ -99,6 +125,7 @@ export default function Tasks({ onRewardCoins }: Props) {
   const [serverTasks, setServerTasks] = useState<ServerTask[]>([]);
   const [loadingTasks, setLoadingTasks] = useState(true);
   const [progressById, setProgressById] = useState<ProgressMap>(() => loadProgress());
+  const [openedAtById, setOpenedAtById] = useState<OpenedMap>(() => loadOpenedMap());
   const [claimingIds, setClaimingIds] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
@@ -110,6 +137,12 @@ export default function Tasks({ onRewardCoins }: Props) {
       window.localStorage.setItem(PROGRESS_KEY, JSON.stringify(progressById));
     } catch {}
   }, [progressById]);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(OPENED_KEY, JSON.stringify(openedAtById));
+    } catch {}
+  }, [openedAtById]);
 
   useEffect(() => {
     if (!toast) return;
@@ -161,19 +194,53 @@ export default function Tasks({ onRewardCoins }: Props) {
   };
 
   const handleOpenTask = (task: ServerTask) => {
+    const id = String(task.id);
     const url = String(task.url || "").trim();
+
     if (!url) {
       setToast("Task has no URL.");
       return;
     }
 
     window.open(url, "_blank", "noopener,noreferrer");
+
+    const now = Date.now();
+    setOpenedAtById((prev) => ({
+      ...prev,
+      [id]: now,
+    }));
+
+    setToast("Opened. Wait 3 seconds.");
+  };
+
+  const canClaimTask = (task: ServerTask) => {
+    const id = String(task.id);
+    const progress = progressById[id] || {
+      completed: 0,
+      max_completions: Math.max(1, Number(task.max_completions || 1)),
+    };
+
+    const openedAt = openedAtById[id];
+    const waitedEnough =
+      typeof openedAt === "number" && Date.now() - openedAt >= CLAIM_DELAY_MS;
+
+    return Boolean(openedAt) && waitedEnough && progress.completed < progress.max_completions;
   };
 
   const handleClaimServerTask = async (task: ServerTask) => {
     const id = String(task.id);
 
     if (claimingIds[id]) return;
+
+    if (!openedAtById[id]) {
+      setToast("Open the task link first.");
+      return;
+    }
+
+    if (Date.now() - openedAtById[id] < CLAIM_DELAY_MS) {
+      setToast("Wait 3 seconds after opening.");
+      return;
+    }
 
     const current = progressById[id] || {
       completed: 0,
@@ -189,6 +256,7 @@ export default function Tasks({ onRewardCoins }: Props) {
 
       const nextCompleted = Number(data.progress?.completed ?? current.completed + 1);
       const nextMax = Number(data.progress?.max_completions ?? current.max_completions);
+      const reward = Number(data.reward ?? task.reward ?? 0);
 
       setProgressById((prev) => ({
         ...prev,
@@ -197,8 +265,6 @@ export default function Tasks({ onRewardCoins }: Props) {
           max_completions: nextMax,
         },
       }));
-
-      const reward = Number(data.reward ?? task.reward ?? 0);
 
       onRewardCoins(
         reward,
@@ -246,6 +312,11 @@ export default function Tasks({ onRewardCoins }: Props) {
               max_completions: Math.max(1, Number(task.max_completions || 1)),
             };
 
+            const openedAt = openedAtById[id];
+            const waitedEnough =
+              typeof openedAt === "number" && Date.now() - openedAt >= CLAIM_DELAY_MS;
+
+            const opened = Boolean(openedAt);
             const claimedAll = progress.completed >= progress.max_completions;
             const claiming = Boolean(claimingIds[id]);
 
@@ -258,20 +329,24 @@ export default function Tasks({ onRewardCoins }: Props) {
                 <div className="task-main">
                   <div className="task-topline">
                     <div>
-                      <p className="task-type">
-                        {task.task_type || "task"}
-                      </p>
+                      <p className="task-type">{task.task_type || "task"}</p>
                       <h2>{task.title}</h2>
                     </div>
                     <strong className="task-reward">+{Number(task.reward || 0)}</strong>
                   </div>
 
                   <div className="task-mini-status">
-                    <span className={claimedAll ? "green" : "gray"}>
-                      {claimedAll
-                        ? "Completed"
-                        : `${progress.completed}/${progress.max_completions}`}
-                    </span>
+                    {claimedAll ? (
+                      <span className="green">Completed</span>
+                    ) : !opened ? (
+                      <span className="gray">Open link first</span>
+                    ) : !waitedEnough ? (
+                      <span className="blue">Wait 3 seconds</span>
+                    ) : (
+                      <span className="green">
+                        Ready {progress.completed}/{progress.max_completions}
+                      </span>
+                    )}
                   </div>
                 </div>
 
@@ -289,7 +364,7 @@ export default function Tasks({ onRewardCoins }: Props) {
                     type="button"
                     className="task-btn claim"
                     onClick={() => handleClaimServerTask(task)}
-                    disabled={claiming || claimedAll}
+                    disabled={claiming || claimedAll || !opened || !waitedEnough}
                   >
                     {claiming ? "Claiming..." : claimedAll ? "Claimed" : "Claim"}
                   </button>
