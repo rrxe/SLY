@@ -13,6 +13,7 @@ import Referrals from "./pages/Referrals";
 import Profile from "./pages/Profile";
 
 import ExchangeModal from "./modals/ExchangeModal";
+import WithdrawalModal from "./modals/WithdrawalModal";
 
 type Page = "home" | "tasks" | "collection" | "referrals" | "profile";
 type Mode = "lobby" | "game";
@@ -77,6 +78,7 @@ export default function App() {
   const [page, setPage] = useState<Page>("home");
   const [mode, setMode] = useState<Mode>("lobby");
   const [exchangeOpen, setExchangeOpen] = useState(false);
+  const [withdrawOpen, setWithdrawOpen] = useState(false);
 
   const [wallet, setWallet] = useState<WalletState>(() => loadWallet());
   const [activities, setActivities] = useState<Activity[]>(() => loadActivities());
@@ -121,6 +123,21 @@ export default function App() {
     pushActivity(
       "Exchange completed",
       `${amountCoins.toLocaleString()} Coins → ${usdt.toFixed(4)} USDT`,
+      "exchange"
+    );
+  };
+
+  const handleWithdraw = (amount: number) => {
+    if (amount <= 0 || amount > wallet.usdt) return;
+
+    setWallet((prev) => ({
+      ...prev,
+      usdt: Number((prev.usdt - amount).toFixed(4)),
+    }));
+
+    pushActivity(
+      "Withdrawal requested",
+      `${amount.toFixed(4)} USDT sent for processing`,
       "exchange"
     );
   };
@@ -176,6 +193,7 @@ export default function App() {
               usdtBalance={wallet.usdt}
               activities={activities}
               onOpenExchange={() => setExchangeOpen(true)}
+              onOpenWithdraw={() => setWithdrawOpen(true)}
             />
           )}
         </div>
@@ -188,6 +206,13 @@ export default function App() {
         coins={wallet.coins}
         onClose={() => setExchangeOpen(false)}
         onConfirm={handleExchange}
+      />
+
+      <WithdrawalModal
+        open={withdrawOpen}
+        usdtBalance={wallet.usdt}
+        onClose={() => setWithdrawOpen(false)}
+        onConfirm={handleWithdraw}
       />
     </div>
   );
