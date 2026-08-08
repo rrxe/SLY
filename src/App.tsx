@@ -76,11 +76,14 @@ export default function App() {
     energy: ENERGY_MAX,
     walletAddress: null,
   });
+  // ستريك تسجيل الحضور اليومي - يجي من /api/auth/me ويتحدث بعد أي
+  // check-in تلقائي ناجح (شوف useEffect تحت)
+  const [streak, setStreak] = useState(0);
   const [activities, setActivities] = useState<Activity[]>([]);
   const [booting, setBooting] = useState(true);
   const [bootError, setBootError] = useState("");
 
-  const loadPlayerData = async (showBootError: boolean) => {
+  const loadPlayerData = async () => {
     const data = await callApi("/api/auth/me", { method: "GET" });
 
     setWallet((prev) => ({
@@ -90,16 +93,45 @@ export default function App() {
       energy: data.energy ?? ENERGY_MAX,
       walletAddress: data.walletAddress ?? null,
     }));
+    setStreak(data.streak ?? 0);
 
     return data;
+  };
+
+  const pushActivity = (title: string, meta: string, tone: ActivityTone) => {
+    setActivities((prev) => [{ id: makeId(), title, meta, tone }, ...prev].slice(0, 8));
   };
 
   useEffect(() => {
     let cancelled = false;
 
-    loadPlayerData(true)
-      .then(() => {
+    // check-in تلقائي: يصير مرة وحدة بس هنا عند فتح التطبيق (أول تحميل)،
+    // وليس بالتحديث الدوري (interval/focus) تحت. نتحقق من claimedToday
+    // القادمة من /api/auth/me (اليوم يتحدد بتوقيت UTC عند منتصف الليل،
+    // نفس منطق daily-checkin.js بالسيرفر) وإذا لسه ما سجل اليوم نرسل
+    // /api/daily-checkin تلقائياً بدون أي تدخل من المستخدم.
+    loadPlayerData()
+      .then(async (data) => {
         if (cancelled) return;
+
+        if (!data.claimedToday) {
+          try {
+            const checkin = await callApi("/api/daily-checkin", { method: "POST" });
+            if (cancelled) return;
+
+            if (checkin.success) {
+              setWallet((prev) => ({ ...prev, coins: checkin.coins }));
+              setStreak(checkin.streak ?? data.streak ?? 0);
+              pushActivity(
+                `Daily check-in +${checkin.reward}`,
+                "Reward claimed automatically",
+                "reward"
+              );
+            }
+          } catch {
+            // فشل صامت هنا؛ يعاد تلقائياً بالمرة الجاية يفتح فيها التطبيق
+          }
+        }
       })
       .catch((err) => {
         if (cancelled) return;
@@ -113,9 +145,11 @@ export default function App() {
         if (!cancelled) setBooting(false);
       });
 
+    // التحديث الدوري (كل 60 ثانية + عند الرجوع للتطبيق): يحدث الرصيد
+    // والطاقة فقط، ولا يسوي أي check-in - عمداً حتى ما يتكرر الطلب
     const refreshPlayerData = async () => {
       try {
-        await loadPlayerData(false);
+        await loadPlayerData();
       } catch {
         // تجاهل فشل التحديث الخلفي
       }
@@ -139,15 +173,6 @@ export default function App() {
       window.removeEventListener("focus", refreshPlayerData);
     };
   }, []);
-
-  const pushActivity = (title: string, meta: string, tone: ActivityTone) => {
-    setActivities((prev) => [{ id: makeId(), title, meta, tone }, ...prev].slice(0, 8));
-  };
-
-  const handleClaimDaily = (amount: number) => {
-    setWallet((prev) => ({ ...prev, coins: prev.coins + amount }));
-    pushActivity(`Daily check-in +${amount}`, "Reward claimed successfully", "reward");
-  };
 
   const handleTaskReward = (amount: number, title: string, meta: string) => {
     setWallet((prev) => ({ ...prev, coins: prev.coins + amount }));
@@ -316,9 +341,9 @@ export default function App() {
             <Home
               onPlay={handlePlay}
               balanceCoins={wallet.coins}
-              onClaimCoins={handleClaimDaily}
               energyCurrent={wallet.energy}
               energyMax={ENERGY_MAX}
+              streak={streak}
             />
           )}
 

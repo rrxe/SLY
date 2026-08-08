@@ -5,9 +5,11 @@ import "../styles/home.css";
 type Props = {
   onPlay: () => void;
   balanceCoins: number;
-  onClaimCoins: (amount: number) => void;
   energyCurrent: number;
   energyMax: number;
+  // الستريك يجي جاهز من App.tsx بعد ما يسوي check-in تلقائي عند فتح
+  // التطبيق (ما عاد في زر Claim يدوي بهذي الصفحة)
+  streak: number;
 };
 
 type ChestTier = "Common" | "Epic" | "Legendary" | "Mythic";
@@ -36,12 +38,10 @@ const milestones: Milestone[] = [
 export default function Home({
   onPlay,
   balanceCoins,
-  onClaimCoins,
   energyCurrent,
   energyMax,
+  streak,
 }: Props) {
-  const [streak, setStreak] = useState(0);
-  const [claimedToday, setClaimedToday] = useState(false);
   const [leaderboard, setLeaderboard] = useState<LeaderUser[]>([]);
   const [toast, setToast] = useState("");
 
@@ -51,25 +51,6 @@ export default function Home({
       .then((data) => {
         if (Array.isArray(data)) {
           setLeaderboard(data);
-        }
-      })
-      .catch(() => {});
-  }, []);
-
-  useEffect(() => {
-    const tg = window.Telegram?.WebApp;
-    const initData = tg?.initData || "";
-
-    fetch("/api/auth/me", {
-      headers: {
-        "Authorization": `tga ${initData}`,
-      },
-    })
-      .then((res) => res.json())
-      .then((data) => {
-        if (data && typeof data.streak === "number") {
-          setStreak(data.streak);
-          setClaimedToday(data.claimedToday || false);
         }
       })
       .catch(() => {});
@@ -98,39 +79,6 @@ export default function Home({
     if (span <= 0) return 0;
     return Math.min(1, Math.max(0, (streak - prevDays) / span));
   }, [streak, nextMilestone]);
-
-  const handleClaim = async () => {
-    if (claimedToday) {
-      setToast("Already claimed today.");
-      return;
-    }
-
-    const tg = window.Telegram?.WebApp;
-    const initData = tg?.initData || "";
-
-    try {
-      const res = await fetch("/api/daily-checkin", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `tga ${initData}`,
-        },
-      });
-      const data = await res.json();
-
-      if (data.success) {
-        onClaimCoins(DAILY_POINTS);
-        setClaimedToday(true);
-        setStreak(data.streak ?? (streak + 1));
-        setToast(`+${DAILY_POINTS} points claimed successfully! 🪙`);
-      } else {
-        setToast(data.error || "You already claimed today.");
-        setClaimedToday(true);
-      }
-    } catch {
-      setToast("Server connection error.");
-    }
-  };
 
   const handlePlayClick = () => {
     if (energyCurrent <= 0) {
@@ -221,7 +169,7 @@ seamless run.
               <span className="dot" />
               <strong>{streak}d</strong>
             </div>
-            <div className="checkin-badge">{claimedToday ? "Claimed" : "Ready"}</div>
+            <div className="checkin-badge">Checked in</div>
           </div>
         </div>
 
@@ -257,10 +205,6 @@ seamless run.
                 : "Keep the streak alive for stronger chests."}
             </p>
           </div>
-
-          <button className="checkin-button" onClick={handleClaim} disabled={claimedToday}>
-            {claimedToday ? "Claimed Today" : "Claim"}
-          </button>
         </div>
       </section>
 
