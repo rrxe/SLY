@@ -36,7 +36,7 @@ type WalletState = {
 
 export const ENERGY_MAX = 5;
 
-const TADS_WIDGET_ID = "1141";
+const TADS_WIDGET_ID = "11412";
 const TADS_FIRST_AD_DELAY_MS = 5000;
 const TADS_REPEAT_AD_DELAY_MS = 120000;
 
