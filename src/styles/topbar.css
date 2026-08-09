@@ -10,8 +10,9 @@
   gap:14px;
   padding:14px 16px;
   min-height:var(--header-h);
-  background:linear-gradient(180deg, rgba(8,11,12,.96), rgba(8,11,12,.72));
-  backdrop-filter:blur(22px);
+  background:rgba(8,11,12,.92);
+  backdrop-filter:blur(10px);
+  -webkit-backdrop-filter:blur(10px);
   border-bottom:1px solid rgba(255,255,255,.05);
 }
 
@@ -75,7 +76,6 @@
   border-radius:var(--radius-md);
   background:var(--panel);
   border:1px solid rgba(255,255,255,.06);
-  box-shadow:var(--shadow-2);
 }
 
 .stat-icon{

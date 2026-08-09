@@ -15,8 +15,9 @@
   align-items:flex-end;
   gap:12px;
   padding:10px 2px 14px;
-  background:linear-gradient(180deg, rgba(16,21,22,.90), rgba(16,21,22,.58));
-  backdrop-filter:blur(16px);
+  background:rgba(16,21,22,.85);
+  backdrop-filter:blur(8px);
+  -webkit-backdrop-filter:blur(8px);
   border-bottom:1px solid rgba(255,255,255,.04);
 }
 

@@ -9,7 +9,7 @@ export default function Background() {
       <div className="grid" />
       <div className="noise" />
       <div className="stars">
-        {Array.from({ length: 120 }).map((_, i) => (
+        {Array.from({ length: 48 }).map((_, i) => (
           <span
             key={i}
             className="star"
