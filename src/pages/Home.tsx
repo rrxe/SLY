@@ -156,48 +156,52 @@ seamless run.
 
       <section className="home-stats">
         <article className="stat-card">
-          <div className="stat-label">
-            <UiIcons name="coins" className="stat-icon gold" />
-            <span>Coins</span>
+          <div className="stat-card-top">
+            <span className="stat-card-icon gold">
+              <UiIcons name="coins" className="stat-card-svg" />
+            </span>
+            <span className="stat-card-name">Coins</span>
           </div>
-          <strong>{balanceCoins.toLocaleString()}</strong>
-          <small>Reward balance</small>
+          <strong className="stat-card-value">{balanceCoins.toLocaleString()}</strong>
+          <small className="stat-card-caption">Reward balance</small>
         </article>
 
         <article className="stat-card">
-          <div className="stat-label">
-            <UiIcons name="energy" className="stat-icon blue" />
-            <span>Energy</span>
+          <div className="stat-card-top">
+            <span className="stat-card-icon teal">
+              <UiIcons name="energy" className="stat-card-svg" />
+            </span>
+            <span className="stat-card-name">Energy</span>
           </div>
-          <strong>{energyCurrent} / {energyMax}</strong>
-          <small>Run capacity</small>
+          <strong className="stat-card-value">{energyCurrent} / {energyMax}</strong>
+          <small className="stat-card-caption">Run capacity</small>
         </article>
 
         <article className="stat-card">
-          <div className="stat-label">
-            <span className="dot" />
-            <span>Streak</span>
+          <div className="stat-card-top">
+            <span className="stat-card-icon teal">
+              <span className="stat-card-dot" />
+            </span>
+            <span className="stat-card-name">Streak</span>
           </div>
-          <strong>{streak}d</strong>
-          <small>
+          <strong className="stat-card-value">{streak}d</strong>
+          <small className="stat-card-caption">
             {currentChest ? `${currentChest.chest} chest unlocked` : "Build your streak"}
           </small>
         </article>
       </section>
 
       <section className="checkin-card">
-        <div className="section-head">
-          <div>
-            <p>Daily Check-in</p>
-            <h2>+{DAILY_POINTS} points today</h2>
+        <div className="checkin-top">
+          <div className="checkin-streak-badge">
+            <strong>{streak}</strong>
+            <span>days</span>
           </div>
 
-          <div className="checkin-right">
-            <div className="checkin-streak">
-              <span className="dot" />
-              <strong>{streak}d</strong>
-            </div>
-            <div className="checkin-badge">Checked in</div>
+          <div className="checkin-top-text">
+            <p className="checkin-eyebrow">Daily Check-in</p>
+            <h2>+{DAILY_POINTS} points today</h2>
+            <span className="checkin-status">Checked in</span>
           </div>
         </div>
 
@@ -222,13 +226,11 @@ seamless run.
           })}
         </div>
 
-        <div className="checkin-bottom">
-          <div className="checkin-text">
-            <span>
-              Next: {nextMilestone ? `${nextMilestone.days} days` : "All rewards unlocked"}
-            </span>
-            <p>Resets in {resetCountdown}</p>
-          </div>
+        <div className="checkin-footer">
+          <span className="checkin-next">
+            Next: {nextMilestone ? `${nextMilestone.days} days` : "All rewards unlocked"}
+          </span>
+          <span className="checkin-countdown">Resets in {resetCountdown}</span>
         </div>
       </section>
 

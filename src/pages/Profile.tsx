@@ -47,7 +47,6 @@ export default function Profile({
   lifetimeCoins,
   lifetimeSpent,
   usdtBalance,
-  activities,
   serverWalletAddress,
   onOpenExchange,
   onOpenWithdraw,
@@ -222,72 +221,53 @@ export default function Profile({
 
       <section className="profile-stats">
         <article className="profile-stat highlight">
-          <div className="stat-label">
-            <UiIcons name="coins" className="stat-icon gold" />
-            <span>Total Earned</span>
+          <div className="profile-stat-top">
+            <span className="profile-stat-icon gold">
+              <UiIcons name="coins" className="profile-stat-svg" />
+            </span>
+            <span className="profile-stat-name">Total Earned</span>
           </div>
-          <strong>{lifetimeCoins.toLocaleString()}</strong>
-          <small>Total coins earned over time</small>
+          <strong className="profile-stat-value">{lifetimeCoins.toLocaleString()}</strong>
+          <small className="profile-stat-caption">Total coins earned over time</small>
         </article>
 
         <article className="profile-stat">
-          <div className="stat-label">
-            <UiIcons name="coins" className="stat-icon blue" />
-            <span>Total Exchanged</span>
+          <div className="profile-stat-top">
+            <span className="profile-stat-icon teal">
+              <UiIcons name="coins" className="profile-stat-svg" />
+            </span>
+            <span className="profile-stat-name">Total Exchanged</span>
           </div>
-          <strong>{lifetimeSpent.toLocaleString()}</strong>
-          <small>Coins already converted</small>
+          <strong className="profile-stat-value">{lifetimeSpent.toLocaleString()}</strong>
+          <small className="profile-stat-caption">Coins already converted</small>
         </article>
 
         <article className="profile-stat full">
-          <div className="stat-label">
-            <UiIcons name="exchange" className="stat-icon cyan" />
-            <span>Available USDT</span>
+          <div className="profile-stat-top">
+            <span className="profile-stat-icon teal">
+              <UiIcons name="exchange" className="profile-stat-svg" />
+            </span>
+            <span className="profile-stat-name">Available USDT</span>
           </div>
-          <strong>{usdtBalance.toFixed(4)}</strong>
-          <small>{usdApprox}</small>
+          <strong className="profile-stat-value">{usdtBalance.toFixed(4)}</strong>
+          <small className="profile-stat-caption">{usdApprox}</small>
         </article>
       </section>
 
       <section className="profile-actions">
         <button className="profile-action primary" onClick={onOpenExchange}>
-          Exchange Coins
+          <UiIcons name="exchange" className="profile-action-icon" />
+          <span>Exchange Coins</span>
         </button>
-        
-        <button 
-          className="profile-action ghost" 
+
+        <button
+          className="profile-action ghost"
           disabled={!connectedAddress}
           onClick={onOpenWithdraw}
         >
-          {connectedAddress ? "Withdraw USDT" : "Connect Wallet First"}
+          <UiIcons name="withdraw" className="profile-action-icon" />
+          <span>{connectedAddress ? "Withdraw USDT" : "Connect Wallet First"}</span>
         </button>
-      </section>
-
-      <section className="profile-card">
-        <div className="section-head compact">
-          <div>
-            <p>Recent activity</p>
-            <h2>Wallet timeline</h2>
-          </div>
-          <UiIcons name="leaderboard" className="section-head-icon" />
-        </div>
-
-        <div className="activity-list">
-          {activities.length === 0 ? (
-            <div className="activity-empty">No wallet activity yet.</div>
-          ) : (
-            activities.map((item, index) => (
-              <div key={item.id} className={`activity-row ${item.tone}`}>
-                <div className="activity-mark" />
-                <div className="activity-copy">
-                  <strong>{item.title}</strong>
-                  <span>{item.meta}</span>
-                </div>
-                <div className="activity-time">{Math.max(1, 12 - index)}m</div>
-              </div>
-            ))
-          )}
-        </div>
       </section>
     </section>
   );
