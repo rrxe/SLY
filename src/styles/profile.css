@@ -16,18 +16,31 @@
 
 .wallet-hero {
   border-radius: var(--radius-xl);
-  background:
-    radial-gradient(circle at 0% 0%, rgba(84, 230, 212, 0.08), transparent 50%),
-    linear-gradient(180deg, #141b1c 0%, #101516 100%);
+  background: #12181a;
   border: 1px solid rgba(84, 230, 212, 0.10);
-  padding: 20px;
+  padding: 22px;
   display: flex;
   flex-direction: column;
   gap: 16px;
-  box-shadow: var(--shadow-2);
+  position: relative;
+  overflow: hidden;
+}
+
+.wallet-hero::before{
+  content:"";
+  position:absolute;
+  right:-60px;
+  top:-60px;
+  width:200px;
+  height:200px;
+  border-radius:50%;
+  background:radial-gradient(circle,rgba(84,230,212,.08) 0%,rgba(84,230,212,0) 70%);
+  pointer-events:none;
 }
 
 .wallet-hero-top {
+  position: relative;
+  z-index: 2;
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
@@ -36,19 +49,25 @@
 }
 
 .wallet-kicker {
+  display: inline-flex;
+  padding: 5px 11px;
+  border-radius: 999px;
+  background: rgba(84, 230, 212, 0.10);
+  border: 1px solid rgba(84, 230, 212, 0.18);
   color: #7fe0d2;
-  letter-spacing: 4px;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 800;
-  margin-bottom: 8px;
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+  margin-bottom: 10px;
 }
 
 .wallet-hero h1 {
   color: #ffffff;
-  font-size: 23px;
+  font-size: 21px;
   font-weight: 800;
-  letter-spacing: -0.4px;
-  line-height: 1.15;
+  letter-spacing: -0.3px;
+  line-height: 1.2;
 }
 
 .wallet-lead {
@@ -56,7 +75,7 @@
   color: #8fa19e;
   font-size: 13px;
   line-height: 1.6;
-  max-width: 520px;
+  max-width: 460px;
 }
 
 .wallet-chip {
@@ -72,6 +91,7 @@
   font-weight: 700;
   letter-spacing: 0.3px;
   white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .wallet-chip-dot {
@@ -85,6 +105,8 @@
 /* CONNECT FORM */
 
 .wallet-connect-form {
+  position: relative;
+  z-index: 2;
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -97,7 +119,7 @@
 
 .wallet-input {
   flex: 1;
-  height: 50px;
+  height: 48px;
   border-radius: var(--radius-md);
   border: 1px solid rgba(255, 255, 255, 0.07);
   background: #151c1d;
@@ -106,7 +128,7 @@
   font-size: 14px;
   outline: none;
   min-width: 0;
-  transition: border-color 0.15s ease, transform 0.15s ease;
+  transition: border-color 0.15s ease;
 }
 
 .wallet-input::placeholder {
@@ -119,7 +141,7 @@
 
 .wallet-connect-btn {
   flex-shrink: 0;
-  height: 50px;
+  height: 48px;
   padding: 0 20px;
   border: none;
   border-radius: var(--radius-md);
@@ -128,7 +150,7 @@
   cursor: pointer;
   color: #06201c;
   background: linear-gradient(135deg, #54e6d4, #2fbfae);
-  box-shadow: 0 10px 22px rgba(84, 230, 212, 0.18);
+  box-shadow: 0 10px 22px rgba(84, 230, 212, 0.16);
 }
 
 .wallet-connect-btn:active {
@@ -144,6 +166,8 @@
 /* CONNECTED STATE */
 
 .wallet-connected {
+  position: relative;
+  z-index: 2;
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -169,8 +193,8 @@
 
 .wallet-address-label {
   color: #8fa19e;
-  font-size: 11px;
-  letter-spacing: 1.5px;
+  font-size: 10.5px;
+  letter-spacing: 1.2px;
   text-transform: uppercase;
 }
 
@@ -251,70 +275,76 @@
   color: white;
 }
 
-/* STATS */
+/* ---------------- UNIFIED STATS BAR (shared visual language with Home) ---------------- */
 
-.profile-stats {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
+.stats-bar{
+  display:flex;
+  align-items:center;
+  background:#141b1c;
+  border:1px solid rgba(255,255,255,.06);
+  border-radius:var(--radius-lg);
+  padding:16px 14px;
 }
 
-.profile-stat {
-  border-radius: var(--radius-lg);
-  background: #141b1c;
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  padding: 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
+.stats-bar-item{
+  flex:1;
+  display:flex;
+  align-items:center;
+  gap:10px;
+  min-width:0;
 }
 
-.profile-stat.highlight {
-  background: linear-gradient(180deg, rgba(84, 230, 212, 0.08), rgba(20, 27, 28, 1));
+.stats-bar-icon{
+  width:34px;
+  height:34px;
+  border-radius:11px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  flex-shrink:0;
 }
 
-.profile-stat.full {
-  grid-column: 1 / -1;
+.stats-bar-icon.gold{ background:rgba(227,192,113,.14); color:#e3c071; }
+.stats-bar-icon.teal{ background:rgba(84,230,212,.14); color:#54e6d4; }
+
+.stats-bar-svg{ width:16px; height:16px; }
+
+.stats-bar-text{
+  display:flex;
+  flex-direction:column;
+  gap:1px;
+  min-width:0;
 }
 
-.profile-stat-top {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+.stats-bar-text strong{
+  color:#fff;
+  font-size:14px;
+  font-weight:800;
+  line-height:1.2;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
 }
 
-.profile-stat-icon {
-  width: 30px;
-  height: 30px;
-  border-radius: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
+.stats-bar-text small{
+  color:#5c6b69;
+  font-size:10px;
+  font-weight:700;
+  letter-spacing:.5px;
+  text-transform:uppercase;
 }
 
-.profile-stat-icon.gold { background: rgba(227, 192, 113, 0.14); color: #e3c071; }
-.profile-stat-icon.teal { background: rgba(84, 230, 212, 0.14); color: #54e6d4; }
-
-.profile-stat-svg { width: 16px; height: 16px; }
-
-.profile-stat-name {
-  color: #8fa19e;
-  font-size: 10px;
-  letter-spacing: 1px;
-  text-transform: uppercase;
-  font-weight: 800;
+.stats-bar-divider{
+  width:1px;
+  align-self:stretch;
+  background:rgba(255,255,255,.06);
+  margin:0 10px;
 }
 
-.profile-stat-value {
-  color: white;
-  font-size: 21px;
-  font-weight: 800;
-}
-
-.profile-stat-caption {
-  color: #71807e;
-  font-size: 11px;
+.usdt-approx{
+  margin:-6px 4px 0;
+  color:#5c6b69;
+  font-size:11.5px;
 }
 
 /* ACTIONS */
@@ -340,8 +370,8 @@
 }
 
 .profile-action-icon {
-  width: 17px;
-  height: 17px;
+  width: 16px;
+  height: 16px;
   flex-shrink: 0;
 }
 
@@ -389,16 +419,24 @@
     flex: 1;
   }
 
-  .profile-stats {
-    grid-template-columns: 1fr;
-  }
-
   .profile-actions {
     flex-direction: column;
   }
 
   .profile-page {
     padding: 14px 14px 100px;
+  }
+
+  .stats-bar{
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .stats-bar-divider{
+    width: auto;
+    height: 1px;
+    margin: 0;
   }
 }
 

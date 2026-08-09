@@ -121,74 +121,77 @@ export default function Home({
       {toast ? <div className="home-toast">{toast}</div> : null}
 
       <section className="home-hero">
-        <div className="hero-copy">
-          <p className="home-kicker">PREMIUM SPACE REWARD GAME</p>
-          <h1>Laser Escape</h1>
-          <p className="home-lead">
-            Dodge the grid, clear every 
-wave, and cash in daily 
-rewards-all in one 
-seamless run.
-          </p>
+        <div className="hero-decor" aria-hidden="true" />
 
-          <div className="hero-chips">
-            <span>5 Waves</span>
-            <span>150 / Wave</span>
-            <span>{energyMax} Energy</span>
+        <span className="hero-badge">Premium Space Reward Game</span>
+        <h1 className="hero-title">Laser Escape</h1>
+        <p className="hero-desc">
+          Dodge the grid, clear every wave, and cash in daily rewards — all in one seamless run.
+        </p>
+
+        <div className="hero-meta">
+          <div className="hero-meta-item">
+            <strong>5</strong>
+            <span>Waves</span>
           </div>
-
-          <button
-            className="home-play"
-            onClick={handlePlayClick}
-            disabled={energyCurrent <= 0}
-          >
-            <span className="home-play-icon-wrap">
-              <UiIcons name="play" className="home-play-icon" />
-            </span>
-            <span className="home-play-label">PLAY</span>
-          </button>
+          <div className="hero-meta-divider" />
+          <div className="hero-meta-item">
+            <strong>150</strong>
+            <span>Per Wave</span>
+          </div>
+          <div className="hero-meta-divider" />
+          <div className="hero-meta-item">
+            <strong>{energyMax}</strong>
+            <span>Energy</span>
+          </div>
         </div>
 
-        <div className="hero-orb-wrap">
-          <div className="hero-orb" />
-        </div>
+        <button
+          className="hero-play"
+          onClick={handlePlayClick}
+          disabled={energyCurrent <= 0}
+        >
+          <span className="hero-play-icon">
+            <UiIcons name="play" className="hero-play-icon-svg" />
+          </span>
+          <span className="hero-play-text">Play Now</span>
+        </button>
       </section>
 
-      <section className="home-stats">
-        <article className="stat-card">
-          <div className="stat-card-top">
-            <span className="stat-card-icon gold">
-              <UiIcons name="coins" className="stat-card-svg" />
-            </span>
-            <span className="stat-card-name">Coins</span>
+      <section className="stats-bar">
+        <div className="stats-bar-item">
+          <span className="stats-bar-icon gold">
+            <UiIcons name="coins" className="stats-bar-svg" />
+          </span>
+          <div className="stats-bar-text">
+            <strong>{balanceCoins.toLocaleString()}</strong>
+            <small>Coins</small>
           </div>
-          <strong className="stat-card-value">{balanceCoins.toLocaleString()}</strong>
-          <small className="stat-card-caption">Reward balance</small>
-        </article>
+        </div>
 
-        <article className="stat-card">
-          <div className="stat-card-top">
-            <span className="stat-card-icon teal">
-              <UiIcons name="energy" className="stat-card-svg" />
-            </span>
-            <span className="stat-card-name">Energy</span>
-          </div>
-          <strong className="stat-card-value">{energyCurrent} / {energyMax}</strong>
-          <small className="stat-card-caption">Run capacity</small>
-        </article>
+        <div className="stats-bar-divider" />
 
-        <article className="stat-card">
-          <div className="stat-card-top">
-            <span className="stat-card-icon teal">
-              <span className="stat-card-dot" />
-            </span>
-            <span className="stat-card-name">Streak</span>
+        <div className="stats-bar-item">
+          <span className="stats-bar-icon teal">
+            <UiIcons name="energy" className="stats-bar-svg" />
+          </span>
+          <div className="stats-bar-text">
+            <strong>{energyCurrent}/{energyMax}</strong>
+            <small>Energy</small>
           </div>
-          <strong className="stat-card-value">{streak}d</strong>
-          <small className="stat-card-caption">
-            {currentChest ? `${currentChest.chest} chest unlocked` : "Build your streak"}
-          </small>
-        </article>
+        </div>
+
+        <div className="stats-bar-divider" />
+
+        <div className="stats-bar-item">
+          <span className="stats-bar-icon teal">
+            <span className="stats-bar-dot" />
+          </span>
+          <div className="stats-bar-text">
+            <strong>{streak}d</strong>
+            <small>Streak</small>
+          </div>
+        </div>
       </section>
 
       <section className="checkin-card">

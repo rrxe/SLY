@@ -135,7 +135,7 @@ export default function Profile({
       <section className="wallet-hero">
         <div className="wallet-hero-top">
           <div>
-            <p className="wallet-kicker">WALLET CENTER</p>
+            <p className="wallet-kicker">Wallet Center</p>
             <h1>{connectedAddress ? "Wallet connected" : "Connect your USDT wallet"}</h1>
             <p className="wallet-lead">
               Link a BEP20 address to enable withdrawals. Only USDT on BNB Smart Chain (BEP20) is supported.
@@ -219,40 +219,43 @@ export default function Profile({
         )}
       </section>
 
-      <section className="profile-stats">
-        <article className="profile-stat highlight">
-          <div className="profile-stat-top">
-            <span className="profile-stat-icon gold">
-              <UiIcons name="coins" className="profile-stat-svg" />
-            </span>
-            <span className="profile-stat-name">Total Earned</span>
+      <section className="stats-bar">
+        <div className="stats-bar-item">
+          <span className="stats-bar-icon gold">
+            <UiIcons name="coins" className="stats-bar-svg" />
+          </span>
+          <div className="stats-bar-text">
+            <strong>{lifetimeCoins.toLocaleString()}</strong>
+            <small>Earned</small>
           </div>
-          <strong className="profile-stat-value">{lifetimeCoins.toLocaleString()}</strong>
-          <small className="profile-stat-caption">Total coins earned over time</small>
-        </article>
+        </div>
 
-        <article className="profile-stat">
-          <div className="profile-stat-top">
-            <span className="profile-stat-icon teal">
-              <UiIcons name="coins" className="profile-stat-svg" />
-            </span>
-            <span className="profile-stat-name">Total Exchanged</span>
-          </div>
-          <strong className="profile-stat-value">{lifetimeSpent.toLocaleString()}</strong>
-          <small className="profile-stat-caption">Coins already converted</small>
-        </article>
+        <div className="stats-bar-divider" />
 
-        <article className="profile-stat full">
-          <div className="profile-stat-top">
-            <span className="profile-stat-icon teal">
-              <UiIcons name="exchange" className="profile-stat-svg" />
-            </span>
-            <span className="profile-stat-name">Available USDT</span>
+        <div className="stats-bar-item">
+          <span className="stats-bar-icon teal">
+            <UiIcons name="coins" className="stats-bar-svg" />
+          </span>
+          <div className="stats-bar-text">
+            <strong>{lifetimeSpent.toLocaleString()}</strong>
+            <small>Exchanged</small>
           </div>
-          <strong className="profile-stat-value">{usdtBalance.toFixed(4)}</strong>
-          <small className="profile-stat-caption">{usdApprox}</small>
-        </article>
+        </div>
+
+        <div className="stats-bar-divider" />
+
+        <div className="stats-bar-item">
+          <span className="stats-bar-icon teal">
+            <UiIcons name="exchange" className="stats-bar-svg" />
+          </span>
+          <div className="stats-bar-text">
+            <strong>{usdtBalance.toFixed(4)}</strong>
+            <small>USDT</small>
+          </div>
+        </div>
       </section>
+
+      <p className="usdt-approx">{usdApprox}</p>
 
       <section className="profile-actions">
         <button className="profile-action primary" onClick={onOpenExchange}>
