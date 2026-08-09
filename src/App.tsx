@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { TadsWidget, renderTadsWidget } from "react-tads-widget";
 import "./App.css";
 
 import Background from "./components/Background";
@@ -35,6 +36,10 @@ type WalletState = {
 
 export const ENERGY_MAX = 5;
 
+const TADS_WIDGET_ID = "1141";
+const TADS_FIRST_AD_DELAY_MS = 5000;
+const TADS_REPEAT_AD_DELAY_MS = 120000;
+
 function makeId() {
   return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
@@ -54,10 +59,13 @@ async function callApi(path: string, options: RequestInit = {}) {
       ...(options.headers || {}),
     },
   });
+
   const data = await res.json().catch(() => ({}));
+
   if (!res.ok) {
     throw new Error(data.error || `Request failed (${res.status})`);
   }
+
   return data;
 }
 
@@ -75,21 +83,50 @@ export default function App() {
     energy: ENERGY_MAX,
     walletAddress: null,
   });
-  // ستريك تسجيل الحضور اليومي - يجي من /api/auth/me ويتحدث بعد أي
-  // check-in تلقائي ناجح (شوف useEffect تحت)
+
   const [streak, setStreak] = useState(0);
   const [activities, setActivities] = useState<Activity[]>([]);
   const [booting, setBooting] = useState(true);
   const [bootError, setBootError] = useState("");
 
-  // مرجع لحاوية محتوى الصفحة (page-scroll). هذي الحاوية ثابتة بين
-  // الصفحات (بس المحتوى جواها يتبدل)، فيبقى موضع السكرول القديم عالق
-  // عند الانتقال لصفحة جديدة. نصفره يدوياً كل مرة تتغير فيها page.
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: 0, left: 0, behavior: "auto" });
   }, [page]);
+
+  useEffect(() => {
+    if (booting || bootError || mode !== "lobby") return;
+
+    let cancelled = false;
+
+    const showFullscreenAd = () => {
+      if (cancelled) return;
+
+      try {
+        renderTadsWidget({
+          id: TADS_WIDGET_ID,
+          type: "fullscreen",
+        });
+      } catch (err) {
+        console.error("TADS fullscreen error:", err);
+      }
+    };
+
+    const firstTimer = window.setTimeout(() => {
+      showFullscreenAd();
+    }, TADS_FIRST_AD_DELAY_MS);
+
+    const repeatTimer = window.setInterval(() => {
+      showFullscreenAd();
+    }, TADS_REPEAT_AD_DELAY_MS);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(firstTimer);
+      window.clearInterval(repeatTimer);
+    };
+  }, [booting, bootError, mode]);
 
   const loadPlayerData = async () => {
     const data = await callApi("/api/auth/me", { method: "GET" });
@@ -113,11 +150,6 @@ export default function App() {
   useEffect(() => {
     let cancelled = false;
 
-    // check-in تلقائي: يصير مرة وحدة بس هنا عند فتح التطبيق (أول تحميل)،
-    // وليس بالتحديث الدوري (interval/focus) تحت. نتحقق من claimedToday
-    // القادمة من /api/auth/me (اليوم يتحدد بتوقيت UTC عند منتصف الليل،
-    // نفس منطق daily-checkin.js بالسيرفر) وإذا لسه ما سجل اليوم نرسل
-    // /api/daily-checkin تلقائياً بدون أي تدخل من المستخدم.
     loadPlayerData()
       .then(async (data) => {
         if (cancelled) return;
@@ -137,7 +169,7 @@ export default function App() {
               );
             }
           } catch {
-            // فشل صامت هنا؛ يعاد تلقائياً بالمرة الجاية يفتح فيها التطبيق
+            // فشل صامت هنا؛ يعاد تلقائياً بالمرة الجاية
           }
         }
       })
@@ -153,8 +185,6 @@ export default function App() {
         if (!cancelled) setBooting(false);
       });
 
-    // التحديث الدوري (كل 60 ثانية + عند الرجوع للتطبيق): يحدث الرصيد
-    // والطاقة فقط، ولا يسوي أي check-in - عمداً حتى ما يتكرر الطلب
     const refreshPlayerData = async () => {
       try {
         await loadPlayerData();
@@ -246,11 +276,7 @@ export default function App() {
     if (startingGame) return;
 
     if (wallet.energy <= 0) {
-      pushActivity(
-        "Not enough energy",
-        "You need energy to start Laser Escape",
-        "info"
-      );
+      pushActivity("Not enough energy", "You need energy to start Laser Escape", "info");
       return;
     }
 
@@ -269,11 +295,7 @@ export default function App() {
 
       setMode("game");
     } catch (err: any) {
-      pushActivity(
-        "Unable to start game",
-        err.message || "Not enough energy",
-        "info"
-      );
+      pushActivity("Unable to start game", err.message || "Not enough energy", "info");
     } finally {
       setStartingGame(false);
     }
@@ -374,6 +396,15 @@ export default function App() {
           )}
         </div>
       </main>
+
+      <TadsWidget
+        id={TADS_WIDGET_ID}
+        type="fullscreen"
+        debug={false}
+        onAdsNotFound={() => {
+          console.log("No TADS fullscreen ad found");
+        }}
+      />
 
       <BottomNav page={page} setPage={setPage} />
 

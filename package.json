@@ -16,6 +16,7 @@
     "lucide-react": "^1.28.0",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
+    "react-tads-widget": "^0.1.0",
     "telegraf": "^4.16.3"
   },
   "devDependencies": {
