@@ -35,6 +35,28 @@ const milestones: Milestone[] = [
   { days: 50, chest: "Mythic" },
 ];
 
+// الوقت المتبقي لمنتصف الليل بتوقيت UTC - نفس اللحظة اللي يرجع فيها
+// check-in جديد بالسيرفر (isSameUtcDay بملف daily-checkin.js)
+function getMsUntilNextUtcMidnight() {
+  const now = new Date();
+  const nextMidnight = Date.UTC(
+    now.getUTCFullYear(),
+    now.getUTCMonth(),
+    now.getUTCDate() + 1,
+    0, 0, 0, 0
+  );
+  return Math.max(0, nextMidnight - now.getTime());
+}
+
+function formatCountdown(ms: number) {
+  const totalSeconds = Math.floor(ms / 1000);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
+}
+
 export default function Home({
   onPlay,
   balanceCoins,
@@ -44,6 +66,9 @@ export default function Home({
 }: Props) {
   const [leaderboard, setLeaderboard] = useState<LeaderUser[]>([]);
   const [toast, setToast] = useState("");
+  const [resetCountdown, setResetCountdown] = useState(() =>
+    formatCountdown(getMsUntilNextUtcMidnight())
+  );
 
   useEffect(() => {
     fetch("/api/leaderboard")
@@ -61,6 +86,14 @@ export default function Home({
     const timer = window.setTimeout(() => setToast(""), 2000);
     return () => window.clearTimeout(timer);
   }, [toast]);
+
+  // عداد حي لوقت تصفير الـ check-in القادم، يتحدث كل ثانية
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      setResetCountdown(formatCountdown(getMsUntilNextUtcMidnight()));
+    }, 1000);
+    return () => window.clearInterval(interval);
+  }, []);
 
   const currentChest = useMemo(() => {
     const unlocked = milestones.filter((item) => streak >= item.days);
@@ -199,11 +232,7 @@ seamless run.
             <span>
               Next: {nextMilestone ? `${nextMilestone.days} days` : "All rewards unlocked"}
             </span>
-            <p>
-              {currentChest
-                ? `${currentChest.chest} chest unlocked. Keep the streak alive.`
-                : "Keep the streak alive for stronger chests."}
-            </p>
+            <p>Resets in {resetCountdown}</p>
           </div>
         </div>
       </section>

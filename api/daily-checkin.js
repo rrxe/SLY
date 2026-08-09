@@ -9,12 +9,12 @@ import { authenticateRequest } from '../lib/telegram-auth.js'
 
 const DAILY_REWARD = 250
 
+function utcDayNumber(date) {
+  return Math.floor(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()) / 86400000)
+}
+
 function isSameUtcDay(dateA, dateB) {
-  return (
-    dateA.getUTCFullYear() === dateB.getUTCFullYear() &&
-    dateA.getUTCMonth() === dateB.getUTCMonth() &&
-    dateA.getUTCDate() === dateB.getUTCDate()
-  )
+  return utcDayNumber(dateA) === utcDayNumber(dateB)
 }
 
 export default async function handler(req, res) {
@@ -55,9 +55,14 @@ export default async function handler(req, res) {
       return res.status(400).json({ success: false, error: 'You already claimed today.' })
     }
 
+    // تصحيح: نحسب الفرق باليوم التقويمي (UTC) مو بفرق الساعات الخام.
+    // قبل هذا التعديل diffDays كانت تحسب (now - last_checkin) / 24 ساعة
+    // بالمللي ثانية، فلو المستخدم سجل قريب من منتصف الليل (مثلاً 23:58
+    // أمس و 00:05 اليوم) كان الفرق الفعلي أقل من ساعة، يعني diffDays=0
+    // مو 1 - فيصفر الستريك غلط بدل ما يزيده رغم إنه يوم تقويمي جديد فعلاً.
     let newStreak = 1
     if (player.last_checkin) {
-      const diffDays = Math.floor((now - new Date(player.last_checkin)) / (1000 * 60 * 60 * 24))
+      const diffDays = utcDayNumber(now) - utcDayNumber(new Date(player.last_checkin))
       newStreak = diffDays === 1 ? (player.streak || 0) + 1 : 1
     }
 
