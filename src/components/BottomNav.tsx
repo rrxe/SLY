@@ -1,17 +1,16 @@
 import "../styles/bottomnav.css";
 import UiIcons from "./UiIcons";
 
-type Page = "home" | "tasks" | "collection" | "referrals" | "profile";
+type Page = "home" | "tasks" | "referrals" | "profile";
 
 type Props = {
   page: Page;
   setPage: (page: Page) => void;
 };
 
-const items: { id: Page; label: string; icon: "home" | "tasks" | "collection" | "referrals" | "profile" }[] = [
+const items: { id: Page; label: string; icon: "home" | "tasks" | "referrals" | "profile" }[] = [
   { id: "home", label: "Home", icon: "home" },
   { id: "tasks", label: "Tasks", icon: "tasks" },
-  { id: "collection", label: "Collection", icon: "collection" },
   { id: "referrals", label: "Referrals", icon: "referrals" },
   { id: "profile", label: "Profile", icon: "profile" },
 ];

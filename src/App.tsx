@@ -8,7 +8,6 @@ import TopBar from "./components/TopBar";
 
 import Home from "./pages/Home";
 import Tasks from "./pages/Tasks";
-import Collection from "./pages/Collection";
 import Referrals from "./pages/Referrals";
 import Profile from "./pages/Profile";
 
@@ -357,7 +356,6 @@ export default function App() {
           )}
 
           {page === "tasks" && <Tasks onRewardCoins={handleTaskReward} />}
-          {page === "collection" && <Collection />}
           {page === "referrals" && <Referrals />}
 
           {page === "profile" && (
