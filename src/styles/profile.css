@@ -6,25 +6,25 @@
   flex-direction: column;
   gap: 14px;
   background:
-    radial-gradient(circle at top, rgba(52, 116, 255, 0.14), transparent 40%),
-    radial-gradient(circle at 80% 10%, rgba(0, 245, 160, 0.06), transparent 32%),
-    linear-gradient(180deg, #08101e 0%, #050914 58%, #04070d 100%);
+    radial-gradient(circle at top, rgba(84, 230, 212, 0.08), transparent 40%),
+    radial-gradient(circle at 80% 10%, rgba(227, 192, 113, 0.04), transparent 32%),
+    linear-gradient(180deg, #101516 0%, #0d1213 58%, #0a0d0e 100%);
   color: #ffffff;
 }
 
 /* HERO */
 
 .wallet-hero {
-  border-radius: 26px;
+  border-radius: var(--radius-xl);
   background:
-    radial-gradient(circle at 0% 0%, rgba(60, 140, 255, 0.14), transparent 50%),
-    linear-gradient(180deg, #101a2d 0%, #0b1321 100%);
-  border: 1px solid rgba(130, 170, 255, 0.1);
+    radial-gradient(circle at 0% 0%, rgba(84, 230, 212, 0.08), transparent 50%),
+    linear-gradient(180deg, #141b1c 0%, #101516 100%);
+  border: 1px solid rgba(84, 230, 212, 0.10);
   padding: 18px;
   display: flex;
   flex-direction: column;
   gap: 14px;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.26);
+  box-shadow: var(--shadow-2);
 }
 
 .wallet-hero-top {
@@ -36,7 +36,7 @@
 }
 
 .wallet-kicker {
-  color: #8eb8ff;
+  color: #7fe0d2;
   letter-spacing: 4px;
   font-size: 11px;
   font-weight: 800;
@@ -45,15 +45,15 @@
 
 .wallet-hero h1 {
   color: #ffffff;
-  font-size: 25px;
-  font-weight: 900;
+  font-size: 24px;
+  font-weight: 800;
   letter-spacing: -0.4px;
-  line-height: 1.05;
+  line-height: 1.1;
 }
 
 .wallet-lead {
   margin-top: 8px;
-  color: #8c98b5;
+  color: #8fa19e;
   font-size: 13px;
   line-height: 1.6;
   max-width: 520px;
@@ -65,9 +65,9 @@
   gap: 7px;
   padding: 7px 12px;
   border-radius: 999px;
-  background: rgba(21, 35, 59, 0.92);
-  border: 1px solid rgba(255, 255, 255, 0.07);
-  color: #b6c6e8;
+  background: rgba(27, 35, 36, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  color: #a9bab7;
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.3px;
@@ -79,7 +79,7 @@
   height: 7px;
   border-radius: 50%;
   background: #f0b90b;
-  box-shadow: 0 0 8px rgba(240, 185, 11, 0.8);
+  box-shadow: 0 0 8px rgba(240, 185, 11, 0.7);
 }
 
 /* CONNECT FORM */
@@ -98,9 +98,9 @@
 .wallet-input {
   flex: 1;
   height: 50px;
-  border-radius: 15px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: #101c30;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: #151c1d;
   color: white;
   padding: 0 14px;
   font-size: 14px;
@@ -110,11 +110,11 @@
 }
 
 .wallet-input::placeholder {
-  color: #5a6a8a;
+  color: #5c6b69;
 }
 
 .wallet-input:focus {
-  border-color: rgba(0, 240, 170, 0.5);
+  border-color: rgba(84, 230, 212, 0.5);
 }
 
 .wallet-connect-btn {
@@ -122,13 +122,13 @@
   height: 50px;
   padding: 0 20px;
   border: none;
-  border-radius: 15px;
+  border-radius: var(--radius-md);
   font-size: 14px;
   font-weight: 800;
   cursor: pointer;
-  color: #06130c;
-  background: linear-gradient(90deg, #00f09c, #0ff0d0);
-  box-shadow: 0 10px 24px rgba(0, 240, 170, 0.2);
+  color: #06201c;
+  background: linear-gradient(135deg, #54e6d4, #2fbfae);
+  box-shadow: 0 10px 22px rgba(84, 230, 212, 0.18);
 }
 
 .wallet-connect-btn:active {
@@ -136,13 +136,13 @@
 }
 
 .wallet-error {
-  color: #ff6b7a;
+  color: #ff8f8f;
   font-size: 12px;
   font-weight: 600;
 }
 
 .wallet-hint {
-  color: #5a6a8a;
+  color: #5c6b69;
   font-size: 12px;
   line-height: 1.5;
 }
@@ -162,9 +162,9 @@
   gap: 12px;
   flex-wrap: wrap;
   padding: 14px;
-  border-radius: 18px;
-  background: #101c30;
-  border: 1px solid rgba(0, 240, 170, 0.16);
+  border-radius: var(--radius-lg);
+  background: #151c1d;
+  border: 1px solid rgba(84, 230, 212, 0.14);
 }
 
 .wallet-address-info {
@@ -174,14 +174,14 @@
 }
 
 .wallet-address-label {
-  color: #8fa0bd;
+  color: #8fa19e;
   font-size: 11px;
   letter-spacing: 1.5px;
   text-transform: uppercase;
 }
 
 .wallet-address-value {
-  color: #4be7a0;
+  color: #54e6d4;
   font-size: 15px;
   font-weight: 800;
   letter-spacing: 0.4px;
@@ -196,9 +196,9 @@
 .wallet-icon-btn {
   height: 36px;
   padding: 0 14px;
-  border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  background: #15233b;
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: #1b2324;
   color: #cdd8f0;
   font-size: 12px;
   font-weight: 700;
@@ -206,29 +206,29 @@
 }
 
 .wallet-icon-btn:hover {
-  background: #1c2e4c;
+  background: #212b2c;
 }
 
 .wallet-icon-btn.danger {
-  color: #ff8a95;
+  color: #ff9b9b;
 }
 
 .wallet-icon-btn.danger:hover {
-  background: rgba(255, 107, 122, 0.12);
+  background: rgba(255, 107, 107, 0.12);
 }
 
 .wallet-confirm {
   padding: 14px;
-  border-radius: 16px;
-  background: rgba(255, 107, 122, 0.08);
-  border: 1px solid rgba(255, 107, 122, 0.25);
+  border-radius: var(--radius-lg);
+  background: rgba(255, 107, 107, 0.08);
+  border: 1px solid rgba(255, 107, 107, 0.22);
   display: flex;
   flex-direction: column;
   gap: 10px;
 }
 
 .wallet-confirm span {
-  color: #ffd0d5;
+  color: #ffd4d4;
   font-size: 13px;
 }
 
@@ -241,19 +241,19 @@
   flex: 1;
   height: 40px;
   border: none;
-  border-radius: 12px;
+  border-radius: var(--radius-sm);
   font-size: 13px;
   font-weight: 700;
   cursor: pointer;
 }
 
 .wallet-confirm-btn.ghost {
-  background: #15233b;
+  background: #1b2324;
   color: #cdd8f0;
 }
 
 .wallet-confirm-btn.danger {
-  background: #ff4e5f;
+  background: #ff6b6b;
   color: white;
 }
 
@@ -266,18 +266,17 @@
 }
 
 .profile-stat {
-  border-radius: 20px;
-  background: #0d1627;
+  border-radius: var(--radius-lg);
+  background: #141b1c;
   border: 1px solid rgba(255, 255, 255, 0.06);
   padding: 16px;
   display: flex;
   flex-direction: column;
   gap: 6px;
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.02), 0 8px 20px rgba(0, 0, 0, 0.24);
 }
 
 .profile-stat.highlight {
-  background: linear-gradient(180deg, rgba(78, 167, 255, 0.09), rgba(13, 22, 39, 1));
+  background: linear-gradient(180deg, rgba(84, 230, 212, 0.08), rgba(20, 27, 28, 1));
 }
 
 .profile-stat.full {
@@ -288,7 +287,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  color: #8fa0bd;
+  color: #8fa19e;
   font-size: 11px;
   letter-spacing: 1.5px;
   text-transform: uppercase;
@@ -301,25 +300,25 @@
 }
 
 .stat-icon.gold {
-  color: #ffd65c;
+  color: #e3c071;
 }
 
 .stat-icon.blue {
-  color: #6ca9ff;
+  color: #7fe0d2;
 }
 
 .stat-icon.cyan {
-  color: #4be7a0;
+  color: #54e6d4;
 }
 
 .profile-stat strong {
   color: white;
-  font-size: 24px;
-  font-weight: 900;
+  font-size: 22px;
+  font-weight: 800;
 }
 
 .profile-stat small {
-  color: #7180a0;
+  color: #71807e;
   font-size: 12px;
 }
 
@@ -334,7 +333,7 @@
   flex: 1;
   height: 52px;
   border: none;
-  border-radius: 16px;
+  border-radius: var(--radius-md);
   font-size: 14px;
   font-weight: 800;
   cursor: pointer;
@@ -342,15 +341,15 @@
 }
 
 .profile-action.primary {
-  color: #06130c;
-  background: linear-gradient(90deg, #00f09c, #0ff0d0);
-  box-shadow: 0 12px 22px rgba(0, 240, 170, 0.18);
+  color: #06201c;
+  background: linear-gradient(135deg, #54e6d4, #2fbfae);
+  box-shadow: 0 10px 20px rgba(84, 230, 212, 0.16);
 }
 
 .profile-action.ghost {
-  background: #101c30;
-  color: #9fb4dd;
-  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: #151c1d;
+  color: #a9bab7;
+  border: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .profile-action:not(:disabled):active {
@@ -358,15 +357,15 @@
 }
 
 .profile-action:disabled {
-  opacity: 0.55;
+  opacity: 0.5;
   cursor: default;
 }
 
 /* ACTIVITY */
 
 .profile-card {
-  border-radius: 22px;
-  background: #0d1627;
+  border-radius: var(--radius-xl);
+  background: #141b1c;
   border: 1px solid rgba(255, 255, 255, 0.06);
   padding: 16px;
 }
@@ -379,7 +378,7 @@
 }
 
 .section-head p {
-  color: #8fa0bd;
+  color: #8fa19e;
   font-size: 11px;
   letter-spacing: 2px;
   text-transform: uppercase;
@@ -396,7 +395,7 @@
 .section-head-icon {
   width: 18px;
   height: 18px;
-  color: #7cc4ff;
+  color: #54e6d4;
 }
 
 .activity-list {
@@ -409,7 +408,7 @@
 .activity-empty {
   padding: 18px 0;
   text-align: center;
-  color: #5a6a8a;
+  color: #5c6b69;
   font-size: 13px;
 }
 
@@ -419,24 +418,24 @@
   align-items: center;
   gap: 12px;
   padding: 12px 14px;
-  border-radius: 16px;
-  background: #101c30;
+  border-radius: var(--radius-md);
+  background: #1b2324;
 }
 
 .activity-mark {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: #6ca9ff;
+  background: #7fe0d2;
   flex-shrink: 0;
 }
 
 .activity-row.reward .activity-mark {
-  background: #4be7a0;
+  background: #54e6d4;
 }
 
 .activity-row.exchange .activity-mark {
-  background: #ffb02e;
+  background: #e3c071;
 }
 
 .activity-copy {
@@ -452,12 +451,12 @@
 }
 
 .activity-copy span {
-  color: #7180a0;
+  color: #71807e;
   font-size: 12px;
 }
 
 .activity-time {
-  color: #6f809f;
+  color: #5c6b69;
   font-size: 11px;
   letter-spacing: 1px;
   text-transform: uppercase;

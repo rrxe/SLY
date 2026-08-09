@@ -5,7 +5,7 @@
   display: flex;
   flex-direction: column;
   gap: 14px;
-  background: linear-gradient(180deg, #08101e 0%, #04070d 100%);
+  background: linear-gradient(180deg, #101516 0%, #0a0d0e 100%);
 }
 
 .tasks-toast {
@@ -16,20 +16,20 @@
   z-index: 20;
   padding: 10px 16px;
   border-radius: 999px;
-  background: rgba(18, 35, 61, 0.96);
-  color: #eaf2ff;
+  background: rgba(20, 27, 28, 0.96);
+  color: #eaf4f2;
   font-size: 13px;
   font-weight: 700;
-  border: 1px solid rgba(120, 200, 255, 0.18);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(84, 230, 212, 0.16);
+  box-shadow: var(--shadow-2);
 }
 
 .tasks-hero {
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.045);
+  border-radius: var(--radius-lg);
+  background: rgba(255, 255, 255, 0.04);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.06);
   padding: 12px 14px;
   display: flex;
   align-items: center;
@@ -40,11 +40,11 @@
   width: 38px;
   height: 38px;
   flex-shrink: 0;
-  border-radius: 12px;
+  border-radius: var(--radius-sm);
   display: grid;
   place-items: center;
-  background: rgba(255, 214, 92, 0.12);
-  color: #ffd65c;
+  background: rgba(227, 192, 113, 0.12);
+  color: #e3c071;
 }
 
 .hero-svg {
@@ -62,7 +62,7 @@
 
 .tasks-hero-text p {
   margin: 2px 0 0;
-  color: #9fb0cc;
+  color: #8fa19e;
   font-size: 12px;
   line-height: 1.4;
 }
@@ -74,18 +74,18 @@
 }
 
 .task-empty {
-  border-radius: 18px;
-  background: #0d1627;
+  border-radius: var(--radius-lg);
+  background: #141b1c;
   border: 1px solid rgba(255, 255, 255, 0.05);
   padding: 16px;
-  color: #9fb0cc;
+  color: #8fa19e;
   font-size: 13px;
   text-align: center;
 }
 
 .task-row {
-  border-radius: 18px;
-  background: #0d1627;
+  border-radius: var(--radius-lg);
+  background: #141b1c;
   border: 1px solid rgba(255, 255, 255, 0.05);
   padding: 12px;
   display: grid;
@@ -95,21 +95,21 @@
 }
 
 .task-row.done {
-  opacity: 0.84;
+  opacity: 0.8;
 }
 
 .task-icon {
   width: 42px;
   height: 42px;
-  border-radius: 14px;
+  border-radius: var(--radius-sm);
   display: grid;
   place-items: center;
   flex-shrink: 0;
 }
 
 .task-icon.channel {
-  background: rgba(124, 196, 255, 0.1);
-  color: #7cc4ff;
+  background: rgba(84, 230, 212, 0.10);
+  color: #54e6d4;
 }
 
 .task-svg {
@@ -133,7 +133,7 @@
 
 .task-type {
   margin: 0 0 4px;
-  color: #8fa0bd;
+  color: #8fa19e;
   font-size: 10px;
   letter-spacing: 3px;
   font-weight: 800;
@@ -144,14 +144,14 @@
   margin: 0;
   color: #fff;
   font-size: 15px;
-  font-weight: 900;
+  font-weight: 800;
   line-height: 1.1;
 }
 
 .task-reward {
-  color: #ffd65c;
+  color: #e3c071;
   font-size: 14px;
-  font-weight: 900;
+  font-weight: 800;
   white-space: nowrap;
 }
 
@@ -168,18 +168,18 @@
 }
 
 .task-mini-status .gray {
-  color: #7f8fac;
-  background: rgba(127, 143, 172, 0.1);
+  color: #7c8b89;
+  background: rgba(124, 139, 137, 0.12);
 }
 
 .task-mini-status .blue {
-  color: #7cc4ff;
-  background: rgba(124, 196, 255, 0.12);
+  color: #8fede0;
+  background: rgba(84, 230, 212, 0.10);
 }
 
 .task-mini-status .green {
-  color: #00f09c;
-  background: rgba(0, 240, 156, 0.12);
+  color: #54e6d4;
+  background: rgba(84, 230, 212, 0.16);
 }
 
 .task-actions {
@@ -192,9 +192,9 @@
   height: 38px;
   padding: 0 12px;
   border: none;
-  border-radius: 12px;
+  border-radius: var(--radius-sm);
   font-size: 12px;
-  font-weight: 900;
+  font-weight: 800;
   cursor: pointer;
   white-space: nowrap;
   transition: transform 0.15s ease, opacity 0.15s ease;
@@ -205,19 +205,19 @@
 }
 
 .task-btn.join {
-  color: #06130c;
-  background: linear-gradient(90deg, #00f09c, #0ff0d0);
+  color: #06201c;
+  background: linear-gradient(135deg, #54e6d4, #2fbfae);
 }
 
 .task-btn.claim {
-  color: #9fb4dd;
-  background: #101c30;
+  color: #a9bab7;
+  background: #1b2324;
   border: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .task-btn:disabled {
   cursor: default;
-  opacity: 0.72;
+  opacity: 0.7;
 }
 
 @media (max-width: 420px) {

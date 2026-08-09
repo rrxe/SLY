@@ -11,10 +11,10 @@
 
 .modal-card{
   width:min(92vw, 460px);
-  border-radius:28px;
-  background:linear-gradient(180deg, rgba(15,23,40,.96), rgba(9,13,24,.94));
+  border-radius:var(--radius-xl);
+  background:linear-gradient(180deg, rgba(20,27,28,.97), rgba(13,17,18,.96));
   border:1px solid rgba(255,255,255,.06);
-  box-shadow:0 24px 60px rgba(0,0,0,.48);
+  box-shadow:var(--shadow-1);
   padding:18px;
   display:flex;
   flex-direction:column;
@@ -40,7 +40,7 @@
 .modal-head h2{
   margin:6px 0 0;
   color:var(--text);
-  font-size:clamp(24px, 5vw, 32px);
+  font-size:clamp(22px, 5vw, 28px);
   line-height:1;
 }
 
@@ -48,7 +48,7 @@
   width:40px;
   height:40px;
   border:none;
-  border-radius:14px;
+  border-radius:var(--radius-md);
   background:rgba(255,255,255,.05);
   color:var(--text);
   display:grid;
@@ -65,8 +65,8 @@
   align-items:center;
   gap:12px;
   padding:14px;
-  border-radius:22px;
-  background:rgba(9,13,24,.78);
+  border-radius:var(--radius-lg);
+  background:rgba(13,17,18,.75);
   border:1px solid rgba(255,255,255,.05);
 }
 
@@ -74,8 +74,8 @@
   width:18px;
   height:18px;
   border-radius:50%;
-  background:linear-gradient(180deg, #4ea7ff, #00f5a0);
-  box-shadow:0 0 18px rgba(78,167,255,.25);
+  background:linear-gradient(180deg, #54e6d4, #2fbfae);
+  box-shadow:0 0 16px rgba(84,230,212,.25);
   flex:0 0 auto;
 }
 
@@ -117,10 +117,10 @@
 
 .exchange-input-row input{
   flex:1;
-  height:54px;
-  border-radius:16px;
+  height:52px;
+  border-radius:var(--radius-md);
   border:1px solid rgba(255,255,255,.06);
-  background:rgba(9,13,24,.78);
+  background:rgba(13,17,18,.75);
   color:var(--text);
   padding:0 14px;
   font-size:16px;
@@ -132,13 +132,13 @@
 }
 
 .exchange-max{
-  height:54px;
+  height:52px;
   padding:0 16px;
   border:none;
-  border-radius:16px;
-  background:rgba(78,167,255,.12);
+  border-radius:var(--radius-md);
+  background:rgba(84,230,212,.12);
   color:var(--blue-0);
-  font-weight:900;
+  font-weight:800;
   letter-spacing:1px;
 }
 
@@ -150,8 +150,8 @@
 
 .exchange-preview > div{
   padding:14px;
-  border-radius:18px;
-  background:rgba(9,13,24,.78);
+  border-radius:var(--radius-lg);
+  background:rgba(13,17,18,.75);
   border:1px solid rgba(255,255,255,.05);
 }
 
@@ -173,8 +173,8 @@
 
 .exchange-note{
   padding:12px 14px;
-  border-radius:18px;
-  background:rgba(255,255,255,.04);
+  border-radius:var(--radius-lg);
+  background:rgba(255,255,255,.03);
   border:1px solid rgba(255,255,255,.05);
 }
 
@@ -192,28 +192,28 @@
 }
 
 .modal-button{
-  height:52px;
+  height:50px;
   border:none;
-  border-radius:16px;
+  border-radius:var(--radius-md);
   font-size:14px;
-  font-weight:900;
+  font-weight:800;
   letter-spacing:.4px;
 }
 
 .modal-button.ghost{
-  background:rgba(15,23,40,.76);
+  background:rgba(20,27,28,.75);
   color:var(--blue-0);
   border:1px solid rgba(255,255,255,.06);
 }
 
 .modal-button.primary{
-  background:linear-gradient(180deg, #00f5a0 0%, #00d88d 100%);
-  color:#061019;
-  box-shadow:0 18px 30px rgba(0,245,160,.18);
+  background:linear-gradient(180deg, #54e6d4 0%, #2fbfae 100%);
+  color:#06201c;
+  box-shadow:0 14px 26px rgba(84,230,212,.16);
 }
 
 .modal-button:disabled{
-  opacity:.7;
+  opacity:.6;
   cursor:not-allowed;
   box-shadow:none;
 }
@@ -221,7 +221,7 @@
 @media (max-width: 420px){
   .modal-card{
     padding:14px;
-    border-radius:22px;
+    border-radius:var(--radius-lg);
   }
 
   .exchange-preview{
