@@ -99,7 +99,12 @@ export default function App() {
   useEffect(() => {
     if (booting || bootError || mode !== "lobby") return;
 
-    const timer = window.setTimeout(() => {
+    let cancelled = false;
+    let retryTimer: number | undefined;
+
+    const triggerAd = () => {
+      if (cancelled) return;
+
       if (typeof window.show_11532116 === "function") {
         window
           .show_11532116({
@@ -113,13 +118,21 @@ export default function App() {
             },
           })
           .catch((err: any) => {
-            console.error("Monetag ad error:", err);
+            // ماكو إعلان متاح حالياً (طبيعي وقت مراجعة KYC) أو مشكلة شبكة
+            console.log("Monetag: no ad available right now", err);
           });
+      } else {
+        // السكربت لسا ما تحمّل، حاول بعد نص ثانية
+        retryTimer = window.setTimeout(triggerAd, 500);
       }
-    }, 500);
+    };
+
+    const startTimer = window.setTimeout(triggerAd, 1000);
 
     return () => {
-      window.clearTimeout(timer);
+      cancelled = true;
+      window.clearTimeout(startTimer);
+      if (retryTimer) window.clearTimeout(retryTimer);
     };
   }, [booting, bootError, mode]);
 
