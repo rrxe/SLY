@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { TadsWidget, renderTadsWidget } from "react-tads-widget";
 import "./App.css";
 
 import Background from "./components/Background";
@@ -34,11 +33,13 @@ type WalletState = {
   walletAddress: string | null;
 };
 
-export const ENERGY_MAX = 5;
+declare global {
+  interface Window {
+    show_11532116?: (config: any) => Promise<void>;
+  }
+}
 
-const TADS_WIDGET_ID = "11412";
-const TADS_FIRST_AD_DELAY_MS = 5000;
-const TADS_REPEAT_AD_DELAY_MS = 120000;
+export const ENERGY_MAX = 5;
 
 function makeId() {
   return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
@@ -98,33 +99,27 @@ export default function App() {
   useEffect(() => {
     if (booting || bootError || mode !== "lobby") return;
 
-    let cancelled = false;
-
-    const showFullscreenAd = () => {
-      if (cancelled) return;
-
-      try {
-        renderTadsWidget({
-          id: TADS_WIDGET_ID,
-          type: "fullscreen",
-        });
-      } catch (err) {
-        console.error("TADS fullscreen error:", err);
+    const timer = window.setTimeout(() => {
+      if (typeof window.show_11532116 === "function") {
+        window
+          .show_11532116({
+            type: "inApp",
+            inAppSettings: {
+              frequency: 999,
+              capping: 24,
+              interval: 90,
+              timeout: 1,
+              everyPage: false,
+            },
+          })
+          .catch((err: any) => {
+            console.error("Monetag ad error:", err);
+          });
       }
-    };
-
-    const firstTimer = window.setTimeout(() => {
-      showFullscreenAd();
-    }, TADS_FIRST_AD_DELAY_MS);
-
-    const repeatTimer = window.setInterval(() => {
-      showFullscreenAd();
-    }, TADS_REPEAT_AD_DELAY_MS);
+    }, 500);
 
     return () => {
-      cancelled = true;
-      window.clearTimeout(firstTimer);
-      window.clearInterval(repeatTimer);
+      window.clearTimeout(timer);
     };
   }, [booting, bootError, mode]);
 
@@ -396,15 +391,6 @@ export default function App() {
           )}
         </div>
       </main>
-
-      <TadsWidget
-        id={TADS_WIDGET_ID}
-        type="fullscreen"
-        debug={false}
-        onAdsNotFound={() => {
-          console.log("No TADS fullscreen ad found");
-        }}
-      />
 
       <BottomNav page={page} setPage={setPage} />
 
