@@ -305,7 +305,7 @@ export default function App() {
             alignItems: "center",
             justifyContent: "center",
             height: "100%",
-            color: "#eaf3ff",
+            color: "#eaf4f2",
           }}
         >
           جارِ التحميل...
@@ -324,7 +324,7 @@ export default function App() {
             alignItems: "center",
             justifyContent: "center",
             height: "100%",
-            color: "#eaf3ff",
+            color: "#eaf4f2",
             padding: 24,
             textAlign: "center",
           }}

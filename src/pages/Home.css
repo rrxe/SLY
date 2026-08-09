@@ -4,10 +4,8 @@
   overflow-y: auto;
   padding-bottom: 110px;
   background:
-    radial-gradient(circle at top,#122445 0%,#08101e 45%,#04070d 100%);
+    radial-gradient(circle at top,#141b1c 0%,#0d1213 45%,#0a0d0e 100%);
 }
-
-/* ---------------- HEADER ---------------- */
 
 .homeHeader{
   padding:18px 18px 8px;
@@ -21,7 +19,7 @@
 }
 
 .brandTitle{
-  color:#dbe7ff;
+  color:#eaf4f2;
   font-size:13px;
   letter-spacing:5px;
   font-weight:800;
@@ -35,8 +33,8 @@
   height:34px;
   padding:0 18px;
   border-radius:999px;
-  background:#12233d;
-  color:white;
+  background:#1b2324;
+  color:#eaf4f2;
   font-weight:700;
   font-size:15px;
   border:1px solid rgba(255,255,255,.08);
@@ -50,16 +48,13 @@
 .stat{
   min-width:120px;
   height:70px;
-  border-radius:24px;
-  background:#10192d;
+  border-radius:20px;
+  background:#141b1c;
   border:1px solid rgba(255,255,255,.06);
   display:flex;
   align-items:center;
   justify-content:center;
   gap:12px;
-  box-shadow:
-  inset 0 0 0 1px rgba(255,255,255,.03),
-  0 8px 25px rgba(0,0,0,.35);
 }
 
 .statIcon{
@@ -67,24 +62,22 @@
 }
 
 .statLabel{
-  color:#8fa0bd;
+  color:#8fa19e;
   font-size:12px;
   letter-spacing:2px;
 }
 
 .statValue{
-  color:white;
+  color:#eaf4f2;
   font-size:17px;
   font-weight:800;
 }
 
-/* ---------------- HERO ---------------- */
-
 .hero{
   margin:12px 18px;
-  border-radius:34px;
-  background:#0d1627;
-  border:1px solid rgba(130,170,255,.08);
+  border-radius:26px;
+  background:#141b1c;
+  border:1px solid rgba(84,230,212,.08);
   overflow:hidden;
 }
 
@@ -100,12 +93,10 @@
   height:170px;
   border-radius:50%;
   background:
-  radial-gradient(circle,#18345f 0%,#09111f 80%);
+  radial-gradient(circle,#1e2b2a 0%,#0a0d0e 80%);
   display:flex;
   justify-content:center;
   align-items:center;
-  box-shadow:
-  0 0 60px rgba(60,140,255,.25);
 }
 
 .shipHolder img{
@@ -120,12 +111,12 @@
   width:100%;
   height:60px;
   border:none;
-  border-radius:18px;
-  font-size:24px;
+  border-radius:16px;
+  font-size:22px;
   font-weight:800;
   cursor:pointer;
-  color:#06130c;
-  background:linear-gradient(90deg,#00f09c,#0ff0d0);
+  color:#06201c;
+  background:linear-gradient(135deg,#54e6d4,#2fbfae);
   transition:.18s;
 }
 
@@ -135,7 +126,7 @@
 
 .heroMini{
   margin-top:22px;
-  color:#8eb8ff;
+  color:#7fe0d2;
   letter-spacing:5px;
   font-size:12px;
   font-weight:700;
@@ -143,34 +134,32 @@
 
 .heroTitle{
   margin-top:8px;
-  color:white;
-  font-size:44px;
-  font-weight:900;
+  color:#eaf4f2;
+  font-size:40px;
+  font-weight:800;
 }
 
 .heroDesc{
   margin-top:12px;
-  color:#8c98b5;
+  color:#8fa19e;
   line-height:1.8;
   font-size:16px;
 }
-
-/* ---------------- CHECK IN ---------------- */
 
 .section{
   margin:18px;
 }
 
 .sectionTitle{
-  color:white;
+  color:#eaf4f2;
   font-size:22px;
   font-weight:800;
   margin-bottom:14px;
 }
 
 .checkin{
-  background:#0d1627;
-  border-radius:28px;
+  background:#141b1c;
+  border-radius:22px;
   padding:18px;
   border:1px solid rgba(255,255,255,.05);
 }
@@ -188,16 +177,16 @@
 
 .day{
   min-width:64px;
-  border-radius:18px;
-  background:#15233b;
+  border-radius:14px;
+  background:#1b2324;
   padding:12px 8px;
   text-align:center;
-  color:white;
+  color:#eaf4f2;
 }
 
 .dayNumber{
   font-size:13px;
-  color:#95a6c7;
+  color:#8fa19e;
 }
 
 .dayReward{
@@ -211,19 +200,17 @@
   width:100%;
   height:52px;
   border:none;
-  border-radius:18px;
-  background:#1b3358;
-  color:white;
+  border-radius:14px;
+  background:#1b2324;
+  color:#eaf4f2;
   font-weight:700;
   font-size:17px;
 }
 
-/* ---------------- LEADERBOARD ---------------- */
-
 .leaderboard{
   margin:18px;
-  background:#0d1627;
-  border-radius:28px;
+  background:#141b1c;
+  border-radius:22px;
   border:1px solid rgba(255,255,255,.05);
   padding:18px;
 }
@@ -241,17 +228,17 @@
 }
 
 .rank{
-  color:#7cc4ff;
+  color:#7fe0d2;
   font-weight:800;
 }
 
 .name{
-  color:white;
+  color:#eaf4f2;
   flex:1;
   margin-left:12px;
 }
 
 .score{
-  color:#ffd65c;
+  color:#e3c071;
   font-weight:700;
 }

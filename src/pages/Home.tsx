@@ -7,8 +7,6 @@ type Props = {
   balanceCoins: number;
   energyCurrent: number;
   energyMax: number;
-  // الستريك يجي جاهز من App.tsx بعد ما يسوي check-in تلقائي عند فتح
-  // التطبيق (ما عاد في زر Claim يدوي بهذي الصفحة)
   streak: number;
 };
 
@@ -35,8 +33,6 @@ const milestones: Milestone[] = [
   { days: 50, chest: "Mythic" },
 ];
 
-// الوقت المتبقي لمنتصف الليل بتوقيت UTC - نفس اللحظة اللي يرجع فيها
-// check-in جديد بالسيرفر (isSameUtcDay بملف daily-checkin.js)
 function getMsUntilNextUtcMidnight() {
   const now = new Date();
   const nextMidnight = Date.UTC(
@@ -87,7 +83,6 @@ export default function Home({
     return () => window.clearTimeout(timer);
   }, [toast]);
 
-  // عداد حي لوقت تصفير الـ check-in القادم، يتحدث كل ثانية
   useEffect(() => {
     const interval = window.setInterval(() => {
       setResetCountdown(formatCountdown(getMsUntilNextUtcMidnight()));
@@ -249,7 +244,7 @@ seamless run.
 
           <div className="leader-list">
             {leaderboard.length === 0 ? (
-              <div style={{ color: "#8c98b5", padding: "10px 0", textAlign: "center" }}>
+              <div style={{ color: "#8fa19e", padding: "10px 0", textAlign: "center" }}>
                 No leaderboard data from server
               </div>
             ) : (

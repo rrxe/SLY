@@ -94,7 +94,7 @@ export default function WithdrawalModal({
 
         <div className="exchange-note">
           {error ? (
-            <p style={{ color: "#ff6b7a" }}>{error}</p>
+            <p style={{ color: "#ff6b6b" }}>{error}</p>
           ) : (
             <p>Funds will be sent to your connected BEP20 address.</p>
           )}

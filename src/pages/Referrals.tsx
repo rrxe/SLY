@@ -58,36 +58,36 @@ export default function Referrals() {
     <section
       style={{
         padding: "6px 0",
-        color: "#eaf3ff",
+        color: "#eaf4f2",
         fontFamily: "system-ui, sans-serif",
       }}
     >
       <div
         style={{
           padding: 18,
-          borderRadius: 24,
-          background: "rgba(15,23,40,.76)",
+          borderRadius: 22,
+          background: "#141b1c",
           border: "1px solid rgba(255,255,255,.06)",
         }}
       >
         <h2 style={{ margin: 0, fontSize: 28 }}>Referrals</h2>
-        <p style={{ marginTop: 8, color: "#92a1b7", lineHeight: 1.6 }}>
+        <p style={{ marginTop: 8, color: "#8fa19e", lineHeight: 1.6 }}>
           Referral rewards, 500 coins first bonus, and extra bonuses for invited users.
         </p>
 
         {loading ? (
-          <p style={{ color: "#92a1b7", marginTop: 20 }}>Loading...</p>
+          <p style={{ color: "#8fa19e", marginTop: 20 }}>Loading...</p>
         ) : (
           <div style={{ marginTop: 20 }}>
             <div
               style={{
-                background: "rgba(255,255,255,0.04)",
+                background: "#1b2324",
                 padding: 14,
-                borderRadius: 16,
+                borderRadius: 14,
                 marginBottom: 16,
               }}
             >
-              <span style={{ fontSize: 14, color: "#92a1b7" }}>
+              <span style={{ fontSize: 14, color: "#8fa19e" }}>
                 Total Referrals
               </span>
               <div
@@ -95,7 +95,7 @@ export default function Referrals() {
                   fontSize: 24,
                   fontWeight: "bold",
                   marginTop: 4,
-                  color: "#40a7e3",
+                  color: "#54e6d4",
                 }}
               >
                 {user?.referralsCount || 0}
@@ -106,7 +106,7 @@ export default function Referrals() {
               <label
                 style={{
                   fontSize: 13,
-                  color: "#92a1b7",
+                  color: "#8fa19e",
                   display: "block",
                   marginBottom: 6,
                 }}
@@ -121,11 +121,11 @@ export default function Referrals() {
                   placeholder={user ? "" : "Referral link unavailable"}
                   style={{
                     flex: 1,
-                    background: "rgba(0,0,0,0.3)",
-                    border: "1px solid rgba(255,255,255,0.1)",
+                    background: "#101516",
+                    border: "1px solid rgba(255,255,255,.08)",
                     borderRadius: 12,
                     padding: "10px 14px",
-                    color: "#fff",
+                    color: "#eaf4f2",
                     fontSize: 13,
                     outline: "none",
                   }}
@@ -135,11 +135,11 @@ export default function Referrals() {
                   disabled={!referralLink}
                   style={{
                     background: !referralLink
-                      ? "rgba(64,167,227,0.35)"
+                      ? "rgba(84,230,212,0.30)"
                       : copied
-                      ? "#4caf50"
-                      : "#40a7e3",
-                    color: "#fff",
+                      ? "#54e6d4"
+                      : "#54e6d4",
+                    color: "#06201c",
                     border: "none",
                     borderRadius: 12,
                     padding: "0 18px",
