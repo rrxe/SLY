@@ -374,6 +374,7 @@ export default function App() {
               energyCurrent={wallet.energy}
               energyMax={ENERGY_MAX}
               streak={streak}
+              isStartingGame={startingGame}
             />
           )}
 

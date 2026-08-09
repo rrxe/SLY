@@ -8,6 +8,7 @@ type Props = {
   energyCurrent: number;
   energyMax: number;
   streak: number;
+  isStartingGame: boolean;
 };
 
 type ChestTier = "Common" | "Epic" | "Legendary" | "Mythic";
@@ -59,6 +60,7 @@ export default function Home({
   energyCurrent,
   energyMax,
   streak,
+  isStartingGame,
 }: Props) {
   const [leaderboard, setLeaderboard] = useState<LeaderUser[]>([]);
   const [toast, setToast] = useState("");
@@ -109,6 +111,7 @@ export default function Home({
   }, [streak, nextMilestone]);
 
   const handlePlayClick = () => {
+    if (isStartingGame) return;
     if (energyCurrent <= 0) {
       setToast("Not enough energy. Wait for a refill ⚡");
       return;
@@ -136,7 +139,7 @@ export default function Home({
           </div>
           <div className="hero-meta-divider" />
           <div className="hero-meta-item">
-            <strong>150</strong>
+            <strong>50</strong>
             <span>Per Wave</span>
           </div>
           <div className="hero-meta-divider" />
@@ -149,12 +152,21 @@ export default function Home({
         <button
           className="hero-play"
           onClick={handlePlayClick}
-          disabled={energyCurrent <= 0}
+          disabled={energyCurrent <= 0 || isStartingGame}
         >
-          <span className="hero-play-icon">
-            <UiIcons name="play" className="hero-play-icon-svg" />
-          </span>
-          <span className="hero-play-text">Play Now</span>
+          {isStartingGame ? (
+            <>
+              <span className="hero-play-spinner" />
+              <span className="hero-play-text">Loading...</span>
+            </>
+          ) : (
+            <>
+              <span className="hero-play-icon">
+                <UiIcons name="play" className="hero-play-icon-svg" />
+              </span>
+              <span className="hero-play-text">Play Now</span>
+            </>
+          )}
         </button>
       </section>
 
