@@ -67,7 +67,7 @@ type Banner = {
 };
 
 const TOTAL_WAVES = 5;
-const WAVE_REWARD = 150;
+const WAVE_REWARD = 50;
 
 function clamp(value: number, min: number, max: number) {
   return Math.max(min, Math.min(max, value));
