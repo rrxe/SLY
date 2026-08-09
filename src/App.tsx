@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { TadsWidget, renderTadsWidget } from "react-tads-widget";
 import "./App.css";
 
 import Background from "./components/Background";
@@ -34,11 +33,36 @@ type WalletState = {
   walletAddress: string | null;
 };
 
+type AdsgramShowResult = {
+  done: boolean;
+  description: string;
+  state: "load" | "render" | "playing" | "destroy";
+  error: boolean;
+};
+
+type AdsgramController = {
+  show: () => Promise<AdsgramShowResult>;
+};
+
+type AdsgramSDK = {
+  init: (options: {
+    blockId: string;
+    debug?: boolean;
+  }) => AdsgramController;
+};
+
+declare global {
+  interface Window {
+    Adsgram?: AdsgramSDK;
+  }
+}
+
 export const ENERGY_MAX = 5;
 
-const TADS_WIDGET_ID = "11412";
-const TADS_FIRST_AD_DELAY_MS = 5000;
-const TADS_REPEAT_AD_DELAY_MS = 120000;
+const ADSGRAM_INTERSTITIAL_BLOCK_ID = "int-42061";
+const ADSGRAM_SDK_SRC = "https://sad.adsgram.ai/js/sad.min.js";
+const FIRST_AD_DELAY_MS = 1000;
+const REPEAT_AD_DELAY_MS = 120000;
 
 function makeId() {
   return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
@@ -88,6 +112,7 @@ export default function App() {
   const [activities, setActivities] = useState<Activity[]>([]);
   const [booting, setBooting] = useState(true);
   const [bootError, setBootError] = useState("");
+  const [adsgramReady, setAdsgramReady] = useState(false);
 
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -96,37 +121,76 @@ export default function App() {
   }, [page]);
 
   useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    if (window.Adsgram) {
+      setAdsgramReady(true);
+      return;
+    }
+
+    const existingScript = document.querySelector(
+      `script[src="${ADSGRAM_SDK_SRC}"]`
+    );
+
+    if (existingScript) {
+      existingScript.addEventListener("load", () => setAdsgramReady(true), { once: true });
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.src = ADSGRAM_SDK_SRC;
+    script.async = true;
+
+    script.onload = () => setAdsgramReady(true);
+    script.onerror = () => {
+      setAdsgramReady(false);
+      console.log("Failed to load AdsGram SDK");
+    };
+
+    document.head.appendChild(script);
+
+    return () => {
+      script.onload = null;
+      script.onerror = null;
+    };
+  }, []);
+
+  const showAdsgramInterstitial = async () => {
+    if (!window.Adsgram) return;
+
+    try {
+      const controller = window.Adsgram.init({
+        blockId: ADSGRAM_INTERSTITIAL_BLOCK_ID,
+        debug: false,
+      });
+
+      await controller.show();
+    } catch (err) {
+      console.log("AdsGram interstitial skipped or unavailable", err);
+    }
+  };
+
+  useEffect(() => {
     if (booting || bootError || mode !== "lobby") return;
+    if (!adsgramReady) return;
 
     let cancelled = false;
 
-    const showFullscreenAd = () => {
-      if (cancelled) return;
-
-      try {
-        renderTadsWidget({
-          id: TADS_WIDGET_ID,
-          type: "fullscreen",
-        });
-      } catch (err) {
-        console.error("TADS fullscreen error:", err);
-      }
-    };
-
     const firstTimer = window.setTimeout(() => {
-      showFullscreenAd();
-    }, TADS_FIRST_AD_DELAY_MS);
+      void showAdsgramInterstitial();
+    }, FIRST_AD_DELAY_MS);
 
     const repeatTimer = window.setInterval(() => {
-      showFullscreenAd();
-    }, TADS_REPEAT_AD_DELAY_MS);
+      if (cancelled) return;
+      void showAdsgramInterstitial();
+    }, REPEAT_AD_DELAY_MS);
 
     return () => {
       cancelled = true;
       window.clearTimeout(firstTimer);
       window.clearInterval(repeatTimer);
     };
-  }, [booting, bootError, mode]);
+  }, [booting, bootError, mode, adsgramReady]);
 
   const loadPlayerData = async () => {
     const data = await callApi("/api/auth/me", { method: "GET" });
@@ -397,15 +461,6 @@ export default function App() {
           )}
         </div>
       </main>
-
-      <TadsWidget
-        id={TADS_WIDGET_ID}
-        type="fullscreen"
-        debug={false}
-        onAdsNotFound={() => {
-          console.log("No TADS fullscreen ad found");
-        }}
-      />
 
       <BottomNav page={page} setPage={setPage} />
 
