@@ -333,15 +333,11 @@ export default async function handler(
         })
       }
 
-      if (
-        String(task.task_type || '')
-          .toLowerCase() !== 'watch_ad'
-      ) {
-        return res.status(400).json({
-          error:
-            'Open session is only for watch_ad tasks',
-        })
-      }
+      // Any active task type can record its open time here.
+      // watch_ad tasks are still completed only through the
+      // AdsGram GET callback (handleAdsgramReward), never through
+      // the POST claim flow below — this just lets the wait timer
+      // (5s) be tracked server-side for join/smart_ad tasks too.
 
       const {
         data: completionRow,
@@ -389,7 +385,7 @@ export default async function handler(
       return res.status(200).json({
         success: true,
         message:
-          'Ad session recorded',
+          'Task open recorded',
       })
     }
 

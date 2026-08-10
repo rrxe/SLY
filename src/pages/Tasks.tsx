@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import "../styles/tasks.css";
 
 type Props = {
@@ -142,6 +142,11 @@ export default function Tasks({ onRewardCoins }: Props) {
   const [openingIds, setOpeningIds] = useState<Record<string, boolean>>({});
   const [claimingIds, setClaimingIds] = useState<Record<string, boolean>>({});
 
+  // Holds the single scheduled auto-claim timer per task id.
+  // A task gets exactly ONE timer, fired once, when it is opened —
+  // no repeating background polling / retry loop.
+  const claimTimersRef = useRef<Record<string, number>>({});
+
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: "auto" });
   }, []);
@@ -199,48 +204,11 @@ export default function Tasks({ onRewardCoins }: Props) {
     return data;
   };
 
-  const handleOpenTask = async (task: ServerTask) => {
-    const id = String(task.id);
-
-    if (openingIds[id]) return;
-
-    const progress = progressById[id] || {
-      completed: 0,
-      max_completions: Math.max(1, Number(task.max_completions || 1)),
-    };
-
-    if (progress.completed >= progress.max_completions) {
-      setToast("Task limit reached.");
-      return;
-    }
-
-    setOpeningIds((prev) => ({ ...prev, [id]: true }));
-
-    try {
-      const url = String(task.url || "").trim();
-
-      if (!url) {
-        setToast("Task has no URL.");
-        return;
-      }
-
-      window.open(url, "_blank", "noopener,noreferrer");
-
-      setOpenedAtById((prev) => ({
-        ...prev,
-        [id]: Date.now(),
-      }));
-
-      const waitSeconds = getClaimDelayMs(task) / 1000;
-      setToast(`Opened. Verifying in ${waitSeconds} seconds.`);
-    } catch (err: any) {
-      setToast(err?.message || "Failed to open task.");
-    } finally {
-      setOpeningIds((prev) => {
-        const copy = { ...prev };
-        delete copy[id];
-        return copy;
-      });
+  const clearClaimTimer = (id: string) => {
+    const handle = claimTimersRef.current[id];
+    if (handle) {
+      window.clearTimeout(handle);
+      delete claimTimersRef.current[id];
     }
   };
 
@@ -301,6 +269,7 @@ export default function Tasks({ onRewardCoins }: Props) {
     } catch (err: any) {
       setToast(err?.message || "Failed to verify task");
     } finally {
+      clearClaimTimer(id);
       setClaimingIds((prev) => {
         const copy = { ...prev };
         delete copy[id];
@@ -309,32 +278,105 @@ export default function Tasks({ onRewardCoins }: Props) {
     }
   };
 
+  // Schedules exactly ONE auto-claim attempt for this task, `claimDelayMs`
+  // after it was opened. No repeating interval, no background retries.
+  const scheduleAutoClaim = (task: ServerTask, openedAt: number) => {
+    if (isWatchAdTask(task)) return;
+
+    const id = String(task.id);
+    clearClaimTimer(id);
+
+    const delayMs = getClaimDelayMs(task);
+    const remaining = Math.max(0, delayMs - (Date.now() - openedAt));
+
+    claimTimersRef.current[id] = window.setTimeout(() => {
+      delete claimTimersRef.current[id];
+      handleClaimServerTask(task);
+    }, remaining);
+  };
+
+  // Re-arm the one-shot timer for any task that was already opened
+  // (e.g. page was reloaded mid-wait) but hasn't been claimed yet.
+  // Still only ONE timer per task — not a repeating poll.
   useEffect(() => {
-    const interval = window.setInterval(() => {
-      serverTasks.forEach((task) => {
-        if (isWatchAdTask(task)) return;
+    Object.entries(openedAtById).forEach(([id, openedAt]) => {
+      if (claimTimersRef.current[id]) return;
 
-        const id = String(task.id);
-        const openedAt = openedAtById[id];
-        if (!openedAt) return;
+      const task = serverTasks.find((t) => String(t.id) === id);
+      if (!task || isWatchAdTask(task)) return;
 
-        const claimDelayMs = getClaimDelayMs(task);
-        if (Date.now() - openedAt < claimDelayMs) return;
+      const progress = progressById[id] || {
+        completed: 0,
+        max_completions: Math.max(1, Number(task.max_completions || 1)),
+      };
+      if (progress.completed >= progress.max_completions) return;
 
-        const progress = progressById[id] || {
-          completed: 0,
-          max_completions: Math.max(1, Number(task.max_completions || 1)),
-        };
-        if (progress.completed >= progress.max_completions) return;
+      scheduleAutoClaim(task, openedAt);
+    });
+  }, [serverTasks, openedAtById, progressById]);
 
-        if (claimingIds[id]) return;
+  useEffect(() => {
+    return () => {
+      Object.values(claimTimersRef.current).forEach((handle) => window.clearTimeout(handle));
+      claimTimersRef.current = {};
+    };
+  }, []);
 
-        handleClaimServerTask(task);
+  const handleOpenTask = async (task: ServerTask) => {
+    const id = String(task.id);
+
+    if (openingIds[id]) return;
+
+    const progress = progressById[id] || {
+      completed: 0,
+      max_completions: Math.max(1, Number(task.max_completions || 1)),
+    };
+
+    if (progress.completed >= progress.max_completions) {
+      setToast("Task limit reached.");
+      return;
+    }
+
+    setOpeningIds((prev) => ({ ...prev, [id]: true }));
+
+    try {
+      const url = String(task.url || "").trim();
+
+      if (!url) {
+        setToast("Task has no URL.");
+        return;
+      }
+
+      // Record the open server-side so the 5s wait can be verified
+      // against a real opened_at when we claim (watch_ad tasks are
+      // handled separately via the AdsGram callback).
+      if (!isWatchAdTask(task)) {
+        await postTaskAction({ taskId: task.id, action: "open" });
+      }
+
+      window.open(url, "_blank", "noopener,noreferrer");
+
+      const openedAt = Date.now();
+
+      setOpenedAtById((prev) => ({
+        ...prev,
+        [id]: openedAt,
+      }));
+
+      scheduleAutoClaim(task, openedAt);
+
+      const waitSeconds = getClaimDelayMs(task) / 1000;
+      setToast(`Opened. Sending coins in ${waitSeconds} seconds.`);
+    } catch (err: any) {
+      setToast(err?.message || "Failed to open task.");
+    } finally {
+      setOpeningIds((prev) => {
+        const copy = { ...prev };
+        delete copy[id];
+        return copy;
       });
-    }, 1000);
-
-    return () => window.clearInterval(interval);
-  }, [serverTasks, openedAtById, progressById, claimingIds]);
+    }
+  };
 
   return (
     <section className="tasks-page">
@@ -401,7 +443,7 @@ export default function Tasks({ onRewardCoins }: Props) {
                       <span className="gray">Open link first</span>
                     ) : !waitedEnough ? (
                       <span className="blue">
-                        Verifying in {Math.ceil((claimDelayMs - (Date.now() - openedAt)) / 1000)} seconds
+                        Sending coins in {Math.ceil((claimDelayMs - (Date.now() - openedAt)) / 1000)} seconds
                       </span>
                     ) : (
                       <span className="green">
