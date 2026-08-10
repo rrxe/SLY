@@ -43,7 +43,7 @@ export const ENERGY_MAX = 5;
 
 const GIGAPUB_PROJECT_ID = "7665";
 const GIGAPUB_SCRIPT_SRC = `https://ad.gigapub.tech/script?id=${GIGAPUB_PROJECT_ID}`;
-const FIRST_AD_DELAY_MS = 10000;
+const FIRST_AD_DELAY_MS = 5000;
 const REPEAT_AD_DELAY_MS = 50000;
 
 function makeId() {
@@ -148,7 +148,7 @@ export default function App() {
   };
 
   useEffect(() => {
-    if (booting || bootError || mode !== "lobby") return;
+    if (booting || bootError || mode !== "lobby" || page === "tasks") return;
     if (!gigapubReady) return;
 
     let cancelled = false;
@@ -167,7 +167,7 @@ export default function App() {
       window.clearTimeout(firstTimer);
       window.clearInterval(repeatTimer);
     };
-  }, [booting, bootError, mode, gigapubReady]);
+  }, [booting, bootError, mode, gigapubReady, page]);
 
   const loadPlayerData = async () => {
     const data = await callApi("/api/auth/me", { method: "GET" });
