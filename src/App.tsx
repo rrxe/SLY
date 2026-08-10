@@ -33,36 +33,18 @@ type WalletState = {
   walletAddress: string | null;
 };
 
-type AdsgramShowResult = {
-  done: boolean;
-  description: string;
-  state: "load" | "render" | "playing" | "destroy";
-  error: boolean;
-};
-
-type AdsgramController = {
-  show: () => Promise<AdsgramShowResult>;
-};
-
-type AdsgramSDK = {
-  init: (options: {
-    blockId: string;
-    debug?: boolean;
-  }) => AdsgramController;
-};
-
 declare global {
   interface Window {
-    Adsgram?: AdsgramSDK;
+    showGiga?: () => Promise<void>;
   }
 }
 
 export const ENERGY_MAX = 5;
 
-const ADSGRAM_INTERSTITIAL_BLOCK_ID = "int-42061";
-const ADSGRAM_SDK_SRC = "https://sad.adsgram.ai/js/sad.min.js";
+const GIGAPUB_PROJECT_ID = "7665";
+const GIGAPUB_SCRIPT_SRC = `https://ad.gigapub.tech/script?id=${GIGAPUB_PROJECT_ID}`;
 const FIRST_AD_DELAY_MS = 1000;
-const REPEAT_AD_DELAY_MS = 120000;
+const REPEAT_AD_DELAY_MS = 90000;
 
 function makeId() {
   return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
@@ -112,7 +94,7 @@ export default function App() {
   const [activities, setActivities] = useState<Activity[]>([]);
   const [booting, setBooting] = useState(true);
   const [bootError, setBootError] = useState("");
-  const [adsgramReady, setAdsgramReady] = useState(false);
+  const [gigapubReady, setGigapubReady] = useState(false);
 
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -123,28 +105,28 @@ export default function App() {
   useEffect(() => {
     if (typeof window === "undefined") return;
 
-    if (window.Adsgram) {
-      setAdsgramReady(true);
+    if (window.showGiga) {
+      setGigapubReady(true);
       return;
     }
 
     const existingScript = document.querySelector(
-      `script[src="${ADSGRAM_SDK_SRC}"]`
+      `script[src="${GIGAPUB_SCRIPT_SRC}"]`
     );
 
     if (existingScript) {
-      existingScript.addEventListener("load", () => setAdsgramReady(true), { once: true });
+      existingScript.addEventListener("load", () => setGigapubReady(true), { once: true });
       return;
     }
 
     const script = document.createElement("script");
-    script.src = ADSGRAM_SDK_SRC;
+    script.src = GIGAPUB_SCRIPT_SRC;
     script.async = true;
 
-    script.onload = () => setAdsgramReady(true);
+    script.onload = () => setGigapubReady(true);
     script.onerror = () => {
-      setAdsgramReady(false);
-      console.log("Failed to load AdsGram SDK");
+      setGigapubReady(false);
+      console.log("Failed to load GigaPub SDK");
     };
 
     document.head.appendChild(script);
@@ -155,34 +137,29 @@ export default function App() {
     };
   }, []);
 
-  const showAdsgramInterstitial = async () => {
-    if (!window.Adsgram) return;
+  const showGigaAd = async () => {
+    if (!window.showGiga) return;
 
     try {
-      const controller = window.Adsgram.init({
-        blockId: ADSGRAM_INTERSTITIAL_BLOCK_ID,
-        debug: false,
-      });
-
-      await controller.show();
+      await window.showGiga();
     } catch (err) {
-      console.log("AdsGram interstitial skipped or unavailable", err);
+      console.log("GigaPub ad skipped or unavailable", err);
     }
   };
 
   useEffect(() => {
     if (booting || bootError || mode !== "lobby") return;
-    if (!adsgramReady) return;
+    if (!gigapubReady) return;
 
     let cancelled = false;
 
     const firstTimer = window.setTimeout(() => {
-      void showAdsgramInterstitial();
+      void showGigaAd();
     }, FIRST_AD_DELAY_MS);
 
     const repeatTimer = window.setInterval(() => {
       if (cancelled) return;
-      void showAdsgramInterstitial();
+      void showGigaAd();
     }, REPEAT_AD_DELAY_MS);
 
     return () => {
@@ -190,7 +167,7 @@ export default function App() {
       window.clearTimeout(firstTimer);
       window.clearInterval(repeatTimer);
     };
-  }, [booting, bootError, mode, adsgramReady]);
+  }, [booting, bootError, mode, gigapubReady]);
 
   const loadPlayerData = async () => {
     const data = await callApi("/api/auth/me", { method: "GET" });
