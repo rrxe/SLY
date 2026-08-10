@@ -25,8 +25,8 @@ type OpenedMap = Record<string, number>;
 
 const PROGRESS_KEY = "sly.tasks.progress.v3";
 const OPENED_KEY = "sly.tasks.opened.v3";
-const CLAIM_DELAY_MS = 3000;
-const SMART_AD_CLAIM_DELAY_MS = 30000;
+const CLAIM_DELAY_MS = 5000;
+const SMART_AD_CLAIM_DELAY_MS = 5000;
 
 function loadProgress(): ProgressMap {
   if (typeof window === "undefined") return {};
@@ -232,7 +232,7 @@ export default function Tasks({ onRewardCoins }: Props) {
       }));
 
       const waitSeconds = getClaimDelayMs(task) / 1000;
-      setToast(`Opened. Wait ${waitSeconds} seconds.`);
+      setToast(`Opened. Verifying in ${waitSeconds} seconds.`);
     } catch (err: any) {
       setToast(err?.message || "Failed to open task.");
     } finally {
@@ -257,12 +257,10 @@ export default function Tasks({ onRewardCoins }: Props) {
     const claimDelayMs = getClaimDelayMs(task);
 
     if (!openedAt) {
-      setToast("Open the task link first.");
       return;
     }
 
     if (Date.now() - openedAt < claimDelayMs) {
-      setToast(`Wait ${claimDelayMs / 1000} seconds after opening.`);
       return;
     }
 
@@ -301,7 +299,7 @@ export default function Tasks({ onRewardCoins }: Props) {
       onRewardCoins(reward, task.title, `Task ${nextCompleted}/${nextMax} +${reward} coins`);
       setToast(`+${reward} coins`);
     } catch (err: any) {
-      setToast(err?.message || "Failed to claim reward");
+      setToast(err?.message || "Failed to verify task");
     } finally {
       setClaimingIds((prev) => {
         const copy = { ...prev };
@@ -310,6 +308,33 @@ export default function Tasks({ onRewardCoins }: Props) {
       });
     }
   };
+
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      serverTasks.forEach((task) => {
+        if (isWatchAdTask(task)) return;
+
+        const id = String(task.id);
+        const openedAt = openedAtById[id];
+        if (!openedAt) return;
+
+        const claimDelayMs = getClaimDelayMs(task);
+        if (Date.now() - openedAt < claimDelayMs) return;
+
+        const progress = progressById[id] || {
+          completed: 0,
+          max_completions: Math.max(1, Number(task.max_completions || 1)),
+        };
+        if (progress.completed >= progress.max_completions) return;
+
+        if (claimingIds[id]) return;
+
+        handleClaimServerTask(task);
+      });
+    }, 1000);
+
+    return () => window.clearInterval(interval);
+  }, [serverTasks, openedAtById, progressById, claimingIds]);
 
   return (
     <section className="tasks-page">
@@ -376,11 +401,11 @@ export default function Tasks({ onRewardCoins }: Props) {
                       <span className="gray">Open link first</span>
                     ) : !waitedEnough ? (
                       <span className="blue">
-                        Wait {Math.ceil((claimDelayMs - (Date.now() - openedAt)) / 1000)} seconds
+                        Verifying in {Math.ceil((claimDelayMs - (Date.now() - openedAt)) / 1000)} seconds
                       </span>
                     ) : (
                       <span className="green">
-                        Ready {progress.completed}/{progress.max_completions}
+                        {claiming ? "Verifying..." : `Ready ${progress.completed}/${progress.max_completions}`}
                       </span>
                     )}
                   </div>
@@ -401,17 +426,6 @@ export default function Tasks({ onRewardCoins }: Props) {
                       {opening ? "Opening..." : "Open"}
                     </button>
                   )}
-
-                  {!isWatchAd ? (
-                    <button
-                      type="button"
-                      className="task-btn claim"
-                      onClick={() => handleClaimServerTask(task)}
-                      disabled={claiming || claimedAll || !opened || !waitedEnough}
-                    >
-                      {claiming ? "Claiming..." : claimedAll ? "Claimed" : "Claim"}
-                    </button>
-                  ) : null}
                 </div>
               </article>
             );

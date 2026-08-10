@@ -8,8 +8,8 @@ const BUILTIN_TASKS = {
 }
 
 const AD_SESSION_WINDOW_MS = 10 * 60 * 1000
-const NORMAL_TASK_WAIT_MS = 3000
-const SMART_AD_TASK_WAIT_MS = 30000
+const NORMAL_TASK_WAIT_MS = 5000
+const SMART_AD_TASK_WAIT_MS = 5000
 
 function toPositiveInt(value) {
   const raw = Array.isArray(value) ? value[0] : value
@@ -120,24 +120,6 @@ async function addCoinsToPlayer(telegramId, reward) {
   }
 }
 
-/*
-=========================================================
-ADSGRAM REWARD CALLBACK
-=========================================================
-
-AdsGram sends:
-
-GET /api/tasks/complete?taskId=123&userid=123456789
-
-The [userId] part comes from AdsGram.
-
-Example Reward URL:
-
-https://YOUR-DOMAIN.com/api/tasks/complete?taskId=123&userid=[userId]
-
-=========================================================
-*/
-
 async function handleAdsgramReward(req, res) {
   const taskId = toPositiveInt(
     req.query.taskId ||
@@ -157,10 +139,6 @@ async function handleAdsgramReward(req, res) {
   }
 
   try {
-    // -----------------------------------------
-    // GET TASK
-    // -----------------------------------------
-
     const {
       data: task,
       error: taskError,
@@ -175,10 +153,6 @@ async function handleAdsgramReward(req, res) {
         error: 'Task not found or inactive',
       })
     }
-
-    // -----------------------------------------
-    // ONLY ADSGRAM TASKS
-    // -----------------------------------------
 
     if (
       String(task.task_type || '')
@@ -195,10 +169,6 @@ async function handleAdsgramReward(req, res) {
       Number(task.max_completions || 1)
     )
 
-    // -----------------------------------------
-    // GET PLAYER COMPLETION
-    // -----------------------------------------
-
     const {
       data: completionRow,
       error: completionError,
@@ -210,15 +180,6 @@ async function handleAdsgramReward(req, res) {
     if (completionError) {
       throw completionError
     }
-
-    /*
-      IMPORTANT:
-
-      AdsGram callback can only reward if the
-      player previously pressed Open.
-
-      opened_at is the server-side session.
-    */
 
     if (
       !completionRow ||
@@ -245,10 +206,6 @@ async function handleAdsgramReward(req, res) {
       completionRow.completion_count || 0
     )
 
-    // -----------------------------------------
-    // MAX COMPLETION CHECK
-    // -----------------------------------------
-
     if (
       currentCount >= maxCompletions
     ) {
@@ -263,13 +220,6 @@ async function handleAdsgramReward(req, res) {
       task.reward || 0
     )
 
-    /*
-      Consume the session FIRST.
-
-      This is what prevents the same callback
-      from being used repeatedly.
-    */
-
     const {
       error: consumeError,
     } = await saveCompletionRow({
@@ -283,10 +233,6 @@ async function handleAdsgramReward(req, res) {
       throw consumeError
     }
 
-    // -----------------------------------------
-    // ADD COINS
-    // -----------------------------------------
-
     const coinResult =
       await addCoinsToPlayer(
         telegramId,
@@ -298,10 +244,6 @@ async function handleAdsgramReward(req, res) {
         coinResult.error
       )
     }
-
-    // -----------------------------------------
-    // SUCCESS
-    // -----------------------------------------
 
     return res.status(200).json({
       success: true,
@@ -330,24 +272,12 @@ export default async function handler(
   req,
   res
 ) {
-  /*
-  ========================================================
-  GET = AdsGram callback
-  ========================================================
-  */
-
   if (req.method === 'GET') {
     return handleAdsgramReward(
       req,
       res
     )
   }
-
-  /*
-  ========================================================
-  POST ONLY BELOW THIS POINT
-  ========================================================
-  */
 
   if (req.method !== 'POST') {
     return res.status(405).json({
@@ -374,10 +304,6 @@ export default async function handler(
       reward: clientReward,
       action,
     } = req.body || {}
-
-    // =====================================================
-    // OPEN ADSGRAM TASK SESSION
-    // =====================================================
 
     if (action === 'open') {
       const normalizedTaskId =
@@ -447,12 +373,6 @@ export default async function handler(
         })
       }
 
-      /*
-        Register a NEW ad session.
-
-        This does NOT give coins.
-      */
-
       const {
         error: saveError,
       } = await saveCompletionRow({
@@ -475,10 +395,6 @@ export default async function handler(
 
     let reward = 0
     let progress = null
-
-    // =====================================================
-    // ADMIN TASK
-    // =====================================================
 
     if (
       taskId !== undefined &&
@@ -519,14 +435,6 @@ export default async function handler(
         )
       )
 
-      // ===================================================
-      // WATCH AD
-      //
-      // IMPORTANT:
-      // No manual Claim for AdsGram.
-      // Reward comes from GET callback only.
-      // ===================================================
-
       if (
         String(task.task_type || '')
           .toLowerCase() === 'watch_ad'
@@ -536,10 +444,6 @@ export default async function handler(
             'watch_ad tasks are completed by AdsGram callback only',
         })
       }
-
-      // ===================================================
-      // NORMAL ADMIN TASK
-      // ===================================================
 
       const {
         data: completionRow,
@@ -565,10 +469,6 @@ export default async function handler(
             'Task completion limit reached for this player',
         })
       }
-
-      /*
-        Normal task requires an Open session.
-      */
 
       if (
         !completionRow?.opened_at
@@ -629,10 +529,6 @@ export default async function handler(
       }
     }
 
-    // =====================================================
-    // BUILTIN TASK
-    // =====================================================
-
     else if (
       taskType &&
       taskType in BUILTIN_TASKS
@@ -661,19 +557,11 @@ export default async function handler(
       }
     }
 
-    // =====================================================
-    // INVALID
-    // =====================================================
-
     else {
       return res.status(400).json({
         error: 'Invalid task',
       })
     }
-
-    // =====================================================
-    // ADD COINS
-    // =====================================================
 
     const coinResult =
       await addCoinsToPlayer(
@@ -686,10 +574,6 @@ export default async function handler(
         coinResult.error
       )
     }
-
-    // =====================================================
-    // RESPONSE
-    // =====================================================
 
     return res.status(200).json({
       success: true,
