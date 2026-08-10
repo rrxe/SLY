@@ -3,6 +3,7 @@ import { authenticateRequest } from '../../lib/telegram-auth.js'
 
 const ENERGY_MAX = 5
 const ENERGY_REGEN_MS = 30 * 60 * 1000
+const REFERRAL_REWARD = 250
 
 function isSameUtcDay(dateA, dateB) {
   return (
@@ -52,7 +53,7 @@ async function getOrCreatePlayer(auth, telegramId) {
 
     player = created
 
-    // مكافأة 500 عملة للمُحيل عند أول إحالة ناجحة
+    // مكافأة للمُحيل عند أول إحالة ناجحة
     if (referrerId) {
       const { data: referrer } = await supabase
         .from('players')
@@ -64,7 +65,7 @@ async function getOrCreatePlayer(auth, telegramId) {
         await supabase
           .from('players')
           .update({
-            coin: (referrer.coin || 0) + 500,
+            coin: (referrer.coin || 0) + REFERRAL_REWARD,
           })
           .eq('telegram_id', referrerId)
       }
