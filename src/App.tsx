@@ -43,8 +43,8 @@ export const ENERGY_MAX = 5;
 
 const GIGAPUB_PROJECT_ID = "7665";
 const GIGAPUB_SCRIPT_SRC = `https://ad.gigapub.tech/script?id=${GIGAPUB_PROJECT_ID}`;
-const FIRST_AD_DELAY_MS = 1000;
-const REPEAT_AD_DELAY_MS = 90000;
+const FIRST_AD_DELAY_MS = 10000;
+const REPEAT_AD_DELAY_MS = 40000;
 
 function makeId() {
   return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
@@ -364,13 +364,43 @@ export default function App() {
         <div
           style={{
             display: "flex",
+            flexDirection: "column",
             alignItems: "center",
             justifyContent: "center",
             height: "100%",
-            color: "#eaf4f2",
+            gap: 16,
           }}
         >
-          جارِ التحميل...
+          <style>{`
+            @keyframes spin { to { transform: rotate(360deg); } }
+            @keyframes fade-pulse {
+              0%, 100% { opacity: 0.4; }
+              50% { opacity: 1; }
+            }
+          `}</style>
+
+          <div
+            style={{
+              width: 44,
+              height: 44,
+              borderRadius: "50%",
+              border: "3px solid rgba(234,244,242,0.12)",
+              borderTopColor: "#40e0d0",
+              animation: "spin 0.8s linear infinite",
+            }}
+          />
+
+          <span
+            style={{
+              color: "#eaf4f2",
+              fontSize: 14,
+              fontWeight: 500,
+              letterSpacing: 0.4,
+              animation: "fade-pulse 1.6s ease-in-out infinite",
+            }}
+          >
+            Loading
+          </span>
         </div>
       </div>
     );
