@@ -43,8 +43,9 @@ export default function Referrals() {
   }, []);
 
   const botUsername = "SLYmint_bot";
+  const appShortName = "sly";
   const referralLink = user?.telegramId
-    ? `https://t.me/${botUsername}?start=ref_${user.telegramId}`
+    ? `https://t.me/${botUsername}/${appShortName}?startapp=ref_${user.telegramId}`
     : "";
 
   const handleCopy = () => {
