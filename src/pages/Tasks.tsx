@@ -26,6 +26,7 @@ type OpenedMap = Record<string, number>;
 const PROGRESS_KEY = "sly.tasks.progress.v3";
 const OPENED_KEY = "sly.tasks.opened.v3";
 const CLAIM_DELAY_MS = 3000;
+const SMART_AD_CLAIM_DELAY_MS = 30000;
 
 function loadProgress(): ProgressMap {
   if (typeof window === "undefined") return {};
@@ -83,6 +84,14 @@ function getInitData() {
 
 function isWatchAdTask(task: ServerTask) {
   return String(task.task_type || "").toLowerCase() === "watch_ad";
+}
+
+function isSmartAdTask(task: ServerTask) {
+  return String(task.task_type || "").toLowerCase() === "smart_ad";
+}
+
+function getClaimDelayMs(task: ServerTask) {
+  return isSmartAdTask(task) ? SMART_AD_CLAIM_DELAY_MS : CLAIM_DELAY_MS;
 }
 
 function TaskIcon() {
@@ -222,7 +231,8 @@ export default function Tasks({ onRewardCoins }: Props) {
         [id]: Date.now(),
       }));
 
-      setToast("Opened. Wait 3 seconds.");
+      const waitSeconds = getClaimDelayMs(task) / 1000;
+      setToast(`Opened. Wait ${waitSeconds} seconds.`);
     } catch (err: any) {
       setToast(err?.message || "Failed to open task.");
     } finally {
@@ -244,14 +254,15 @@ export default function Tasks({ onRewardCoins }: Props) {
     if (claimingIds[id]) return;
 
     const openedAt = openedAtById[id];
+    const claimDelayMs = getClaimDelayMs(task);
 
     if (!openedAt) {
       setToast("Open the task link first.");
       return;
     }
 
-    if (Date.now() - openedAt < CLAIM_DELAY_MS) {
-      setToast("Wait 3 seconds after opening.");
+    if (Date.now() - openedAt < claimDelayMs) {
+      setToast(`Wait ${claimDelayMs / 1000} seconds after opening.`);
       return;
     }
 
@@ -324,6 +335,8 @@ export default function Tasks({ onRewardCoins }: Props) {
           serverTasks.map((task) => {
             const id = String(task.id);
             const isWatchAd = isWatchAdTask(task);
+            const isSmartAd = isSmartAdTask(task);
+            const claimDelayMs = getClaimDelayMs(task);
 
             const progress = progressById[id] || {
               completed: 0,
@@ -332,7 +345,7 @@ export default function Tasks({ onRewardCoins }: Props) {
 
             const openedAt = openedAtById[id];
             const opened = Boolean(openedAt);
-            const waitedEnough = opened && Date.now() - openedAt >= CLAIM_DELAY_MS;
+            const waitedEnough = opened && Date.now() - openedAt >= claimDelayMs;
             const claimedAll = progress.completed >= progress.max_completions;
             const opening = Boolean(openingIds[id]);
             const claiming = Boolean(claimingIds[id]);
@@ -346,7 +359,9 @@ export default function Tasks({ onRewardCoins }: Props) {
                 <div className="task-main">
                   <div className="task-topline">
                     <div>
-                      <p className="task-type">{task.task_type || "task"}</p>
+                      <p className="task-type">
+                        {isSmartAd ? "smart ad" : task.task_type || "task"}
+                      </p>
                       <h2>{task.title}</h2>
                     </div>
                     <strong className="task-reward">+{Number(task.reward || 0)}</strong>
@@ -360,7 +375,9 @@ export default function Tasks({ onRewardCoins }: Props) {
                     ) : !opened ? (
                       <span className="gray">Open link first</span>
                     ) : !waitedEnough ? (
-                      <span className="blue">Wait 3 seconds</span>
+                      <span className="blue">
+                        Wait {Math.ceil((claimDelayMs - (Date.now() - openedAt)) / 1000)} seconds
+                      </span>
                     ) : (
                       <span className="green">
                         Ready {progress.completed}/{progress.max_completions}

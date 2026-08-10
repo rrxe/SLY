@@ -340,11 +340,11 @@
     <select id="taskType">
       <option value="normal">مهمة عادية</option>
       <option value="watch_ad">مشاهدة إعلان</option>
+      <option value="smart_ad">إعلان ذكي (Smart Ad)</option>
       <option value="join_channel">الانضمام إلى قناة</option>
       <option value="custom">مهمة مخصصة</option>
     </select>
-
-    <div class="mini-grid">
+ <div class="mini-grid">
       <div>
         <input
           type="number"
@@ -373,7 +373,7 @@
     >
 
     <div class="field-hint">
-      اتركه فارغًا إذا كانت المهمة من نوع مشاهدة إعلان.
+      اتركه فارغًا إذا كانت المهمة من نوع مشاهدة إعلان. لمهام "إعلان ذكي" يتم تعبئة الرابط تلقائيًا.
     </div>
 
     <button onclick="addTask()">إضافة المهمة</button>
@@ -579,8 +579,7 @@
                   </div>
                 </div>
               </div>
-
-              <div class="task-actions">
+             <div class="task-actions">
                 <button
                   class="toggle"
                   onclick="toggleTask('${escapeJs(String(taskId))}')"
@@ -854,7 +853,6 @@ container.innerHTML = withdrawals.map(withdrawal => {
   </script>
 </body>
 </html>
-
 <script>
 (function () {
   const taskTypeEl = document.getElementById("taskType");
@@ -877,15 +875,38 @@ container.innerHTML = withdrawals.map(withdrawal => {
   const ADSGRAM_INTERNAL_URL =
     window.location.origin + "/";
 
+  /*
+   * Smart Ad tasks (GigaPub) DO need a real URL,
+   * but it is always the same fixed smart link,
+   * so we auto-fill it and lock the field.
+   */
+
+  const SMART_AD_URL =
+    "https://link.gigapub.tech/l/9xgr7ru4wo";
+
   function updateTaskUrlField() {
     const isAdsGram =
       taskTypeEl.value === "watch_ad";
+
+    const isSmartAd =
+      taskTypeEl.value === "smart_ad";
 
     if (isAdsGram) {
       taskLinkEl.value = ADSGRAM_INTERNAL_URL;
 
       taskLinkEl.placeholder =
         "AdsGram — الرابط غير مطلوب";
+
+      taskLinkEl.disabled = true;
+
+      taskLinkEl.removeAttribute("required");
+
+      taskLinkEl.style.opacity = "0.55";
+    } else if (isSmartAd) {
+      taskLinkEl.value = SMART_AD_URL;
+
+      taskLinkEl.placeholder =
+        "Smart Ad — الرابط تلقائي";
 
       taskLinkEl.disabled = true;
 
@@ -936,13 +957,22 @@ container.innerHTML = withdrawals.map(withdrawal => {
     const maxCompletions =
       Number(maxEl?.value);
 
+    const isAdsGram =
+      taskType === "watch_ad";
+
+    const isSmartAd =
+      taskType === "smart_ad";
+
     /*
      * For normal tasks use the user's URL.
      * For AdsGram use an internal valid URL.
+     * For Smart Ad use the fixed GigaPub link.
      */
     const url =
-      taskType === "watch_ad"
+      isAdsGram
         ? ADSGRAM_INTERNAL_URL
+        : isSmartAd
+        ? SMART_AD_URL
         : taskLinkEl.value.trim();
 
     if (!title) {
@@ -970,10 +1000,11 @@ container.innerHTML = withdrawals.map(withdrawal => {
 
     /*
      * Normal tasks MUST have a URL.
-     * AdsGram tasks do not.
+     * AdsGram and Smart Ad tasks do not need manual entry.
      */
     if (
-      taskType !== "watch_ad" &&
+      !isAdsGram &&
+      !isSmartAd &&
       !url
     ) {
       alert(
@@ -1010,8 +1041,10 @@ container.innerHTML = withdrawals.map(withdrawal => {
       }
 
       alert(
-        taskType === "watch_ad"
+        isAdsGram
           ? "تمت إضافة مهمة AdsGram بنجاح."
+          : isSmartAd
+          ? "تمت إضافة مهمة Smart Ad بنجاح."
           : "تمت إضافة المهمة بنجاح."
       );
 
@@ -1039,4 +1072,3 @@ container.innerHTML = withdrawals.map(withdrawal => {
   };
 })();
 </script>
-

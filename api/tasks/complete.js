@@ -8,6 +8,8 @@ const BUILTIN_TASKS = {
 }
 
 const AD_SESSION_WINDOW_MS = 10 * 60 * 1000
+const NORMAL_TASK_WAIT_MS = 3000
+const SMART_AD_TASK_WAIT_MS = 30000
 
 function toPositiveInt(value) {
   const raw = Array.isArray(value) ? value[0] : value
@@ -32,6 +34,12 @@ function isFreshTimestamp(value) {
   const age = Date.now() - timestamp
 
   return age >= 0 && age <= AD_SESSION_WINDOW_MS
+}
+
+function getRequiredWaitMs(taskType) {
+  return String(taskType || '').toLowerCase() === 'smart_ad'
+    ? SMART_AD_TASK_WAIT_MS
+    : NORMAL_TASK_WAIT_MS
 }
 
 async function getTask(taskId) {
@@ -576,17 +584,22 @@ export default async function handler(
           completionRow.opened_at
         )
 
+      const requiredWaitMs =
+        getRequiredWaitMs(
+          task.task_type
+        )
+
       if (
         !Number.isFinite(
           openedTimestamp
         ) ||
         Date.now() -
           openedTimestamp <
-          3000
+          requiredWaitMs
       ) {
         return res.status(400).json({
           error:
-            'Wait 3 seconds after opening the task',
+            `Wait ${requiredWaitMs / 1000} seconds after opening the task`,
         })
       }
 
