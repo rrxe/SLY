@@ -27,7 +27,7 @@ const PROGRESS_KEY = "sly.tasks.progress.v3";
 const CLAIM_DELAY_MS = 5000;
 const SMART_AD_CLAIM_DELAY_MS = 5000;
 
-// إعدادات GigaPub (تأكد من وضع رقم مشروعك الصحيح)
+// إعدادات GigaPub
 const OFFERWALL_PROJECT_ID = "7678"; 
 const OFFERWALL_SCRIPT_SRC = `https://wall.giga.pub/api/v1/loader.js?projectId=${OFFERWALL_PROJECT_ID}`;
 
@@ -126,8 +126,6 @@ export default function Tasks({ onRewardCoins }: Props) {
   const [serverTasks, setServerTasks] = useState<ServerTask[]>([]);
   const [loadingTasks, setLoadingTasks] = useState(true);
   const [progressById, setProgressById] = useState<ProgressMap>(() => loadProgress());
-  
-  // ✅ التعديل الأول: جعلنا القيمة الافتراضية كائن فارغ حتى لا يتم جلب أوقات قديمة من المتصفح
   const [openedAtById, setOpenedAtById] = useState<OpenedMap>({});
   
   const [openingIds, setOpeningIds] = useState<Record<string, boolean>>({});
@@ -136,9 +134,6 @@ export default function Tasks({ onRewardCoins }: Props) {
   // حالة GigaPub
   const [sdkReady, setSdkReady] = useState(false);
 
-  // Holds the single scheduled auto-claim timer per task id.
-  // A task gets exactly ONE timer, fired once, when it is opened —
-  // no repeating background polling / retry loop.
   const claimTimersRef = useRef<Record<string, number>>({});
 
   useEffect(() => {
@@ -157,68 +152,62 @@ export default function Tasks({ onRewardCoins }: Props) {
     return () => window.clearTimeout(timer);
   }, [toast]);
 
-  // تهيئة GigaPub Offerwall SDK (العمل من الواجهة الأمامية فقط)
+  // تحميل وسكربت GigaPub Offerwall
   useEffect(() => {
     if (typeof window === "undefined") return;
 
-    if (!window.loadOfferWallSDK) {
-      const existingScript = document.querySelector(`script[src="${OFFERWALL_SCRIPT_SRC}"]`);
-      if (!existingScript) {
-        const script = document.createElement("script");
-        script.src = OFFERWALL_SCRIPT_SRC;
-        script.async = true;
-        document.head.appendChild(script);
-      }
-    }
+    const initGigaPub = () => {
+      if (window.loadOfferWallSDK) {
+        window.loadOfferWallSDK({ projectId: OFFERWALL_PROJECT_ID })
+          .then((sdk) => {
+            window.gigaOfferWallSDK = sdk;
+            setSdkReady(true);
 
-    window.loadGigaSDKCallbacks = window.loadGigaSDKCallbacks || [];
-    window.loadGigaSDKCallbacks.push(() => {
-      if (!window.loadOfferWallSDK) return;
+            sdk.on("rewardClaim", async (data: { userId: string; amount: number; rewardId: string; hash: string }) => {
+              if (data.amount > 0) {
+                onRewardCoins(data.amount, "Offerwall Reward", `+${data.amount} Coins`);
+                setToast(`+${data.amount} Coins from Offerwall!`);
 
-      window.loadOfferWallSDK({ projectId: OFFERWALL_PROJECT_ID })
-        .then((sdk) => {
-          window.gigaOfferWallSDK = sdk;
-          setSdkReady(true);
-
-          // الاستماع لحدث اكتمال العرض
-          sdk.on("rewardClaim", async (data: { userId: string; amount: number; rewardId: string; hash: string }) => {
-            if (data.amount > 0) {
-              
-              // 1. تحديث الكوينز في واجهة المستخدم
-              onRewardCoins(data.amount, "Offerwall Reward", `+${data.amount} Coins`);
-              setToast(`+${data.amount} Coins from Offerwall!`);
-
-              // 2. حفظ الكوينز في قاعدة البيانات باستخدام مهمة game_run
-              try {
-                const initData = getInitData();
-                await fetch("/api/tasks/complete", {
-                  method: "POST",
-                  headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `tga ${initData}`,
-                  },
-                  body: JSON.stringify({
-                    taskType: "game_run", 
-                    reward: data.amount
-                  }),
-                });
-              } catch (err) {
-                console.error("Failed to save offerwall coins:", err);
+                try {
+                  const initData = getInitData();
+                  await fetch("/api/tasks/complete", {
+                    method: "POST",
+                    headers: {
+                      "Content-Type": "application/json",
+                      Authorization: `tga ${initData}`,
+                    },
+                    body: JSON.stringify({
+                      taskType: "game_run", 
+                      reward: data.amount
+                    }),
+                  });
+                } catch (err) {
+                  console.error("Failed to save offerwall coins:", err);
+                }
               }
-            }
 
-            // 3. تأكيد الاستلام لمنصة GigaPub 
-            try {
-              await sdk.confirmReward(data.rewardId, data.hash);
-            } catch (err) {
-              console.error("Error confirming reward:", err);
-            }
-          });
-        })
-        .catch(console.error);
-    });
+              try {
+                await sdk.confirmReward(data.rewardId, data.hash);
+              } catch (err) {
+                console.error("Error confirming reward:", err);
+              }
+            });
+          })
+          .catch(console.error);
+      }
+    };
 
-    if (window.gigaOfferWallSDK) setSdkReady(true);
+    if (!document.querySelector(`script[src="${OFFERWALL_SCRIPT_SRC}"]`)) {
+      const script = document.createElement("script");
+      script.src = OFFERWALL_SCRIPT_SRC;
+      script.async = true;
+      script.onload = () => {
+        initGigaPub();
+      };
+      document.head.appendChild(script);
+    } else {
+      initGigaPub();
+    }
   }, [onRewardCoins]);
 
   useEffect(() => {
@@ -265,33 +254,22 @@ export default function Tasks({ onRewardCoins }: Props) {
   };
 
   const handleClaimServerTask = async (task: ServerTask) => {
-    if (isWatchAdTask(task)) {
-      return;
-    }
+    if (isWatchAdTask(task)) return;
 
     const id = String(task.id);
-
     if (claimingIds[id]) return;
 
     const openedAt = openedAtById[id];
     const claimDelayMs = getClaimDelayMs(task);
 
-    if (!openedAt) {
-      return;
-    }
-
-    if (Date.now() - openedAt < claimDelayMs) {
-      return;
-    }
+    if (!openedAt || Date.now() - openedAt < claimDelayMs) return;
 
     const current = progressById[id] || {
       completed: 0,
       max_completions: Math.max(1, Number(task.max_completions || 1)),
     };
 
-    if (current.completed >= current.max_completions) {
-      return;
-    }
+    if (current.completed >= current.max_completions) return;
 
     setClaimingIds((prev) => ({ ...prev, [id]: true }));
 
@@ -304,10 +282,7 @@ export default function Tasks({ onRewardCoins }: Props) {
 
       setProgressById((prev) => ({
         ...prev,
-        [id]: {
-          completed: nextCompleted,
-          max_completions: nextMax,
-        },
+        [id]: { completed: nextCompleted, max_completions: nextMax },
       }));
 
       setOpenedAtById((prev) => {
@@ -330,8 +305,6 @@ export default function Tasks({ onRewardCoins }: Props) {
     }
   };
 
-  // Schedules exactly ONE auto-claim attempt for this task, `claimDelayMs`
-  // after it was opened. No repeating interval, no background retries.
   const scheduleAutoClaim = (task: ServerTask, openedAt: number) => {
     if (isWatchAdTask(task)) return;
 
@@ -347,9 +320,6 @@ export default function Tasks({ onRewardCoins }: Props) {
     }, remaining);
   };
 
-  // Re-arm the one-shot timer for any task that was already opened
-  // (e.g. page was reloaded mid-wait) but hasn't been claimed yet.
-  // Still only ONE timer per task — not a repeating poll.
   useEffect(() => {
     Object.entries(openedAtById).forEach(([id, openedAt]) => {
       if (claimTimersRef.current[id]) return;
@@ -399,9 +369,6 @@ export default function Tasks({ onRewardCoins }: Props) {
         return;
       }
 
-      // Record the open server-side so the 5s wait can be verified
-      // against a real opened_at when we claim (watch_ad tasks are
-      // handled separately via the AdsGram callback).
       if (!isWatchAdTask(task)) {
         await postTaskAction({ taskId: task.id, action: "open" });
       }
@@ -455,27 +422,32 @@ export default function Tasks({ onRewardCoins }: Props) {
 
       <section className="task-strip">
         
-        {/* قسم GigaPub Offerwall المضاف */}
-        <article className="task-row offerwall-card" style={{ background: "linear-gradient(135deg, rgba(64,224,208,0.1), rgba(20,25,35,0.6))", border: "1px solid rgba(64,224,208,0.3)" }}>
-          <div className="task-icon" style={{ background: "#40e0d0", color: "#000" }}>🎯</div>
+        {/* كارت GigaPub Offerwall المثالي بنفس تصميم واجهتك */}
+        <article className="task-row" style={{ border: "1px solid rgba(64, 224, 208, 0.4)", background: "rgba(16, 26, 35, 0.85)" }}>
+          <div className="task-icon" style={{ background: "rgba(64, 224, 208, 0.15)", color: "#40e0d0", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "20px" }}>
+            🎯
+          </div>
+
           <div className="task-main">
             <div className="task-topline">
               <div>
-                <p className="task-type">Offerwall</p>
+                <p className="task-type" style={{ color: "#40e0d0" }}>OFFERWALL</p>
                 <h2>GigaPub Offers</h2>
               </div>
-              <strong className="task-reward" style={{ color: "#40e0d0" }}>Huge Rewards</strong>
+              <strong className="task-reward" style={{ color: "#40e0d0" }}>+1000s</strong>
             </div>
+
             <div className="task-mini-status">
-              <span className="gray">Complete surveys and apps for huge coins</span>
+              <span className="gray">Complete offers to earn huge rewards</span>
             </div>
           </div>
+
           <div className="task-actions">
             <button
               type="button"
               className="task-btn join"
               onClick={handleOpenOfferWall}
-              style={{ background: sdkReady ? "#40e0d0" : "rgba(64,224,208,0.4)", color: "#000" }}
+              style={{ background: "#40e0d0", color: "#0d131a", fontWeight: "bold" }}
             >
               {sdkReady ? "Open" : "Loading..."}
             </button>
@@ -542,7 +514,6 @@ export default function Tasks({ onRewardCoins }: Props) {
                 </div>
 
                 <div className="task-actions">
-                  {/* ✅ التعديل الثاني: إضافة العداد الأنيق أعلى الزر */}
                   {!isWatchAd && (
                     <div style={{
                       textAlign: "right",
