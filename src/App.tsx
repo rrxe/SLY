@@ -43,8 +43,7 @@ export const ENERGY_MAX = 5;
 
 const GIGAPUB_PROJECT_ID = "7665";
 const GIGAPUB_SCRIPT_SRC = `https://ad.gigapub.tech/script?id=${GIGAPUB_PROJECT_ID}`;
-const FIRST_AD_DELAY_MS = 2000;
-const REPEAT_AD_DELAY_MS = 50000;
+const REPEAT_AD_DELAY_MS = 30000;
 
 function makeId() {
   return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
@@ -97,6 +96,7 @@ export default function App() {
   const [gigapubReady, setGigapubReady] = useState(false);
 
   const scrollRef = useRef<HTMLDivElement>(null);
+  const firstAdShownRef = useRef(false);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: 0, left: 0, behavior: "auto" });
@@ -148,26 +148,45 @@ export default function App() {
   };
 
   useEffect(() => {
-    if (booting || bootError || mode !== "lobby" || page === "tasks") return;
+    if (booting || bootError || mode !== "lobby") return;
     if (!gigapubReady) return;
 
     let cancelled = false;
+    let repeatTimer: number | null = null;
 
-    const firstTimer = window.setTimeout(() => {
-      void showGigaAd();
-    }, FIRST_AD_DELAY_MS);
+    const startRepeating = () => {
+      if (repeatTimer) return;
+      repeatTimer = window.setInterval(() => {
+        if (cancelled) return;
+        void showGigaAd();
+      }, REPEAT_AD_DELAY_MS);
+    };
 
-    const repeatTimer = window.setInterval(() => {
-      if (cancelled) return;
+    const handleFirstInteraction = () => {
+      if (firstAdShownRef.current) return;
+      firstAdShownRef.current = true;
       void showGigaAd();
-    }, REPEAT_AD_DELAY_MS);
+      startRepeating();
+      window.removeEventListener("click", handleFirstInteraction);
+      window.removeEventListener("touchstart", handleFirstInteraction);
+    };
+
+    if (firstAdShownRef.current) {
+      // الإعلان الأول ظهر سابقاً بهذه الجلسة، فقط نكمل جدولة التكرار
+      startRepeating();
+    } else {
+      // ننتظر أول ضغطة على الشاشة قبل عرض أول إعلان
+      window.addEventListener("click", handleFirstInteraction);
+      window.addEventListener("touchstart", handleFirstInteraction);
+    }
 
     return () => {
       cancelled = true;
-      window.clearTimeout(firstTimer);
-      window.clearInterval(repeatTimer);
+      window.removeEventListener("click", handleFirstInteraction);
+      window.removeEventListener("touchstart", handleFirstInteraction);
+      if (repeatTimer) window.clearInterval(repeatTimer);
     };
-  }, [booting, bootError, mode, gigapubReady, page]);
+  }, [booting, bootError, mode, gigapubReady]);
 
   const loadPlayerData = async () => {
     const data = await callApi("/api/auth/me", { method: "GET" });
