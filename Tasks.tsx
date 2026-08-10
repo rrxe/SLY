@@ -27,18 +27,6 @@ const PROGRESS_KEY = "sly.tasks.progress.v3";
 const CLAIM_DELAY_MS = 5000;
 const SMART_AD_CLAIM_DELAY_MS = 5000;
 
-// إعدادات GigaPub
-const OFFERWALL_PROJECT_ID = "7678"; 
-const OFFERWALL_SCRIPT_SRC = `https://wall.giga.pub/api/v1/loader.js?projectId=${OFFERWALL_PROJECT_ID}`;
-
-declare global {
-  interface Window {
-    loadOfferWallSDK?: (config: { projectId: string }) => Promise<any>;
-    gigaOfferWallSDK?: any;
-    loadGigaSDKCallbacks?: Array<() => void>;
-  }
-}
-
 function loadProgress(): ProgressMap {
   if (typeof window === "undefined") return {};
 
@@ -126,14 +114,16 @@ export default function Tasks({ onRewardCoins }: Props) {
   const [serverTasks, setServerTasks] = useState<ServerTask[]>([]);
   const [loadingTasks, setLoadingTasks] = useState(true);
   const [progressById, setProgressById] = useState<ProgressMap>(() => loadProgress());
+  
+  // ✅ التعديل الأول: جعلنا القيمة الافتراضية كائن فارغ حتى لا يتم جلب أوقات قديمة من المتصفح
   const [openedAtById, setOpenedAtById] = useState<OpenedMap>({});
   
   const [openingIds, setOpeningIds] = useState<Record<string, boolean>>({});
   const [claimingIds, setClaimingIds] = useState<Record<string, boolean>>({});
 
-  // حالة GigaPub
-  const [sdkReady, setSdkReady] = useState(false);
-
+  // Holds the single scheduled auto-claim timer per task id.
+  // A task gets exactly ONE timer, fired once, when it is opened —
+  // no repeating background polling / retry loop.
   const claimTimersRef = useRef<Record<string, number>>({});
 
   useEffect(() => {
@@ -151,64 +141,6 @@ export default function Tasks({ onRewardCoins }: Props) {
     const timer = window.setTimeout(() => setToast(""), 1800);
     return () => window.clearTimeout(timer);
   }, [toast]);
-
-  // تحميل وسكربت GigaPub Offerwall
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    const initGigaPub = () => {
-      if (window.loadOfferWallSDK) {
-        window.loadOfferWallSDK({ projectId: OFFERWALL_PROJECT_ID })
-          .then((sdk) => {
-            window.gigaOfferWallSDK = sdk;
-            setSdkReady(true);
-
-            sdk.on("rewardClaim", async (data: { userId: string; amount: number; rewardId: string; hash: string }) => {
-              if (data.amount > 0) {
-                onRewardCoins(data.amount, "Offerwall Reward", `+${data.amount} Coins`);
-                setToast(`+${data.amount} Coins from Offerwall!`);
-
-                try {
-                  const initData = getInitData();
-                  await fetch("/api/tasks/complete", {
-                    method: "POST",
-                    headers: {
-                      "Content-Type": "application/json",
-                      Authorization: `tga ${initData}`,
-                    },
-                    body: JSON.stringify({
-                      taskType: "game_run", 
-                      reward: data.amount
-                    }),
-                  });
-                } catch (err) {
-                  console.error("Failed to save offerwall coins:", err);
-                }
-              }
-
-              try {
-                await sdk.confirmReward(data.rewardId, data.hash);
-              } catch (err) {
-                console.error("Error confirming reward:", err);
-              }
-            });
-          })
-          .catch(console.error);
-      }
-    };
-
-    if (!document.querySelector(`script[src="${OFFERWALL_SCRIPT_SRC}"]`)) {
-      const script = document.createElement("script");
-      script.src = OFFERWALL_SCRIPT_SRC;
-      script.async = true;
-      script.onload = () => {
-        initGigaPub();
-      };
-      document.head.appendChild(script);
-    } else {
-      initGigaPub();
-    }
-  }, [onRewardCoins]);
 
   useEffect(() => {
     fetch("/api/tasks/list")
@@ -254,22 +186,33 @@ export default function Tasks({ onRewardCoins }: Props) {
   };
 
   const handleClaimServerTask = async (task: ServerTask) => {
-    if (isWatchAdTask(task)) return;
+    if (isWatchAdTask(task)) {
+      return;
+    }
 
     const id = String(task.id);
+
     if (claimingIds[id]) return;
 
     const openedAt = openedAtById[id];
     const claimDelayMs = getClaimDelayMs(task);
 
-    if (!openedAt || Date.now() - openedAt < claimDelayMs) return;
+    if (!openedAt) {
+      return;
+    }
+
+    if (Date.now() - openedAt < claimDelayMs) {
+      return;
+    }
 
     const current = progressById[id] || {
       completed: 0,
       max_completions: Math.max(1, Number(task.max_completions || 1)),
     };
 
-    if (current.completed >= current.max_completions) return;
+    if (current.completed >= current.max_completions) {
+      return;
+    }
 
     setClaimingIds((prev) => ({ ...prev, [id]: true }));
 
@@ -282,7 +225,10 @@ export default function Tasks({ onRewardCoins }: Props) {
 
       setProgressById((prev) => ({
         ...prev,
-        [id]: { completed: nextCompleted, max_completions: nextMax },
+        [id]: {
+          completed: nextCompleted,
+          max_completions: nextMax,
+        },
       }));
 
       setOpenedAtById((prev) => {
@@ -305,6 +251,8 @@ export default function Tasks({ onRewardCoins }: Props) {
     }
   };
 
+  // Schedules exactly ONE auto-claim attempt for this task, `claimDelayMs`
+  // after it was opened. No repeating interval, no background retries.
   const scheduleAutoClaim = (task: ServerTask, openedAt: number) => {
     if (isWatchAdTask(task)) return;
 
@@ -320,6 +268,9 @@ export default function Tasks({ onRewardCoins }: Props) {
     }, remaining);
   };
 
+  // Re-arm the one-shot timer for any task that was already opened
+  // (e.g. page was reloaded mid-wait) but hasn't been claimed yet.
+  // Still only ONE timer per task — not a repeating poll.
   useEffect(() => {
     Object.entries(openedAtById).forEach(([id, openedAt]) => {
       if (claimTimersRef.current[id]) return;
@@ -369,6 +320,9 @@ export default function Tasks({ onRewardCoins }: Props) {
         return;
       }
 
+      // Record the open server-side so the 5s wait can be verified
+      // against a real opened_at when we claim (watch_ad tasks are
+      // handled separately via the AdsGram callback).
       if (!isWatchAdTask(task)) {
         await postTaskAction({ taskId: task.id, action: "open" });
       }
@@ -397,14 +351,6 @@ export default function Tasks({ onRewardCoins }: Props) {
     }
   };
 
-  const handleOpenOfferWall = () => {
-    if (window.gigaOfferWallSDK) {
-      window.gigaOfferWallSDK.open();
-    } else {
-      setToast("Loading Offerwall...");
-    }
-  };
-
   return (
     <section className="tasks-page">
       {toast ? <div className="tasks-toast">{toast}</div> : null}
@@ -421,39 +367,6 @@ export default function Tasks({ onRewardCoins }: Props) {
       </section>
 
       <section className="task-strip">
-        
-        {/* كارت GigaPub Offerwall المثالي بنفس تصميم واجهتك */}
-        <article className="task-row" style={{ border: "1px solid rgba(64, 224, 208, 0.4)", background: "rgba(16, 26, 35, 0.85)" }}>
-          <div className="task-icon" style={{ background: "rgba(64, 224, 208, 0.15)", color: "#40e0d0", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "20px" }}>
-            🎯
-          </div>
-
-          <div className="task-main">
-            <div className="task-topline">
-              <div>
-                <p className="task-type" style={{ color: "#40e0d0" }}>OFFERWALL</p>
-                <h2>GigaPub Offers</h2>
-              </div>
-              <strong className="task-reward" style={{ color: "#40e0d0" }}>+1000s</strong>
-            </div>
-
-            <div className="task-mini-status">
-              <span className="gray">Complete offers to earn huge rewards</span>
-            </div>
-          </div>
-
-          <div className="task-actions">
-            <button
-              type="button"
-              className="task-btn join"
-              onClick={handleOpenOfferWall}
-              style={{ background: "#40e0d0", color: "#0d131a", fontWeight: "bold" }}
-            >
-              {sdkReady ? "Open" : "Loading..."}
-            </button>
-          </div>
-        </article>
-
         {loadingTasks ? (
           <div className="task-empty">Loading tasks...</div>
         ) : serverTasks.length === 0 ? (
@@ -514,6 +427,7 @@ export default function Tasks({ onRewardCoins }: Props) {
                 </div>
 
                 <div className="task-actions">
+                  {/* ✅ التعديل الثاني: إضافة العداد الأنيق أعلى الزر */}
                   {!isWatchAd && (
                     <div style={{
                       textAlign: "right",
