@@ -24,7 +24,6 @@ type ProgressMap = Record<string, TaskProgress>;
 type OpenedMap = Record<string, number>;
 
 const PROGRESS_KEY = "sly.tasks.progress.v3";
-const OPENED_KEY = "sly.tasks.opened.v3";
 const CLAIM_DELAY_MS = 5000;
 const SMART_AD_CLAIM_DELAY_MS = 5000;
 
@@ -46,29 +45,6 @@ function loadProgress(): ProgressMap {
         completed: Number.isFinite(completed) && completed >= 0 ? completed : 0,
         max_completions: Number.isFinite(max) && max > 0 ? max : 1,
       };
-    }
-
-    return out;
-  } catch {
-    return {};
-  }
-}
-
-function loadOpenedMap(): OpenedMap {
-  if (typeof window === "undefined") return {};
-
-  try {
-    const raw = window.localStorage.getItem(OPENED_KEY);
-    if (!raw) return {};
-
-    const parsed = JSON.parse(raw) as Record<string, number>;
-    const out: OpenedMap = {};
-
-    for (const [key, value] of Object.entries(parsed)) {
-      const ts = Number(value);
-      if (Number.isFinite(ts) && ts > 0) {
-        out[key] = ts;
-      }
     }
 
     return out;
@@ -138,7 +114,10 @@ export default function Tasks({ onRewardCoins }: Props) {
   const [serverTasks, setServerTasks] = useState<ServerTask[]>([]);
   const [loadingTasks, setLoadingTasks] = useState(true);
   const [progressById, setProgressById] = useState<ProgressMap>(() => loadProgress());
-  const [openedAtById, setOpenedAtById] = useState<OpenedMap>(() => loadOpenedMap());
+  
+  // ✅ التعديل الأول: جعلنا القيمة الافتراضية كائن فارغ حتى لا يتم جلب أوقات قديمة من المتصفح
+  const [openedAtById, setOpenedAtById] = useState<OpenedMap>({});
+  
   const [openingIds, setOpeningIds] = useState<Record<string, boolean>>({});
   const [claimingIds, setClaimingIds] = useState<Record<string, boolean>>({});
 
@@ -156,12 +135,6 @@ export default function Tasks({ onRewardCoins }: Props) {
       window.localStorage.setItem(PROGRESS_KEY, JSON.stringify(progressById));
     } catch {}
   }, [progressById]);
-
-  useEffect(() => {
-    try {
-      window.localStorage.setItem(OPENED_KEY, JSON.stringify(openedAtById));
-    } catch {}
-  }, [openedAtById]);
 
   useEffect(() => {
     if (!toast) return;
@@ -454,6 +427,22 @@ export default function Tasks({ onRewardCoins }: Props) {
                 </div>
 
                 <div className="task-actions">
+                  {/* ✅ التعديل الثاني: إضافة العداد الأنيق أعلى الزر */}
+                  {!isWatchAd && (
+                    <div style={{
+                      textAlign: "right",
+                      fontSize: "12px",
+                      fontWeight: 600,
+                      color: "#9ca3af",
+                      marginBottom: "6px",
+                      paddingRight: "6px",
+                      letterSpacing: "0.5px"
+                    }}>
+                      <span style={{ color: "#fff" }}>{progress.completed}</span> 
+                      <span style={{ opacity: 0.5 }}> / {progress.max_completions}</span>
+                    </div>
+                  )}
+
                   {isWatchAd ? (
                     <div className="task-btn join" style={{ opacity: 0.6 }}>
                       Unavailable
