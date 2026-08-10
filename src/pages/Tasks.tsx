@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import "../styles/tasks.css";
 
 type Props = {
@@ -23,31 +23,16 @@ type TaskProgress = {
 type ProgressMap = Record<string, TaskProgress>;
 type OpenedMap = Record<string, number>;
 
-type AdsgramShowResult = {
-  done: boolean;
-  description: string;
-  state: "load" | "render" | "playing" | "destroy";
-  error: boolean;
-};
-
-type AdsgramController = {
-  show: () => Promise<AdsgramShowResult>;
-};
-
-type AdsgramSDK = {
-  init: (options: {
-    blockId: string;
-    debug?: boolean;
-  }) => AdsgramController;
-};
-
 declare global {
-  interface Window {
-    Adsgram?: AdsgramSDK;
+  namespace JSX {
+    interface IntrinsicElements {
+      "adsgram-task": any;
+    }
   }
 }
 
-const ADSGRAM_BLOCK_ID = "41930";
+const ADSGRAM_TASK_BLOCK_ID = "task-42083";
+const ADSGRAM_SDK_SRC = "https://sad.adsgram.ai/js/sad.min.js";
 const PROGRESS_KEY = "sly.tasks.progress.v3";
 const OPENED_KEY = "sly.tasks.opened.v3";
 const CLAIM_DELAY_MS = 3000;
@@ -149,6 +134,75 @@ function CoinsIcon() {
   );
 }
 
+type AdsgramTaskWidgetProps = {
+  ready: boolean;
+  onOpenSession: () => void;
+  onReward: (detail?: string) => void;
+  onError: (message: string) => void;
+};
+
+function AdsgramTaskWidget({
+  ready,
+  onOpenSession,
+  onReward,
+  onError,
+}: AdsgramTaskWidgetProps) {
+  const elRef = useRef<HTMLElement | null>(null);
+  const openedRef = useRef(false);
+
+  useEffect(() => {
+    if (!ready) return;
+    if (openedRef.current) return;
+    openedRef.current = true;
+    onOpenSession();
+  }, [ready, onOpenSession]);
+
+  useEffect(() => {
+    const el = elRef.current;
+    if (!el) return;
+
+    const handleReward = (event: any) => {
+      onReward(event?.detail);
+    };
+
+    const handleError = (event: any) => {
+      onError(event?.detail?.description || "Ad error");
+    };
+
+    const handleBannerNotFound = () => {
+      onError("No ad available right now.");
+    };
+
+    el.addEventListener("reward", handleReward);
+    el.addEventListener("onError", handleError);
+    el.addEventListener("onBannerNotFound", handleBannerNotFound);
+
+    return () => {
+      el.removeEventListener("reward", handleReward);
+      el.removeEventListener("onError", handleError);
+      el.removeEventListener("onBannerNotFound", handleBannerNotFound);
+    };
+  }, [onReward, onError]);
+
+  if (!ready) {
+    return (
+      <div className="task-btn join" style={{ opacity: 0.6 }}>
+        Loading...
+      </div>
+    );
+  }
+
+  return (
+    <adsgram-task
+      ref={elRef}
+      data-block-id={ADSGRAM_TASK_BLOCK_ID}
+      data-debug="false"
+      data-debug-console="false"
+      className="task-btn join adsgram-task-widget"
+    ></adsgram-task>
+  );
+}
+
 export default function Tasks({ onRewardCoins }: Props) {
   const [toast, setToast] = useState("");
   const [serverTasks, setServerTasks] = useState<ServerTask[]>([]);
@@ -162,25 +216,24 @@ export default function Tasks({ onRewardCoins }: Props) {
   useEffect(() => {
     if (typeof window === "undefined") return;
 
-    if (window.Adsgram) {
-      setAdsgramReady(true);
-      return;
-    }
-
     const existingScript = document.querySelector(
-      'script[src="https://sad.adsgram.ai/js/sad.min.js"]'
+      `script[src="${ADSGRAM_SDK_SRC}"]`
     );
 
     if (existingScript) {
       existingScript.addEventListener("load", () => setAdsgramReady(true), { once: true });
+      if ((existingScript as any).dataset.loaded === "true") {
+        setAdsgramReady(true);
+      }
       return;
     }
 
     const script = document.createElement("script");
-    script.src = "https://sad.adsgram.ai/js/sad.min.js";
+    script.src = ADSGRAM_SDK_SRC;
     script.async = true;
 
     script.onload = () => {
+      script.dataset.loaded = "true";
       setAdsgramReady(true);
     };
 
@@ -254,18 +307,47 @@ export default function Tasks({ onRewardCoins }: Props) {
     return data;
   };
 
-  const showAdsgramReward = async () => {
-    if (!window.Adsgram) {
-      throw new Error("AdsGram is not ready yet.");
+  const openWatchAdSession = async (task: ServerTask) => {
+    const id = String(task.id);
+
+    try {
+      await postTaskAction({
+        taskId: task.id,
+        action: "open",
+      });
+
+      setOpenedAtById((prev) => ({
+        ...prev,
+        [id]: Date.now(),
+      }));
+    } catch (err: any) {
+      setToast(err?.message || "Failed to start ad session.");
+    }
+  };
+
+  const handleAdsgramTaskReward = (task: ServerTask, rewardDetail?: string) => {
+    const id = String(task.id);
+
+    if (rewardDetail) {
+      console.log("AdsGram reward detail:", rewardDetail);
     }
 
-    const controller = window.Adsgram.init({
-      blockId: ADSGRAM_BLOCK_ID,
-      debug: false,
-    });
+    const progress = progressById[id] || {
+      completed: 0,
+      max_completions: Math.max(1, Number(task.max_completions || 1)),
+    };
 
-    const result = await controller.show();
-    return result;
+    const nextCompleted = Math.min(progress.completed + 1, progress.max_completions);
+
+    setProgressById((prev) => ({
+      ...prev,
+      [id]: {
+        completed: nextCompleted,
+        max_completions: progress.max_completions,
+      },
+    }));
+
+    setToast("Reward sent. Coins will be added automatically.");
   };
 
   const handleOpenTask = async (task: ServerTask) => {
@@ -286,45 +368,6 @@ export default function Tasks({ onRewardCoins }: Props) {
     setOpeningIds((prev) => ({ ...prev, [id]: true }));
 
     try {
-      if (isWatchAdTask(task)) {
-        if (!adsgramReady) {
-          throw new Error("AdsGram is still loading. Try again.");
-        }
-
-        await postTaskAction({
-          taskId: task.id,
-          action: "open",
-        });
-
-        setOpenedAtById((prev) => ({
-          ...prev,
-          [id]: Date.now(),
-        }));
-
-        setToast("Loading ad...");
-
-        const result = await showAdsgramReward();
-
-        if (!result || result.error || !result.done) {
-          setToast("Ad was not completed.");
-          return;
-        }
-
-        const nextCompleted = progress.completed + 1;
-        const nextMax = progress.max_completions;
-
-        setProgressById((prev) => ({
-          ...prev,
-          [id]: {
-            completed: nextCompleted,
-            max_completions: nextMax,
-          },
-        }));
-
-        setToast("Reward sent. Coins will be added automatically.");
-        return;
-      }
-
       const url = String(task.url || "").trim();
 
       if (!url) {
@@ -493,14 +536,29 @@ export default function Tasks({ onRewardCoins }: Props) {
                 </div>
 
                 <div className="task-actions">
-                  <button
-                    type="button"
-                    className="task-btn join"
-                    onClick={() => handleOpenTask(task)}
-                    disabled={opening || claimedAll}
-                  >
-                    {opening ? "Opening..." : isWatchAd ? "Watch Ad" : "Open"}
-                  </button>
+                  {isWatchAd ? (
+                    claimedAll ? (
+                      <div className="task-btn join" style={{ opacity: 0.6 }}>
+                        Completed
+                      </div>
+                    ) : (
+                      <AdsgramTaskWidget
+                        ready={adsgramReady}
+                        onOpenSession={() => openWatchAdSession(task)}
+                        onReward={(detail) => handleAdsgramTaskReward(task, detail)}
+                        onError={(message) => setToast(message)}
+                      />
+                    )
+                  ) : (
+                    <button
+                      type="button"
+                      className="task-btn join"
+                      onClick={() => handleOpenTask(task)}
+                      disabled={opening || claimedAll}
+                    >
+                      {opening ? "Opening..." : "Open"}
+                    </button>
+                  )}
 
                   {!isWatchAd ? (
                     <button
