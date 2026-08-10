@@ -10,7 +10,7 @@ export default async function handler(req, res) {
       .from('players')
       .select('telegram_id, username, coin')
       .order('coin', { ascending: false })
-      .limit(50)
+      .limit(10)
 
     if (error) throw error
 

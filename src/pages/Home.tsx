@@ -253,7 +253,7 @@ export default function Home({
         <article className="mini-card">
           <div className="section-head compact">
             <div>
-              <p>Top 50</p>
+              <p>Top 10</p>
               <h2>Leaderboard</h2>
             </div>
             <UiIcons name="leaderboard" className="section-head-icon" />
