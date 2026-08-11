@@ -10,9 +10,7 @@
   gap:12px;
   padding:10px 14px;
   min-height:var(--header-h);
-  background:rgba(8,11,12,.92);
-  backdrop-filter:blur(10px);
-  -webkit-backdrop-filter:blur(10px);
+  background:rgba(8,11,12,.97);
   border-bottom:1px solid rgba(255,255,255,.05);
 }
 

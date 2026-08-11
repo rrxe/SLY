@@ -54,6 +54,24 @@ function formatCountdown(ms: number) {
   return `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
 }
 
+// مكون معزول بس للعداد الحي: التحديث كل ثانية يصير هنا بس،
+// بدل ما يفرض إعادة رسم كامل صفحة Home (الليدربورد، milestones،
+// الهيرو..) كل ثانية. نفس الشكل ونفس القيمة المعروضة تماماً.
+function ResetCountdown() {
+  const [countdown, setCountdown] = useState(() =>
+    formatCountdown(getMsUntilNextUtcMidnight())
+  );
+
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      setCountdown(formatCountdown(getMsUntilNextUtcMidnight()));
+    }, 1000);
+    return () => window.clearInterval(interval);
+  }, []);
+
+  return <span className="checkin-countdown">Resets in {countdown}</span>;
+}
+
 export default function Home({
   onPlay,
   balanceCoins,
@@ -64,9 +82,6 @@ export default function Home({
 }: Props) {
   const [leaderboard, setLeaderboard] = useState<LeaderUser[]>([]);
   const [toast, setToast] = useState("");
-  const [resetCountdown, setResetCountdown] = useState(() =>
-    formatCountdown(getMsUntilNextUtcMidnight())
-  );
 
   useEffect(() => {
     fetch("/api/leaderboard")
@@ -84,13 +99,6 @@ export default function Home({
     const timer = window.setTimeout(() => setToast(""), 2000);
     return () => window.clearTimeout(timer);
   }, [toast]);
-
-  useEffect(() => {
-    const interval = window.setInterval(() => {
-      setResetCountdown(formatCountdown(getMsUntilNextUtcMidnight()));
-    }, 1000);
-    return () => window.clearInterval(interval);
-  }, []);
 
   const currentChest = useMemo(() => {
     const unlocked = milestones.filter((item) => streak >= item.days);
@@ -245,7 +253,7 @@ export default function Home({
           <span className="checkin-next">
             Next: {nextMilestone ? `${nextMilestone.days} days` : "All rewards unlocked"}
           </span>
-          <span className="checkin-countdown">Resets in {resetCountdown}</span>
+          <ResetCountdown />
         </div>
       </section>
 
