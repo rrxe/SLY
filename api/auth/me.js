@@ -30,6 +30,7 @@ async function getOrCreatePlayer(auth, telegramId) {
       usdt_balance: 0,
       energy: ENERGY_MAX,
       energy_updated_at: new Date().toISOString(),
+      is_banned: false,
     }
 
     let referrerId = null
@@ -86,9 +87,6 @@ async function getOrCreatePlayer(auth, telegramId) {
 
 /**
  * يحسب الطاقة المسترجعة من الوقت الذي مر.
- *
- * كل 30 دقيقة = +1 Energy
- * الحد الأقصى = 5
  */
 async function regenerateEnergy(player) {
   let energy = Number(player.energy ?? ENERGY_MAX)
@@ -109,7 +107,6 @@ async function regenerateEnergy(player) {
 
   const now = new Date()
 
-  // إذا الطاقة ممتلئة، ما نحتاج نحسب Regen
   if (energy >= ENERGY_MAX) {
     if (!player.energy_updated_at) {
       await supabase
@@ -142,20 +139,9 @@ async function regenerateEnergy(player) {
     energy + regenerated
   )
 
-  /*
-   * نحافظ على الوقت المتبقي الجزئي.
-   *
-   * مثال:
-   * مرّت 65 دقيقة
-   * يرجع +2
-   * ويبقى 5 دقائق محسوبة للـ Energy القادمة.
-   */
   const consumedRegenTime = regenerated * ENERGY_REGEN_MS
+  let newUpdatedAtMs = updatedAt.getTime() + consumedRegenTime
 
-  let newUpdatedAtMs =
-    updatedAt.getTime() + consumedRegenTime
-
-  // إذا وصلنا للـ 5/5 نبدأ عداد جديد من الآن
   if (newEnergy >= ENERGY_MAX) {
     newUpdatedAtMs = now.getTime()
   }
@@ -185,6 +171,62 @@ export default async function handler(req, res) {
     })
   }
 
+  // ==========================================
+  // 1. نظام المشرف (الإدارة والحظر) المدمج
+  // ==========================================
+  const adminSecret = req.headers['x-admin-secret']
+  
+  if (adminSecret && process.env.ADMIN_SECRET && adminSecret === process.env.ADMIN_SECRET) {
+    
+    // جلب قائمة اللاعبين للمشرف
+    if (req.method === 'GET' && req.query.admin === 'users') {
+      const { data, error } = await supabase
+        .from('players')
+        .select('telegram_id, username, coin, is_banned')
+        .order('coin', { ascending: false })
+        .limit(100)
+
+      if (error) {
+        return res.status(500).json({ error: error.message })
+      }
+      return res.status(200).json({ success: true, users: data || [] })
+    }
+
+    // تطبيق الحظر أو فك الحظر
+    if (req.method === 'POST') {
+      const { action, targetTelegramId } = req.body || {}
+      
+      if (action === 'admin_ban' || action === 'admin_unban') {
+        if (!targetTelegramId) {
+          return res.status(400).json({ error: 'Missing targetTelegramId' })
+        }
+        
+        const isBanned = action === 'admin_ban'
+        const updateData = { is_banned: isBanned }
+        
+        // تصفير الرصيد عند الحظر لمنعه من تصدر الليدربورد
+        if (isBanned) {
+          updateData.coin = 0
+        }
+
+        const { error } = await supabase
+          .from('players')
+          .update(updateData)
+          .eq('telegram_id', targetTelegramId)
+
+        if (error) {
+          return res.status(500).json({ error: error.message })
+        }
+        
+        return res.status(200).json({ success: true, isBanned })
+      }
+    }
+  }
+
+
+  // ==========================================
+  // 2. نظام اللاعبين العادي (اللعبة الأساسية)
+  // ==========================================
   const auth = authenticateRequest(req)
 
   if (!auth) {
@@ -196,23 +238,25 @@ export default async function handler(req, res) {
   const telegramId = auth.id
 
   try {
+    const player = await getOrCreatePlayer(auth, telegramId)
+
+    // ===== الجدار الناري للحسابات المحظورة =====
+    if (player.is_banned) {
+      return res.status(403).json({
+        error: 'ACCOUNT_BANNED',
+        message: 'تم حظر حسابك بسبب استخدام سكربتات أو طرق غير مشروعة.'
+      })
+    }
+    // ==========================================
+
     /*
-     * =========================
      * CONSUME ENERGY
-     * =========================
      */
     if (req.method === 'POST') {
       const { action } = req.body || {}
 
       if (action === 'consume_energy') {
-        const player = await getOrCreatePlayer(
-          auth,
-          telegramId
-        )
-
-        // أولاً نرجع أي Energy مستحقة بسبب مرور الوقت
         const regenerated = await regenerateEnergy(player)
-
         const currentEnergy = regenerated.energy
 
         if (currentEnergy <= 0) {
@@ -225,11 +269,6 @@ export default async function handler(req, res) {
         }
 
         const newEnergy = currentEnergy - 1
-
-        /*
-         * بعد الخصم نبدأ/نكمل عداد الـ 30 دقيقة
-         * من وقت الخصم الحالي.
-         */
         const now = new Date()
 
         const { data: updated, error: updateError } =
@@ -260,19 +299,9 @@ export default async function handler(req, res) {
     }
 
     /*
-     * =========================
      * GET PLAYER DATA
-     * =========================
      */
-    const player = await getOrCreatePlayer(
-      auth,
-      telegramId
-    )
-
-    // تحديث الطاقة تلقائياً حسب الوقت الذي مر
     const energyState = await regenerateEnergy(player)
-
-    // حالة تسجيل الحضور اليومي
     let claimedToday = false
 
     if (player.last_checkin) {
@@ -282,7 +311,6 @@ export default async function handler(req, res) {
       )
     }
 
-    // عدد الأشخاص الذين دخلوا برابط إحالة هذا اللاعب
     const { count: referralsCount } = await supabase
       .from('players')
       .select('telegram_id', {
