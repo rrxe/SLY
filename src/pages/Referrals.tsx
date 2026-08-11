@@ -73,7 +73,7 @@ export default function Referrals() {
       >
         <h2 style={{ margin: 0, fontSize: 28 }}>Referrals</h2>
         <p style={{ marginTop: 8, color: "#8fa19e", lineHeight: 1.6 }}>
-          Referral rewards, 250 coins first bonus, and extra bonuses for invited users.
+          Referral rewards, 500 coins first bonus, and extra bonuses for invited users.
         </p>
 
         {loading ? (
