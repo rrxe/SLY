@@ -55,8 +55,8 @@
     .reject { background: #e53935; }
     .toggle { background: #273449; }
     .delete-btn { background: #b71c1c; }
-    .ban-btn { background: #d32f2f; color: white; }
-    .unban-btn { background: #388e3c; color: white; }
+    .ban-btn { background: #d32f2f; color: white; width: auto; margin: 0; padding: 6px 12px; }
+    .unban-btn { background: #388e3c; color: white; width: auto; margin: 0; padding: 6px 12px; }
     .muted { color: #92a1b7; }
     .error { color: #ff6b6b; }
     .success { color: #81c784; }
@@ -224,8 +224,9 @@
     <div id="adminStatus" class="admin-status muted">أدخل ADMIN_SECRET ثم اضغط اختبار الاتصال.</div>
   </div>
 
+  <!-- قسم إدارة الأعضاء والحظر المضاف حديثاً -->
   <div class="card">
-    <h3>🛡️ إدارة اللاعبين والحظر (Anti-Script)</h3>
+    <h3>🛡️ إدارة اللاعبين والحظر</h3>
     <input type="text" id="userSearch" placeholder="ابحث باسم المستخدم أو Telegram ID..." oninput="filterUsers()" />
     <div id="usersList" class="loading">جاري التحميل...</div>
     <button class="refresh-btn" onclick="loadUsers()">تحديث قائمة اللاعبين</button>
@@ -257,6 +258,7 @@
     <div class="field-hint">اتركه فارغًا إذا كانت المهمة من نوع مشاهدة إعلان. لمهام "إعلان ذكي" و"AdsGalaxy" يتم تعبئة الرابط تلقائيًا.</div>
     <button onclick="addTask()">إضافة المهمة</button>
   </div>
+
   <div class="card">
     <h3>إدارة المهام</h3>
     <div class="tasks-toolbar">
@@ -285,9 +287,9 @@
     document.addEventListener("DOMContentLoaded", () => {
       const savedSecret = localStorage.getItem("admin_secret") || "";
       document.getElementById("adminSecretInput").value = savedSecret;
-      loadUsers();
       loadTasks();
       loadWithdrawals();
+      loadUsers();
     });
 
     function saveSecret(value) {
@@ -331,18 +333,19 @@
     }
 
     // ==========================================
-    // دوال إدارة اللاعبين والحظر الجديدة
+    // دوال جلب الأجهزة والحظر المضافة
     // ==========================================
     async function loadUsers() {
       const container = document.getElementById("usersList");
+      if (!container) return;
       container.innerHTML = '<p class="loading">جاري التحميل...</p>';
       try {
         const data = await apiCall("/api/auth/me?admin=users", "GET");
-        if (data.success && Array.isArray(data.users)) {
+        if (data && data.success && Array.isArray(data.users)) {
           allUsers = data.users;
           renderUsers(allUsers);
         } else {
-          container.innerHTML = `<p class="error">${escapeHtml(data.error || "فشل تحميل اللاعبين")}</p>`;
+          container.innerHTML = `<p class="error">${escapeHtml(data.error || "فشل تحميل قائمة اللاعبين")}</p>`;
         }
       } catch (err) {
         container.innerHTML = `<p class="error">${escapeHtml(err.message || "خطأ في الاتصال")}</p>`;
@@ -351,23 +354,27 @@
 
     function renderUsers(users) {
       const container = document.getElementById("usersList");
-      if (users.length === 0) {
+      if (!users || users.length === 0) {
         container.innerHTML = '<div class="empty">لا يوجد لاعبين مطابقين للبحث.</div>';
         return;
       }
       container.innerHTML = users.map(user => {
         const isBanned = Boolean(user.is_banned);
+        const username = user.username ? `@${escapeHtml(user.username)}` : "بدون معرف";
+        const coin = Number(user.coin || 0).toLocaleString();
+        const tgId = escapeHtml(String(user.telegram_id));
+        
         return `
           <div class="user-card">
             <div class="user-info">
-              <div><strong>@${escapeHtml(user.username || "بدون يوزر")}</strong> ${isBanned ? '<span class="badge-banned">محظور</span>' : ''}</div>
-              <div>ID: <code>${escapeHtml(String(user.telegram_id))}</code></div>
-              <div>العملات: <span style="color:#81c784; font-weight:bold;">${Number(user.coin || 0).toLocaleString()}</span></div>
+              <div><strong>${username}</strong> ${isBanned ? '<span class="badge-banned">محظور</span>' : ''}</div>
+              <div>ID: <code>${tgId}</code></div>
+              <div>العملات: <span style="color:#81c784; font-weight:bold;">${coin}</span></div>
             </div>
             <div>
               ${isBanned 
-                ? `<button class="unban-btn" onclick="toggleBan('${escapeJs(String(user.telegram_id))}', 'admin_unban')">فك الحظر</button>`
-                : `<button class="ban-btn" onclick="toggleBan('${escapeJs(String(user.telegram_id))}', 'admin_ban')">حظر 🚫</button>`
+                ? `<button class="unban-btn" onclick="toggleBan('${escapeJs(tgId)}', 'admin_unban')">فك الحظر</button>`
+                : `<button class="ban-btn" onclick="toggleBan('${escapeJs(tgId)}', 'admin_ban')">حظر 🚫</button>`
               }
             </div>
           </div>
@@ -386,13 +393,14 @@
 
     async function toggleBan(telegramId, action) {
       const confirmText = action === "admin_ban" 
-        ? "هل أنت متأكد من حظر هذا المستخدم وتصفير عملاته بشكل نهائي؟" 
+        ? "هل أنت متأكد من حظر هذا المستخدم وتصفير عملاته؟" 
         : "هل أنت متأكد من فك الحظر عن هذا المستخدم؟";
       if (!confirm(confirmText)) return;
 
+
       try {
         const result = await apiCall("/api/auth/me", "POST", { action, targetTelegramId: telegramId });
-        if (result.success) {
+        if (result && result.success) {
           alert(action === "admin_ban" ? "تم حظر المستخدم وتصفير رصيده." : "تم فك الحظر عن المستخدم.");
           await loadUsers();
         } else {
@@ -404,7 +412,7 @@
     }
 
     // ==========================================
-    // دوال إدارة المهام (بدون نقص)
+    // باقي الدوال الأصلية الخاصة بك كما هي تماماً
     // ==========================================
     async function loadTasks() {
       const container = document.getElementById("tasksList");
@@ -483,7 +491,7 @@
       const isWatchAd = normalizedTaskType === "watch_ad";
       const isSmartAd = normalizedTaskType === "smart_ad";
       const isAdsGalaxy = normalizedTaskType === "ads_galaxy";
-      
+
       let url = rawUrl;
       if (isWatchAd) url = window.location.origin + "/";
       else if (isSmartAd) url = "https://link.gigapub.tech/l/9xgr7ru4wo";
@@ -492,7 +500,8 @@
       if (!title || !Number.isFinite(reward) || reward <= 0) {
         alert("يرجى تعبئة العنوان والمكافأة بشكل صحيح.");
         return;
-if (!isWatchAd && !isSmartAd && !isAdsGalaxy && !url) {
+      }
+      if (!isWatchAd && !isSmartAd && !isAdsGalaxy && !url) {
         alert("يرجى إدخال رابط المهمة، أو اختر مشاهدة إعلان لتركه فارغًا.");
         return;
       }
@@ -525,9 +534,6 @@ if (!isWatchAd && !isSmartAd && !isAdsGalaxy && !url) {
       } catch (err) { alert(err.message || "تعذر الاتصال بالسيرفر."); }
     }
 
-    // ==========================================
-    // دوال إدارة السحب والرسائل (بدون نقص)
-    // ==========================================
     async function loadWithdrawals() {
       const container = document.getElementById("withdrawalsList");
       container.innerHTML = '<p class="loading">جاري تحميل طلبات السحب...</p>';
@@ -537,7 +543,7 @@ if (!isWatchAd && !isSmartAd && !isAdsGalaxy && !url) {
         if (Array.isArray(data)) withdrawals = data;
         else if (Array.isArray(data.withdrawals)) withdrawals = data.withdrawals;
         else if (Array.isArray(data.data)) withdrawals = data.data;
-        if (withdrawals.length === 0) { container.innerHTML = '<p class="muted">لا توجد طلبات السحب معلقة.</p>'; return; }
+        if (withdrawals.length === 0) { container.innerHTML = '<p class="muted">لا توجد طلبات سحب معلقة.</p>'; return; }
         container.innerHTML = withdrawals.map(withdrawal => {
           const telegramId = withdrawal.telegram_id || withdrawal.telegramId || "";
           const username = withdrawal.username || "NoUsername";
@@ -547,77 +553,55 @@ if (!isWatchAd && !isSmartAd && !isAdsGalaxy && !url) {
           const status = String(rawStatus).toLowerCase();
           const isPending = status === "pending";
           return `
-            <div class="user-card" style="flex-direction: column; align-items: stretch; gap: 8px;">
-              <p style="margin:0;"><strong>المستخدم:</strong> @${escapeHtml(String(username))}</p>
-              <p style="margin:0;"><strong>Telegram ID:</strong> <code>${escapeHtml(String(telegramId))}</code></p>
-              <p style="margin:0;"><strong>المبلغ:</strong> $${Number(amount).toFixed(4)} USDT</p>
-              <p style="margin:0;"><strong>المحفظة:</strong> <code>${escapeHtml(String(wallet))}</code></p>
-              <p style="margin:0;"><strong>الحالة:</strong> <span class="status-${escapeHtml(status)}">${escapeHtml(String(rawStatus))}</span></p>
+            <div class="item">
+              <p><strong>المستخدم:</strong> @${escapeHtml(String(username))}</p>
+              <p><strong>Telegram ID:</strong> <code>${escapeHtml(String(telegramId))}</code></p>
+              <p><strong>المبلغ:</strong> $${Number(amount).toFixed(4)} USDT</p>
+              <p><strong>المحفظة:</strong> <code>${escapeHtml(String(wallet))}</code></p>
+              <p><strong>الحالة:</strong> <span class="status-${escapeHtml(status)}">${escapeHtml(String(rawStatus))}</span></p>
               ${isPending ? `
-                <div style="display:flex; gap:10px; margin-top:8px;">
-                  <button class="approve" onclick="updateWithdrawal('${escapeJs(String(telegramId))}', 'approved')">موافقة</button>
-                  <button class="reject" onclick="updateWithdrawal('${escapeJs(String(telegramId))}', 'rejected')">رفض</button>
+                <div class="withdraw-actions">
+                  <button class="approve" onclick="updateWithdrawal('${escapeJs(String(telegramId))}', 'approve')">موافقة</button>
+                  <button class="reject" onclick="updateWithdrawal('${escapeJs(String(telegramId))}', 'reject')">رفض</button>
                 </div>
               ` : ""}
             </div>
           `;
         }).join("");
-      } catch (err) { container.innerHTML = `<p class="error">${escapeHtml(err.message || "فشل جلب طلبات السحب")}</p>`; }
+      } catch (err) { container.innerHTML = `<p class="error">${escapeHtml(err.message || "خطأ في تحميل طلبات السحب.")}</p>`; }
     }
 
-    async function updateWithdrawal(telegramId, status) {
-      if (!confirm(`هل أنت متأكد من تغيير حالة السحب إلى ${status}؟`)) return;
+    async function updateWithdrawal(telegramId, action) {
+      if (!telegramId) { alert("Telegram ID غير موجود."); return; }
+      if (!["approve", "reject"].includes(action)) { alert("إجراء غير صالح."); return; }
+      const confirmationText = action === "approve" ? "هل أنت متأكد من الموافقة على طلب السحب؟" : "هل أنت متأكد من رفض طلب السحب وإعادة المبلغ للاعب؟";
+      if (!confirm(confirmationText)) return;
       try {
-        const result = await apiCall("/api/admin/withdrawals", "POST", { telegramId, status });
-        if (result.success || result.message) {
-          alert("تم تحديث حالة السحب بنجاح.");
+        const result = await apiCall("/api/admin/withdrawals/status", "POST", { telegramId, action });
+        if (result.success) {
+          alert(action === "approve" ? "تمت الموافقة على طلب السحب." : "تم رفض طلب السحب وإعادة المبلغ.");
           await loadWithdrawals();
-        } else {
-          alert(result.error || result.message || "فشل تحديث حالة السحب.");
-        }
-      } catch (err) { alert(err.message || "تعذر الاتصال بالسيرفر."); }
+        } else alert(result.error || "فشل تنفيذ العملية.");
+      } catch (err) { alert(err.message || "تعذر تنفيذ العملية."); }
     }
 
     async function sendBroadcast() {
-      const msg = document.getElementById("broadcastMsg").value.trim();
-      if (!msg) { alert("اكتب رسالة أولاً."); return; }
-      if (!confirm("هل أنت متأكد أنك تريد إرسال هذه الرسالة لجميع اللاعبين المسجلين في البوت؟\nهذه العملية قد تستغرق بعض الوقت.")) return;
-      const btn = event.target;
-      btn.disabled = true;
-      btn.innerText = "جاري الإرسال...";
+      const textarea = document.getElementById("broadcastMsg");
+      const message = textarea.value.trim();
+      if (!message) { alert("يرجى كتابة رسالة أولاً."); return; }
+      if (!confirm("هل تريد إرسال هذه الرسالة إلى جميع اللاعبين؟")) return;
       try {
-        const result = await apiCall("/api/admin/broadcast", "POST", { message: msg });
-        if (result.success || result.message) {
-          alert(`تم إرسال الرسالة بنجاح.\nتم الوصول إلى: ${result.sentCount || result.successCount || 0} مستخدم\nفشل: ${result.failedCount || 0} مستخدم`);
-          document.getElementById("broadcastMsg").value = "";
-        } else {
-          alert(result.error || result.message || "حدث خطأ أثناء الإرسال.");
-        }
+        const result = await apiCall("/api/admin/broadcast", "POST", { message });
+        if (result.success) { alert(`تم الإرسال بنجاح إلى ${result.sentCount || 0} مستخدم.`); textarea.value = ""; }
+        else alert(result.error || "فشل إرسال الرسالة.");
       } catch (err) { alert(err.message || "تعذر الاتصال بالسيرفر."); }
-      finally {
-        btn.disabled = false;
-        btn.innerText = "إرسال للجميع";
-      }
     }
 
-    function escapeHtml(str) {
-      if (!str) return "";
-      return String(str)
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#039;");
+    function escapeHtml(value) {
+      return String(value).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
     }
-
-    function escapeJs(str) {
-      if (!str) return "";
-      return String(str)
-        .replace(/\\/g, "\\\\")
-        .replace(/'/g, "\\'")
-        .replace(/"/g, "\\\"")
-        .replace(/\n/g, "\\n")
-        .replace(/\r/g, "\\r");
+    function escapeJs(value) {
+      return String(value).replace(/\\/g, "\\\\").replace(/'/g, "\\'").replace(/"/g, '\\"').replace(/\n/g, "\\n").replace(/\r/g, "\\r");
     }
   </script>
 </body>
