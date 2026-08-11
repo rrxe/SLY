@@ -11,6 +11,9 @@
   border-radius:18px;
   background:transparent;
   border:1px solid rgba(255,255,255,.06);
+  transform:translateZ(0);
+  will-change:transform;
+  backface-visibility:hidden;
 }
 
 .nav-item{

@@ -12,6 +12,9 @@
   min-height:var(--header-h);
   background:rgba(8,11,12,.97);
   border-bottom:1px solid rgba(255,255,255,.05);
+  transform:translateZ(0);
+  will-change:transform;
+  backface-visibility:hidden;
 }
 
 .topbar-left{
