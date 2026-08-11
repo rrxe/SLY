@@ -10,18 +10,29 @@
   padding:7px;
   border-radius:18px;
   background:rgba(16,21,22,.90);
-  border:1px solid rgba(84,230,212,.14);
+  border:1px solid rgba(255,255,255,.06);
+  backdrop-filter:blur(10px);
+  -webkit-backdrop-filter:blur(10px);
+}
+
+.bottom-nav::before{
+  content:"";
+  position:absolute;
+  inset:-1px;
+  border-radius:18px;
+  padding:1px;
+  background:linear-gradient(135deg, rgba(84,230,212,.20), rgba(227,192,113,.10), transparent);
+  -webkit-mask:linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite:xor;
+  mask-composite:exclude;
+  pointer-events:none;
 }
 
 .nav-item{
   position:relative;
   height:48px;
   border:none;
-  outline:none;
-  background:none;
-  box-shadow:none;
-  -webkit-appearance:none;
-  appearance:none;
+  background:transparent;
   border-radius:var(--radius-sm);
   display:flex;
   flex-direction:column;
@@ -31,14 +42,6 @@
   color:var(--muted);
   cursor:pointer;
   transition:.2s ease;
-  -webkit-tap-highlight-color:transparent;
-}
-
-.nav-item:focus,
-.nav-item:focus-visible{
-  outline:none;
-  background:none;
-  box-shadow:none;
 }
 
 .nav-icon{
@@ -80,6 +83,7 @@
     right:10px;
     bottom:8px;
     gap:5px;
+    padding:6px;
   }
 
   .nav-item{
