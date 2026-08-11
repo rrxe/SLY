@@ -1,13 +1,12 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>SLY Admin Panel</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <style>
     * { box-sizing: border-box; }
-
     body {
       font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       background: radial-gradient(circle at top, #142238 0%, #0b0f17 45%);
@@ -16,23 +15,9 @@
       margin: 0;
       min-height: 100vh;
     }
-
-    h2, h3 {
-      margin-top: 0;
-      color: #40a7e3;
-    }
-
-    h2 {
-      margin-bottom: 20px;
-      font-size: 27px;
-      font-weight: 800;
-    }
-
-    h3 {
-      margin-bottom: 14px;
-      font-size: 18px;
-    }
-
+    h2, h3 { margin-top: 0; color: #40a7e3; }
+    h2 { margin-bottom: 20px; font-size: 27px; font-weight: 800; }
+    h3 { margin-bottom: 14px; font-size: 18px; }
     .card {
       background: rgba(21, 28, 41, 0.94);
       border-radius: 18px;
@@ -41,7 +26,6 @@
       border: 1px solid rgba(255, 255, 255, 0.07);
       box-shadow: 0 10px 35px rgba(0, 0, 0, 0.22);
     }
-
     input, textarea, button, select {
       width: 100%;
       padding: 12px;
@@ -54,16 +38,8 @@
       font-size: 14px;
       outline: none;
     }
-
-    input:focus, textarea:focus, select:focus {
-      border-color: #40a7e3;
-    }
-
-    textarea {
-      resize: vertical;
-      min-height: 90px;
-    }
-
+    input:focus, textarea:focus, select:focus { border-color: #40a7e3; }
+    textarea { resize: vertical; min-height: 90px; }
     button {
       background: #40a7e3;
       border: none;
@@ -71,32 +47,20 @@
       cursor: pointer;
       transition: 0.15s ease;
     }
-
     button:hover { opacity: 0.9; }
     button:active { transform: scale(0.98); }
     button:disabled { opacity: 0.5; cursor: not-allowed; }
-
     .refresh-btn { background: #273449; margin-top: 10px; }
     .approve { background: #4caf50; }
     .reject { background: #e53935; }
     .toggle { background: #273449; }
     .delete-btn { background: #b71c1c; }
-
     .muted { color: #92a1b7; }
     .error { color: #ff6b6b; }
     .success { color: #81c784; }
     .loading { color: #92a1b7; }
-
-    code {
-      color: #b9dfff;
-      word-break: break-all;
-    }
-
-    a {
-      color: #40a7e3;
-      word-break: break-all;
-    }
-
+    code { color: #b9dfff; word-break: break-all; }
+    a { color: #40a7e3; word-break: break-all; }
     .admin-status {
       padding: 10px 12px;
       border-radius: 10px;
@@ -104,7 +68,6 @@
       background: rgba(255, 255, 255, 0.04);
       font-size: 13px;
     }
-
     .tasks-toolbar {
       display: flex;
       justify-content: space-between;
@@ -113,7 +76,6 @@
       margin-bottom: 14px;
       flex-wrap: wrap;
     }
-
     .show-disabled {
       display: flex;
       align-items: center;
@@ -129,13 +91,11 @@
       color: #dbe7f5;
       font-size: 13px;
     }
-
     .show-disabled input {
       width: auto;
       margin: 0;
       padding: 0;
     }
-
     .task-card {
       background: linear-gradient(145deg, #172235 0%, #0f1623 100%);
       border: 1px solid rgba(255, 255, 255, 0.07);
@@ -145,12 +105,10 @@
       box-shadow: 0 9px 25px rgba(0, 0, 0, 0.2);
       overflow: hidden;
     }
-
     .task-card.disabled {
       opacity: 0.65;
       border-color: rgba(229, 57, 53, 0.2);
     }
-
     .task-top {
       display: flex;
       justify-content: space-between;
@@ -158,20 +116,8 @@
       gap: 12px;
       margin-bottom: 13px;
     }
-
-    .task-title {
-      font-size: 17px;
-      font-weight: 800;
-      color: #ffffff;
-      line-height: 1.4;
-    }
-
-    .task-id {
-      color: #77869c;
-      font-size: 11px;
-      margin-top: 4px;
-    }
-
+    .task-title { font-size: 17px; font-weight: 800; color: #ffffff; line-height: 1.4; }
+    .task-id { color: #77869c; font-size: 11px; margin-top: 4px; }
     .badge {
       padding: 6px 10px;
       border-radius: 999px;
@@ -179,24 +125,17 @@
       font-weight: 800;
       white-space: nowrap;
     }
-
     .badge-active {
       color: #8be59a;
       background: rgba(76, 175, 80, 0.13);
       border: 1px solid rgba(76, 175, 80, 0.22);
     }
-
     .badge-disabled {
       color: #ff9999;
       background: rgba(229, 57, 53, 0.12);
       border: 1px solid rgba(229, 57, 53, 0.2);
     }
-
-    .task-info {
-      display: grid;
-      gap: 8px;
-    }
-
+    .task-info { display: grid; gap: 8px; }
     .info-box {
       background: rgba(255, 255, 255, 0.035);
       border: 1px solid rgba(255, 255, 255, 0.05);
@@ -205,29 +144,15 @@
       font-size: 13px;
       line-height: 1.6;
     }
-
-    .info-label {
-      color: #8fa0b6;
-      font-size: 11px;
-      margin-bottom: 2px;
-    }
-
-    .info-value {
-      color: #eef5ff;
-      font-weight: 600;
-    }
-
+    .info-label { color: #8fa0b6; font-size: 11px; margin-bottom: 2px; }
+    .info-value { color: #eef5ff; font-weight: 600; }
     .task-actions {
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 8px;
       margin-top: 12px;
     }
-
-    .task-actions button {
-      margin: 0;
-    }
-
+    .task-actions button { margin: 0; }
     .empty {
       text-align: center;
       padding: 22px 10px;
@@ -235,7 +160,6 @@
       background: rgba(255, 255, 255, 0.025);
       border-radius: 12px;
     }
-
     .field-hint {
       font-size: 12px;
       color: #8fa0b6;
@@ -243,28 +167,14 @@
       margin-bottom: 8px;
       line-height: 1.5;
     }
-
     .mini-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 10px;
     }
-
-    .mini-grid > div {
-      min-width: 0;
-    }
-
-    .label {
-      font-size: 12px;
-      color: #8fa0b6;
-      margin: 4px 0 2px;
-    }
-
-    .value {
-      color: #eef5ff;
-      font-weight: 700;
-    }
-
+    .mini-grid > div { min-width: 0; }
+    .label { font-size: 12px; color: #8fa0b6; margin: 4px 0 2px; }
+    .value { color: #eef5ff; font-weight: 700; }
     .task-type-tag {
       display: inline-block;
       margin-top: 6px;
@@ -276,150 +186,71 @@
       color: #8fd5ff;
       border: 1px solid rgba(64, 167, 227, 0.2);
     }
-
-    .task-summary {
-      display: grid;
-      gap: 10px;
-    }
-
+    .task-summary { display: grid; gap: 10px; }
     @media (max-width: 430px) {
-      .task-actions,
-      .mini-grid {
-        grid-template-columns: 1fr;
-      }
+      .task-actions, .mini-grid { grid-template-columns: 1fr; }
     }
   </style>
 </head>
-
 <body>
   <h2>SLY Admin Panel</h2>
-
   <div class="card">
     <h3>إعدادات المشرف</h3>
-
-    <input
-      type="password"
-      id="adminSecretInput"
-      placeholder="أدخل ADMIN_SECRET"
-      autocomplete="off"
-      onchange="saveSecret(this.value)"
-    >
-
+    <input type="password" id="adminSecretInput" placeholder="أدخل ADMIN_SECRET" autocomplete="off" onchange="saveSecret(this.value)" />
     <button onclick="testConnection()">اختبار الاتصال</button>
-
-    <div id="adminStatus" class="admin-status muted">
-      أدخل ADMIN_SECRET ثم اضغط اختبار الاتصال.
-    </div>
+    <div id="adminStatus" class="admin-status muted">أدخل ADMIN_SECRET ثم اضغط اختبار الاتصال.</div>
   </div>
 
   <div class="card">
     <h3>إرسال رسالة جماعية</h3>
-
-    <textarea
-      id="broadcastMsg"
-      rows="4"
-      placeholder="اكتب الرسالة التي تريد إرسالها لجميع اللاعبين..."
-    ></textarea>
-
+    <textarea id="broadcastMsg" rows="4" placeholder="اكتب الرسالة التي تريد إرسالها لجميع اللاعبين..."></textarea>
     <button onclick="sendBroadcast()">إرسال للجميع</button>
   </div>
 
   <div class="card">
     <h3>إضافة مهمة جديدة</h3>
-
-    <input
-      type="text"
-      id="taskTitle"
-      placeholder="عنوان المهمة"
-    >
-
-    <div class="field-hint">
-      مثال: مشاهدة إعلان، زيارة قناة، إكمال تحدي.
-    </div>
-
+    <input type="text" id="taskTitle" placeholder="عنوان المهمة" />
+    <div class="field-hint">مثال: مشاهدة إعلان، زيارة قناة، إكمال تحدي.</div>
     <select id="taskType">
       <option value="normal">مهمة عادية</option>
-      <option value="watch_ad">مشاهدة إعلان</option>
+      <option value="watch_ad">مشاهدة إعلان (AdsGram)</option>
       <option value="smart_ad">إعلان ذكي (Smart Ad)</option>
       <option value="ads_galaxy">إعلان AdsGalaxy</option>
       <option value="join_channel">الانضمام إلى قناة</option>
       <option value="custom">مهمة مخصصة</option>
     </select>
- <div class="mini-grid">
-      <div>
-        <input
-          type="number"
-          id="taskCoins"
-          placeholder="مكافأة العملات"
-          min="0"
-          step="1"
-        >
-      </div>
-      <div>
-        <input
-          type="number"
-          id="taskMaxCompletions"
-          placeholder="عدد مرات لكل لاعب"
-          min="1"
-          step="1"
-          value="1"
-        >
-      </div>
+    <div class="mini-grid">
+      <div><input type="number" id="taskCoins" placeholder="مكافأة العملات" min="0" step="1" /></div>
+      <div><input type="number" id="taskMaxCompletions" placeholder="عدد مرات لكل لاعب" min="1" step="1" value="1" /></div>
     </div>
-
-    <input
-      type="url"
-      id="taskLink"
-      placeholder="رابط المهمة URL (اختياري لمهام مشاهدة الإعلان)"
-    >
-
-    <div class="field-hint">
-      اتركه فارغًا إذا كانت المهمة من نوع مشاهدة إعلان. لمهام "إعلان ذكي" و"AdsGalaxy" يتم تعبئة الرابط تلقائيًا.
-    </div>
-
+    <input type="url" id="taskLink" placeholder="رابط المهمة URL (اختياري لمهام مشاهدة الإعلان)" />
+    <div class="field-hint">اتركه فارغًا إذا كانت المهمة من نوع مشاهدة إعلان. لمهام "إعلان ذكي" و"AdsGalaxy" يتم تعبئة الرابط تلقائيًا.</div>
     <button onclick="addTask()">إضافة المهمة</button>
   </div>
 
   <div class="card">
     <h3>إدارة المهام</h3>
-
     <div class="tasks-toolbar">
       <label class="show-disabled">
-        <input
-          type="checkbox"
-          id="showDisabledTasks"
-          onchange="loadTasks()"
-        >
+        <input type="checkbox" id="showDisabledTasks" onchange="loadTasks()" />
         <span>إظهار المعطلة</span>
       </label>
     </div>
-
-    <div id="tasksList">
-      <p class="loading">جاري تحميل المهام...</p>
-    </div>
-
+    <div id="tasksList"><p class="loading">جاري تحميل المهام...</p></div>
     <button class="refresh-btn" onclick="loadTasks()">تحديث المهام</button>
   </div>
 
   <div class="card">
     <h3>طلبات السحب</h3>
-
-    <div id="withdrawalsList" class="loading">
-      جاري التحميل...
-    </div>
-
+    <div id="withdrawalsList" class="loading">جاري التحميل...</div>
     <button class="refresh-btn" onclick="loadWithdrawals()">تحديث طلبات السحب</button>
   </div>
 
   <script>
     const tg = window.Telegram?.WebApp;
-
-    if (tg) {
-      tg.expand();
-    }
+    if (tg) tg.expand();
 
     const API_BASE = "";
-
     document.addEventListener("DOMContentLoaded", () => {
       const savedSecret = localStorage.getItem("admin_secret") || "";
       document.getElementById("adminSecretInput").value = savedSecret;
@@ -433,11 +264,7 @@
     }
 
     function getSecret() {
-      return (
-        localStorage.getItem("admin_secret") ||
-        document.getElementById("adminSecretInput").value ||
-        ""
-      ).trim();
+      return (localStorage.getItem("admin_secret") || document.getElementById("adminSecretInput").value || "").trim();
     }
 
     function setAdminStatus(message, type = "muted") {
@@ -448,95 +275,42 @@
 
     async function apiCall(endpoint, method = "GET", body = null) {
       const secret = getSecret();
-
-      const headers = {
-        "Content-Type": "application/json",
-        "x-admin-secret": secret
-      };
-
-      if (tg && tg.initData) {
-        headers["Authorization"] = `tga ${tg.initData}`;
-      }
-
+      const headers = { "Content-Type": "application/json", "x-admin-secret": secret };
+      if (tg && tg.initData) headers["Authorization"] = `tga ${tg.initData}`;
       const options = { method, headers };
-
-      if (body !== null) {
-        options.body = JSON.stringify(body);
-      }
-
+      if (body !== null) options.body = JSON.stringify(body);
       const response = await fetch(`${API_BASE}${endpoint}`, options);
       const text = await response.text();
-
       let data = {};
-
-      try {
-        data = text ? JSON.parse(text) : {};
-      } catch {
-        data = {
-          success: false,
-          error: text || `HTTP ${response.status}`
-        };
-      }
-
-      if (!response.ok) {
-        throw new Error(
-          data.error || data.message || `Request failed (${response.status})`
-        );
-      }
-
+      try { data = text ? JSON.parse(text) : {}; } catch { data = { success: false, error: text || `HTTP ${response.status}` }; }
+      if (!response.ok) throw new Error(data.error || data.message || `Request failed (${response.status})`);
       return data;
     }
 
     async function testConnection() {
       const secret = getSecret();
-
-      if (!secret) {
-        setAdminStatus("أدخل ADMIN_SECRET أولاً.", "error");
-        return;
-      }
-
+      if (!secret) { setAdminStatus("أدخل ADMIN_SECRET أولاً.", "error"); return; }
       saveSecret(secret);
-
       try {
         const data = await apiCall("/api/tasks/manage", "GET");
-
-        if (data && data.success !== false) {
-          setAdminStatus("الاتصال بالسيرفر ناجح وصلاحيات المشرف تعمل.", "success");
-        } else {
-          setAdminStatus(data.error || "فشل التحقق من صلاحيات المشرف.", "error");
-        }
-      } catch (err) {
-        setAdminStatus(err.message || "تعذر الاتصال بالسيرفر.", "error");
-      }
+        if (data && data.success !== false) setAdminStatus("الاتصال بالسيرفر ناجح وصلاحيات المشرف تعمل.", "success");
+        else setAdminStatus(data.error || "فشل التحقق من صلاحيات المشرف.", "error");
+      } catch (err) { setAdminStatus(err.message || "تعذر الاتصال بالسيرفر.", "error"); }
     }
 
     async function loadTasks() {
       const container = document.getElementById("tasksList");
       const showDisabled = document.getElementById("showDisabledTasks")?.checked;
-
       container.innerHTML = '<p class="loading">جاري تحميل المهام...</p>';
-
       try {
         const data = await apiCall("/api/tasks/manage", "GET");
-
-        if (!data.success) {
-          container.innerHTML = `<p class="error">${escapeHtml(data.error || "خطأ في الصلاحيات")}</p>`;
-          return;
-        }
-
+        if (!data.success) { container.innerHTML = `<p class="error">${escapeHtml(data.error || "خطأ في الصلاحيات")}</p>`; return; }
         let tasks = Array.isArray(data.tasks) ? data.tasks : [];
-
-        if (!showDisabled) {
-          tasks = tasks.filter(task => Boolean(task.is_active));
-        }
-
+        if (!showDisabled) tasks = tasks.filter(task => Boolean(task.is_active));
         if (tasks.length === 0) {
-          container.innerHTML = showDisabled
-            ? '<div class="empty">لا توجد مهام حالياً.</div>'
-            : '<div class="empty">لا توجد مهام مفعلة حالياً.</div>';
+          container.innerHTML = showDisabled ? '<div class="empty">لا توجد مهام حالياً.</div>' : '<div class="empty">لا توجد مهام مفعلة حالياً.</div>';
           return;
         }
-
         container.innerHTML = tasks.map(task => {
           const taskId = task.id;
           const title = escapeHtml(task.title || "");
@@ -545,7 +319,6 @@
           const active = Boolean(task.is_active);
           const maxCompletions = Number(task.max_completions || 1);
           const taskType = escapeHtml(String(task.task_type || "normal"));
-
           return `
             <div class="task-card ${active ? "" : "disabled"}">
               <div class="task-top">
@@ -554,184 +327,112 @@
                   <div class="task-id">ID: <code>${escapeHtml(String(taskId))}</code></div>
                   <span class="task-type-tag">${taskType}</span>
                 </div>
-
-                <span class="badge ${active ? "badge-active" : "badge-disabled"}">
-                  ${active ? "مفعلة" : "معطلة"}
-                </span>
+                <span class="badge ${active ? "badge-active" : "badge-disabled"}">${active ? "مفعلة" : "معطلة"}</span>
               </div>
-
               <div class="task-summary">
                 <div class="task-info">
-                  <div class="info-box">
-                    <div class="info-label">المكافأة</div>
-                    <div class="info-value">${reward.toLocaleString()} Coins</div>
-                  </div>
-
-                  <div class="info-box">
-                    <div class="info-label">عدد مرات الإكمال لكل لاعب</div>
-                    <div class="info-value">${maxCompletions} مرة</div>
-                  </div>
-
-                  <div class="info-box">
-                    <div class="info-label">رابط المهمة</div>
-                    <div class="info-value">
-                      ${url ? `<a href="${url}" target="_blank" rel="noopener noreferrer">${url}</a>` : "لا يوجد"}
-                    </div>
-                  </div>
+                  <div class="info-box"><div class="info-label">المكافأة</div><div class="info-value">${reward.toLocaleString()} Coins</div></div>
+                  <div class="info-box"><div class="info-label">عدد مرات الإكمال لكل لاعب</div><div class="info-value">${maxCompletions} مرة</div></div>
+                  <div class="info-box"><div class="info-label">رابط المهمة</div><div class="info-value">${url ? `<a href="${url}" target="_blank" rel="noopener noreferrer">${url}</a>` : "لا يوجد"}</div></div>
                 </div>
               </div>
-             <div class="task-actions">
-                <button
-                  class="toggle"
-                  onclick="toggleTask('${escapeJs(String(taskId))}')"
-                >
-                  ${active ? "⏸️ تعطيل" : "▶️ تفعيل"}
-                </button>
-
-                <button
-                  class="delete-btn"
-                  onclick="deleteTask('${escapeJs(String(taskId))}')"
-                >
-                  🗑️ حذف نهائي
-                </button>
+              <div class="task-actions">
+                <button class="toggle" onclick="toggleTask('${escapeJs(String(taskId))}')">${active ? "⏸️ تعطيل" : "▶️ تفعيل"}</button>
+                <button class="delete-btn" onclick="deleteTask('${escapeJs(String(taskId))}')">🗑️ حذف نهائي</button>
               </div>
             </div>
           `;
         }).join("");
-
-      } catch (err) {
-        container.innerHTML = `<p class="error">${escapeHtml(err.message || "خطأ في الاتصال بالسيرفر.")}</p>`;
-      }
+      } catch (err) { container.innerHTML = `<p class="error">${escapeHtml(err.message || "خطأ في الاتصال بالسيرفر.")}</p>`; }
     }
 
     async function toggleTask(taskId) {
-      if (!taskId) {
-        alert("Task ID غير موجود.");
-        return;
-      }
-
+      if (!taskId) { alert("Task ID غير موجود."); return; }
       try {
-        const result = await apiCall("/api/tasks/manage", "POST", {
-          id: taskId,
-          action: "toggle"
-        });
-
-        if (result.success) {
-          await loadTasks();
-        } else {
-          alert(result.error || "فشل تغيير حالة المهمة.");
-        }
-      } catch (err) {
-        alert(err.message || "تعذر تغيير حالة المهمة.");
-      }
+        const result = await apiCall("/api/tasks/manage", "POST", { id: taskId, action: "toggle" });
+        if (result.success) await loadTasks(); else alert(result.error || "فشل تغيير حالة المهمة.");
+      } catch (err) { alert(err.message || "تعذر تغيير حالة المهمة."); }
     }
 
     async function deleteTask(taskId) {
-      if (!taskId) {
-        alert("Task ID غير موجود.");
-        return;
-      }
-
-      const confirmed = confirm(
-        "⚠️ تحذير\n\nسيتم حذف المهمة نهائياً من قاعدة البيانات.\nلا يمكن التراجع عن هذا الإجراء.\n\nهل أنت متأكد؟"
-      );
-
-      if (!confirmed) {
-        return;
-      }
-
+      if (!taskId) { alert("Task ID غير موجود."); return; }
+      if (!confirm("⚠️ تحذير\n\nسيتم حذف المهمة نهائياً من قاعدة البيانات.\nلا يمكن التراجع عن هذا الإجراء.\n\nهل أنت متأكد؟")) return;
       try {
-        const result = await apiCall("/api/tasks/manage", "POST", {
-          id: taskId,
-          action: "delete"
-        });
-
-        if (result.success) {
-          alert("تم حذف المهمة نهائياً.");
-          await loadTasks();
-        } else {
-          alert(result.error || "فشل حذف المهمة.");
-        }
-      } catch (err) {
-        alert(err.message || "تعذر حذف المهمة.");
-      }
+        const result = await apiCall("/api/tasks/manage", "POST", { id: taskId, action: "delete" });
+        if (result.success) { alert("تم حذف المهمة نهائياً."); await loadTasks(); } else alert(result.error || "فشل حذف المهمة.");
+      } catch (err) { alert(err.message || "تعذر حذف المهمة."); }
     }
 
+    // دالة إضافة المهمة – مع إرسال task_type بشكل صريح
     async function addTask() {
       const title = document.getElementById("taskTitle").value.trim();
       const reward = Number(document.getElementById("taskCoins").value);
       const rawUrl = document.getElementById("taskLink").value.trim();
-      const taskType = document.getElementById("taskType").value;
+      const taskType = document.getElementById("taskType").value;  // القيمة الأصلية من القائمة
       const maxCompletions = Number(document.getElementById("taskMaxCompletions").value);
 
+      // في حالة custom نرسل "normal"
       const normalizedTaskType = taskType === "custom" ? "normal" : taskType;
+
+      // التحقق من نوع المهمة لتحديد ما إذا كان الرابط مطلوباً
       const isWatchAd = normalizedTaskType === "watch_ad";
-      const url = isWatchAd ? "" : rawUrl;
+      const isSmartAd = normalizedTaskType === "smart_ad";
+      const isAdsGalaxy = normalizedTaskType === "ads_galaxy";
+   // الرابط النهائي
+      let url = rawUrl;
+      if (isWatchAd) url = window.location.origin + "/";      // رابط وهمي
+      else if (isSmartAd) url = "https://link.gigapub.tech/l/9xgr7ru4wo";
+      else if (isAdsGalaxy) url = window.location.origin + "/";
 
       if (!title || !Number.isFinite(reward) || reward <= 0) {
         alert("يرجى تعبئة العنوان والمكافأة بشكل صحيح.");
         return;
       }
-
-      if (!isWatchAd && !url) {
+      if (!isWatchAd && !isSmartAd && !isAdsGalaxy && !url) {
         alert("يرجى إدخال رابط المهمة، أو اختر مشاهدة إعلان لتركه فارغًا.");
         return;
       }
-
       if (!Number.isFinite(maxCompletions) || maxCompletions < 1) {
         alert("عدد مرات الإكمال يجب أن يكون 1 أو أكثر.");
         return;
       }
 
       try {
-        const result = await apiCall("/api/tasks/manage", "POST", {
+        const payload = {
           title,
           reward,
           url,
           is_active: true,
-          task_type: normalizedTaskType,
+          task_type: normalizedTaskType,   // إرسال النوع المحدد
           max_completions: maxCompletions
-        });
-
+        };
+        const result = await apiCall("/api/tasks/manage", "POST", payload);
         if (result.success) {
           alert("تمت إضافة المهمة بنجاح.");
-
           document.getElementById("taskTitle").value = "";
           document.getElementById("taskCoins").value = "";
           document.getElementById("taskLink").value = "";
           document.getElementById("taskType").value = "normal";
           document.getElementById("taskMaxCompletions").value = "1";
-
           await loadTasks();
         } else {
           alert(result.error || "فشل حفظ المهمة.");
         }
-      } catch (err) {
-        alert(err.message || "تعذر الاتصال بالسيرفر.");
-      }
+      } catch (err) { alert(err.message || "تعذر الاتصال بالسيرفر."); }
     }
-async function loadWithdrawals() {
+
+    // باقي الدوال (loadWithdrawals, updateWithdrawal, sendBroadcast, escapeHtml, escapeJs) كما هي
+    async function loadWithdrawals() {
       const container = document.getElementById("withdrawalsList");
       container.innerHTML = '<p class="loading">جاري تحميل طلبات السحب...</p>';
-
       try {
         const data = await apiCall("/api/admin/withdrawals", "GET");
-
         let withdrawals = [];
-
-        if (Array.isArray(data)) {
-          withdrawals = data;
-        } else if (Array.isArray(data.withdrawals)) {
-          withdrawals = data.withdrawals;
-        } else if (Array.isArray(data.data)) {
-          withdrawals = data.data;
-        }
-
-        if (withdrawals.length === 0) {
-          container.innerHTML = '<p class="muted">لا توجد طلبات سحب معلقة.</p>';
-          return;
-        }
-container.innerHTML = withdrawals.map(withdrawal => {
+        if (Array.isArray(data)) withdrawals = data;
+        else if (Array.isArray(data.withdrawals)) withdrawals = data.withdrawals;
+        else if (Array.isArray(data.data)) withdrawals = data.data;
+        if (withdrawals.length === 0) { container.innerHTML = '<p class="muted">لا توجد طلبات سحب معلقة.</p>'; return; }
+        container.innerHTML = withdrawals.map(withdrawal => {
           const telegramId = withdrawal.telegram_id || withdrawal.telegramId || "";
           const username = withdrawal.username || "NoUsername";
           const amount = withdrawal.amount_usdt ?? withdrawal.withdrawal_amount ?? withdrawal.amount ?? 0;
@@ -739,18 +440,13 @@ container.innerHTML = withdrawals.map(withdrawal => {
           const rawStatus = withdrawal.status || withdrawal.withdrawal_status || "pending";
           const status = String(rawStatus).toLowerCase();
           const isPending = status === "pending";
-
           return `
             <div class="item">
               <p><strong>المستخدم:</strong> @${escapeHtml(String(username))}</p>
               <p><strong>Telegram ID:</strong> <code>${escapeHtml(String(telegramId))}</code></p>
               <p><strong>المبلغ:</strong> $${Number(amount).toFixed(4)} USDT</p>
               <p><strong>المحفظة:</strong> <code>${escapeHtml(String(wallet))}</code></p>
-              <p>
-                <strong>الحالة:</strong>
-                <span class="status-${escapeHtml(status)}">${escapeHtml(String(rawStatus))}</span>
-              </p>
-
+              <p><strong>الحالة:</strong> <span class="status-${escapeHtml(status)}">${escapeHtml(String(rawStatus))}</span></p>
               ${isPending ? `
                 <div class="withdraw-actions">
                   <button class="approve" onclick="updateWithdrawal('${escapeJs(String(telegramId))}', 'approve')">موافقة</button>
@@ -760,349 +456,41 @@ container.innerHTML = withdrawals.map(withdrawal => {
             </div>
           `;
         }).join("");
-
-      } catch (err) {
-        container.innerHTML = `<p class="error">${escapeHtml(err.message || "خطأ في تحميل طلبات السحب.")}</p>`;
-      }
+      } catch (err) { container.innerHTML = `<p class="error">${escapeHtml(err.message || "خطأ في تحميل طلبات السحب.")}</p>`; }
     }
 
     async function updateWithdrawal(telegramId, action) {
-      if (!telegramId) {
-        alert("Telegram ID غير موجود.");
-        return;
-      }
-
-      if (!["approve", "reject"].includes(action)) {
-        alert("إجراء غير صالح.");
-        return;
-      }
-
-      const confirmationText = action === "approve"
-        ? "هل أنت متأكد من الموافقة على طلب السحب؟"
-        : "هل أنت متأكد من رفض طلب السحب وإعادة المبلغ للاعب؟";
-
-      if (!confirm(confirmationText)) {
-        return;
-      }
-
+      if (!telegramId) { alert("Telegram ID غير موجود."); return; }
+      if (!["approve", "reject"].includes(action)) { alert("إجراء غير صالح."); return; }
+      const confirmationText = action === "approve" ? "هل أنت متأكد من الموافقة على طلب السحب؟" : "هل أنت متأكد من رفض طلب السحب وإعادة المبلغ للاعب؟";
+      if (!confirm(confirmationText)) return;
       try {
-        const result = await apiCall("/api/admin/withdrawals/status", "POST", {
-          telegramId,
-          action
-        });
-
+        const result = await apiCall("/api/admin/withdrawals/status", "POST", { telegramId, action });
         if (result.success) {
-          alert(
-            action === "approve"
-              ? "تمت الموافقة على طلب السحب."
-              : "تم رفض طلب السحب وإعادة المبلغ."
-          );
+          alert(action === "approve" ? "تمت الموافقة على طلب السحب." : "تم رفض طلب السحب وإعادة المبلغ.");
           await loadWithdrawals();
-        } else {
-          alert(result.error || "فشل تنفيذ العملية.");
-        }
-      } catch (err) {
-        alert(err.message || "تعذر تنفيذ العملية.");
-      }
+        } else alert(result.error || "فشل تنفيذ العملية.");
+      } catch (err) { alert(err.message || "تعذر تنفيذ العملية."); }
     }
 
     async function sendBroadcast() {
       const textarea = document.getElementById("broadcastMsg");
       const message = textarea.value.trim();
-
-      if (!message) {
-        alert("يرجى كتابة رسالة أولاً.");
-        return;
-      }
-
-      if (!confirm("هل تريد إرسال هذه الرسالة إلى جميع اللاعبين؟")) {
-        return;
-      }
-
+      if (!message) { alert("يرجى كتابة رسالة أولاً."); return; }
+      if (!confirm("هل تريد إرسال هذه الرسالة إلى جميع اللاعبين؟")) return;
       try {
         const result = await apiCall("/api/admin/broadcast", "POST", { message });
-
-        if (result.success) {
-          alert(`تم الإرسال بنجاح إلى ${result.sentCount || 0} مستخدم.`);
-          textarea.value = "";
-        } else {
-          alert(result.error || "فشل إرسال الرسالة.");
-        }
-      } catch (err) {
-        alert(err.message || "تعذر الاتصال بالسيرفر.");
-      }
+        if (result.success) { alert(`تم الإرسال بنجاح إلى ${result.sentCount || 0} مستخدم.`); textarea.value = ""; }
+        else alert(result.error || "فشل إرسال الرسالة.");
+      } catch (err) { alert(err.message || "تعذر الاتصال بالسيرفر."); }
     }
 
     function escapeHtml(value) {
-      return String(value)
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#039;");
+      return String(value).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
     }
-
     function escapeJs(value) {
-      return String(value)
-        .replace(/\\/g, "\\\\")
-        .replace(/'/g, "\\'")
-        .replace(/"/g, '\\"')
-        .replace(/\n/g, "\\n")
-        .replace(/\r/g, "\\r");
+      return String(value).replace(/\\/g, "\\\\").replace(/'/g, "\\'").replace(/"/g, '\\"').replace(/\n/g, "\\n").replace(/\r/g, "\\r");
     }
   </script>
 </body>
 </html>
-<script>
-(function () {
-  const taskTypeEl = document.getElementById("taskType");
-  const taskLinkEl = document.getElementById("taskLink");
-
-  if (!taskTypeEl || !taskLinkEl) {
-    console.error("Task form elements not found.");
-    return;
-  }
-
-  /*
-   * AdsGram tasks do NOT need a task URL.
-   * Tasks.tsx uses AdsGram block 41930 directly.
-   *
-   * However, the current backend/admin validation expects
-   * a non-empty URL. So for watch_ad we silently use a
-   * valid internal URL. It is NOT opened as the ad URL.
-   */
-
-  const ADSGRAM_INTERNAL_URL =
-    window.location.origin + "/";
-
-  /*
-   * Smart Ad tasks (GigaPub) DO need a real URL,
-   * but it is always the same fixed smart link,
-   * so we auto-fill it and lock the field.
-   */
-
-  const SMART_AD_URL =
-    "https://link.gigapub.tech/l/9xgr7ru4wo";
-
-  /*
-   * AdsGalaxy tasks also do NOT need a task URL.
-   * Tasks.tsx calls window.showAdsGalaxy() directly via the
-   * AdsGalaxy SDK script. Same pattern as AdsGram: silently
-   * use a valid internal URL to satisfy backend validation,
-   * it is NOT opened as the ad URL.
-   */
-
-  const ADSGALAXY_INTERNAL_URL =
-    window.location.origin + "/";
-
-  function updateTaskUrlField() {
-    const isAdsGram =
-      taskTypeEl.value === "watch_ad";
-
-    const isSmartAd =
-      taskTypeEl.value === "smart_ad";
-
-    const isAdsGalaxy =
-      taskTypeEl.value === "ads_galaxy";
-
-    if (isAdsGram) {
-      taskLinkEl.value = ADSGRAM_INTERNAL_URL;
-
-      taskLinkEl.placeholder =
-        "AdsGram — الرابط غير مطلوب";
-
-      taskLinkEl.disabled = true;
-
-      taskLinkEl.removeAttribute("required");
-
-      taskLinkEl.style.opacity = "0.55";
-    } else if (isSmartAd) {
-      taskLinkEl.value = SMART_AD_URL;
-
-      taskLinkEl.placeholder =
-        "Smart Ad — الرابط تلقائي";
-
-      taskLinkEl.disabled = true;
-
-      taskLinkEl.removeAttribute("required");
-
-      taskLinkEl.style.opacity = "0.55";
-    } else if (isAdsGalaxy) {
-      taskLinkEl.value = ADSGALAXY_INTERNAL_URL;
-
-      taskLinkEl.placeholder =
-        "AdsGalaxy — الرابط غير مطلوب";
-
-      taskLinkEl.disabled = true;
-
-      taskLinkEl.removeAttribute("required");
-
-      taskLinkEl.style.opacity = "0.55";
-    } else {
-      taskLinkEl.disabled = false;
-
-      taskLinkEl.placeholder =
-        "رابط المهمة URL";
-
-      taskLinkEl.style.opacity = "1";
-    }
-  }
-
-  taskTypeEl.addEventListener(
-    "change",
-    updateTaskUrlField
-  );
-
-  updateTaskUrlField();
-
-  /*
-   * Replace the original addTask().
-   */
-  window.addTask = async function () {
-    const titleEl =
-      document.getElementById("taskTitle");
-
-    const coinsEl =
-      document.getElementById("taskCoins");
-
-    const maxEl =
-      document.getElementById(
-        "taskMaxCompletions"
-      );
-
-    const title =
-      titleEl?.value.trim() || "";
-
-    const reward =
-      Number(coinsEl?.value);
-
-    const taskType =
-      taskTypeEl.value;
-
-    const maxCompletions =
-      Number(maxEl?.value);
-
-    const isAdsGram =
-      taskType === "watch_ad";
-
-    const isSmartAd =
-      taskType === "smart_ad";
-
-    const isAdsGalaxy =
-      taskType === "ads_galaxy";
-
-    /*
-     * For normal tasks use the user's URL.
-     * For AdsGram use an internal valid URL.
-     * For Smart Ad use the fixed GigaPub link.
-     * For AdsGalaxy use an internal valid URL.
-     */
-    const url =
-      isAdsGram
-        ? ADSGRAM_INTERNAL_URL
-        : isSmartAd
-        ? SMART_AD_URL
-        : isAdsGalaxy
-        ? ADSGALAXY_INTERNAL_URL
-        : taskLinkEl.value.trim();
-
-    if (!title) {
-      alert("يرجى كتابة عنوان المهمة.");
-      return;
-    }
-
-    if (
-      !Number.isFinite(reward) ||
-      reward <= 0
-    ) {
-      alert("يرجى إدخال مكافأة صحيحة.");
-      return;
-    }
-
-    if (
-      !Number.isFinite(maxCompletions) ||
-      maxCompletions < 1
-    ) {
-      alert(
-        "عدد مرات الإكمال يجب أن يكون 1 أو أكثر."
-      );
-      return;
-    }
-
-    /*
-     * Normal tasks MUST have a URL.
-     * AdsGram, Smart Ad and AdsGalaxy tasks do not need manual entry.
-     */
-    if (
-      !isAdsGram &&
-      !isSmartAd &&
-      !isAdsGalaxy &&
-      !url
-    ) {
-      alert(
-        "يرجى إدخال رابط المهمة."
-      );
-      return;
-    }
-
-    try {
-      const result =
-        await apiCall(
-          "/api/tasks/manage",
-          "POST",
-          {
-            title,
-            reward,
-            url,
-            is_active: true,
-            task_type:
-              taskType === "custom"
-                ? "normal"
-                : taskType,
-            max_completions:
-              maxCompletions
-          }
-        );
-
-      if (!result.success) {
-        alert(
-          result.error ||
-            "فشل حفظ المهمة."
-        );
-        return;
-      }
-
-      alert(
-        isAdsGram
-          ? "تمت إضافة مهمة AdsGram بنجاح."
-          : isSmartAd
-          ? "تمت إضافة مهمة Smart Ad بنجاح."
-          : isAdsGalaxy
-          ? "تمت إضافة مهمة AdsGalaxy بنجاح."
-          : "تمت إضافة المهمة بنجاح."
-      );
-
-      titleEl.value = "";
-      coinsEl.value = "";
-      maxEl.value = "1";
-
-      taskTypeEl.value = "normal";
-      taskLinkEl.value = "";
-
-      updateTaskUrlField();
-
-      if (
-        typeof loadTasks ===
-        "function"
-      ) {
-        await loadTasks();
-      }
-    } catch (err) {
-      alert(
-        err?.message ||
-          "تعذر الاتصال بالسيرفر."
-      );
-    }
-  };
-})();
-</script>

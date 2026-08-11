@@ -15,9 +15,7 @@ const ADS_GALAXY_TASK_WAIT_MS = 0
 function toPositiveInt(value) {
   const raw = Array.isArray(value) ? value[0] : value
   const num = Number(raw)
-
   if (!Number.isFinite(num) || num <= 0) return null
-
   return Math.trunc(num)
 }
 
@@ -27,31 +25,23 @@ function nowIso() {
 
 function isFreshTimestamp(value) {
   if (!value) return false
-
   const timestamp = Date.parse(value)
-
   if (!Number.isFinite(timestamp)) return false
-
   const age = Date.now() - timestamp
-
   return age >= 0 && age <= AD_SESSION_WINDOW_MS
 }
 
 function getRequiredWaitMs(taskType) {
   const type = String(taskType || '').toLowerCase()
-
   if (type === 'smart_ad') return SMART_AD_TASK_WAIT_MS
   if (type === 'ads_galaxy') return ADS_GALAXY_TASK_WAIT_MS
-
   return NORMAL_TASK_WAIT_MS
 }
 
 async function getTask(taskId) {
   return supabase
     .from('tasks')
-    .select(
-      'id, reward, is_active, max_completions, task_type'
-    )
+    .select('id, reward, is_active, max_completions, task_type')
     .eq('id', taskId)
     .single()
 }
@@ -65,12 +55,7 @@ async function getCompletionRow(taskId, telegramId) {
     .maybeSingle()
 }
 
-async function saveCompletionRow({
-  taskId,
-  telegramId,
-  completionCount,
-  openedAt,
-}) {
+async function saveCompletionRow({ taskId, telegramId, completionCount, openedAt }) {
   return supabase
     .from('task_completions')
     .upsert(
@@ -80,519 +65,196 @@ async function saveCompletionRow({
         completion_count: completionCount,
         opened_at: openedAt ?? null,
       },
-      {
-        onConflict: 'task_id,telegram_id',
-      }
+      { onConflict: 'task_id,telegram_id' }
     )
 }
 
 async function addCoinsToPlayer(telegramId, reward) {
-  const { data: player, error: fetchError } =
-    await supabase
-      .from('players')
-      .select('coin')
-      .eq('telegram_id', telegramId)
-      .single()
+  const { data: player, error: fetchError } = await supabase
+    .from('players')
+    .select('coin')
+    .eq('telegram_id', telegramId)
+    .single()
 
-  if (fetchError || !player) {
-    return {
-      error: 'Player not found',
-    }
-  }
-
+  if (fetchError || !player) return { error: 'Player not found' }
   const currentCoins = Number(player.coin || 0)
   const newCoins = currentCoins + reward
-
-  const { error: updateError } =
-    await supabase
-      .from('players')
-      .update({
-        coin: newCoins,
-      })
-      .eq('telegram_id', telegramId)
-
-  if (updateError) {
-    return {
-      error:
-        updateError.message ||
-        'Failed to update coins',
-    }
-  }
-
-  return {
-    newCoins,
-  }
+  const { error: updateError } = await supabase
+    .from('players')
+    .update({ coin: newCoins })
+    .eq('telegram_id', telegramId)
+  if (updateError) return { error: updateError.message || 'Failed to update coins' }
+  return { newCoins }
 }
 
+// معالج AdsGram callback (GET)
 async function handleAdsgramReward(req, res) {
-  const taskId = toPositiveInt(
-    req.query.taskId ||
-    req.query.task_id
-  )
-
-  const telegramId = toPositiveInt(
-    req.query.userid ||
-    req.query.userId ||
-    req.query.tgid
-  )
+  const taskId = toPositiveInt(req.query.taskId || req.query.task_id)
+  const telegramId = toPositiveInt(req.query.userid || req.query.userId || req.query.tgid)
 
   if (!taskId || !telegramId) {
-    return res.status(400).json({
-      error: 'Missing taskId or userid',
-    })
+    return res.status(400).json({ error: 'Missing taskId or userid' })
   }
 
   try {
-    const {
-      data: task,
-      error: taskError,
-    } = await getTask(taskId)
-
-    if (
-      taskError ||
-      !task ||
-      !task.is_active
-    ) {
-      return res.status(400).json({
-        error: 'Task not found or inactive',
-      })
+    const { data: task, error: taskError } = await getTask(taskId)
+    if (taskError || !task || !task.is_active) {
+      return res.status(400).json({ error: 'Task not found or inactive' })
+    }
+    if (String(task.task_type || '').toLowerCase() !== 'watch_ad') {
+      return res.status(400).json({ error: 'Reward callback is only allowed for watch_ad tasks' })
     }
 
-    if (
-      String(task.task_type || '')
-        .toLowerCase() !== 'watch_ad'
-    ) {
-      return res.status(400).json({
-        error:
-          'Reward callback is only allowed for watch_ad tasks',
-      })
+    const maxCompletions = Math.max(1, Number(task.max_completions || 1))
+    const { data: completionRow, error: completionError } = await getCompletionRow(taskId, telegramId)
+    if (completionError) throw completionError
+    if (!completionRow || !completionRow.opened_at) {
+      return res.status(400).json({ error: 'No active ad session for this player' })
+    }
+    if (!isFreshTimestamp(completionRow.opened_at)) {
+      return res.status(400).json({ error: 'Ad session expired. Open the ad again.' })
     }
 
-    const maxCompletions = Math.max(
-      1,
-      Number(task.max_completions || 1)
-    )
-
-    const {
-      data: completionRow,
-      error: completionError,
-    } = await getCompletionRow(
-      taskId,
-      telegramId
-    )
-
-    if (completionError) {
-      throw completionError
-    }
-
-    if (
-      !completionRow ||
-      !completionRow.opened_at
-    ) {
-      return res.status(400).json({
-        error:
-          'No active ad session for this player',
-      })
-    }
-
-    if (
-      !isFreshTimestamp(
-        completionRow.opened_at
-      )
-    ) {
-      return res.status(400).json({
-        error:
-          'Ad session expired. Open the ad again.',
-      })
-    }
-
-    const currentCount = Number(
-      completionRow.completion_count || 0
-    )
-
-    if (
-      currentCount >= maxCompletions
-    ) {
-      return res.status(400).json({
-        error:
-          'Task completion limit reached for this player',
-      })
+    const currentCount = Number(completionRow.completion_count || 0)
+    if (currentCount >= maxCompletions) {
+      return res.status(400).json({ error: 'Task completion limit reached for this player' })
     }
 
     const nextCount = currentCount + 1
-    const reward = Number(
-      task.reward || 0
-    )
-
-    const {
-      error: consumeError,
-    } = await saveCompletionRow({
+    const reward = Number(task.reward || 0)
+    const { error: consumeError } = await saveCompletionRow({
       taskId,
       telegramId,
       completionCount: nextCount,
       openedAt: null,
     })
+    if (consumeError) throw consumeError
 
-    if (consumeError) {
-      throw consumeError
-    }
-
-    const coinResult =
-      await addCoinsToPlayer(
-        telegramId,
-        reward
-      )
-
-    if (coinResult.error) {
-      throw new Error(
-        coinResult.error
-      )
-    }
+    const coinResult = await addCoinsToPlayer(telegramId, reward)
+    if (coinResult.error) throw new Error(coinResult.error)
 
     return res.status(200).json({
       success: true,
       reward,
       coins: coinResult.newCoins,
-      progress: {
-        completed: nextCount,
-        max_completions: maxCompletions,
-      },
+      progress: { completed: nextCount, max_completions: maxCompletions },
     })
   } catch (err) {
-    console.error(
-      'AdsGram reward error:',
-      err
-    )
-
-    return res.status(500).json({
-      error:
-        err.message ||
-        'Failed to process reward',
-    })
+    console.error('AdsGram reward error:', err)
+    return res.status(500).json({ error: err.message || 'Failed to process reward' })
   }
 }
 
-export default async function handler(
-  req,
-  res
-) {
+export default async function handler(req, res) {
   if (req.method === 'GET') {
-    return handleAdsgramReward(
-      req,
-      res
-    )
+    return handleAdsgramReward(req, res)
   }
 
   if (req.method !== 'POST') {
-    return res.status(405).json({
-      error: 'Method not allowed',
-    })
+    return res.status(405).json({ error: 'Method not allowed' })
   }
 
-  const auth =
-    authenticateRequest(req)
-
+  const auth = authenticateRequest(req)
   if (!auth) {
-    return res.status(401).json({
-      error:
-        'Invalid or missing Telegram authentication',
-    })
+    return res.status(401).json({ error: 'Invalid or missing Telegram authentication' })
   }
 
   const telegramId = auth.id
 
   try {
-    const {
-      taskId,
-      taskType,
-      reward: clientReward,
-      action,
-    } = req.body || {}
+    const { taskId, taskType, reward: clientReward, action } = req.body || {}
 
     if (action === 'open') {
-      const normalizedTaskId =
-        toPositiveInt(taskId)
-
+      const normalizedTaskId = toPositiveInt(taskId)
       if (!normalizedTaskId) {
-        return res.status(400).json({
-          error: 'Task ID is required',
-        })
+        return res.status(400).json({ error: 'Task ID is required' })
       }
-
-      const {
-        data: task,
-        error: taskError,
-      } = await getTask(
-        normalizedTaskId
-      )
-
-      if (
-        taskError ||
-        !task ||
-        !task.is_active
-      ) {
-        return res.status(400).json({
-          error:
-            'Task not found or inactive',
-        })
+      const { data: task, error: taskError } = await getTask(normalizedTaskId)
+      if (taskError || !task || !task.is_active) {
+        return res.status(400).json({ error: 'Task not found or inactive' })
       }
-
-      // Any active task type can record its open time here.
-      // watch_ad tasks are still completed only through the
-      // AdsGram GET callback (handleAdsgramReward), never through
-      // the POST claim flow below — this just lets the wait timer
-      // (5s / 0s for ads_galaxy) be tracked server-side too.
-
-      const {
-        data: completionRow,
-        error: completionError,
-      } = await getCompletionRow(
-        normalizedTaskId,
-        telegramId
-      )
-
-      if (completionError) {
-        throw completionError
+      const { data: completionRow, error: completionError } = await getCompletionRow(normalizedTaskId, telegramId)
+      if (completionError) throw completionError
+      const currentCount = Number(completionRow?.completion_count || 0)
+      const maxCompletions = Math.max(1, Number(task.max_completions || 1))
+      if (currentCount >= maxCompletions) {
+        return res.status(400).json({ error: 'Task completion limit reached for this player' })
       }
-
-      const currentCount = Number(
-        completionRow?.completion_count || 0
-      )
-
-      const maxCompletions = Math.max(
-        1,
-        Number(task.max_completions || 1)
-      )
-
-      if (
-        currentCount >= maxCompletions
-      ) {
-        return res.status(400).json({
-          error:
-            'Task completion limit reached for this player',
-        })
-      }
-
-      const {
-        error: saveError,
-      } = await saveCompletionRow({
+      const { error: saveError } = await saveCompletionRow({
         taskId: normalizedTaskId,
         telegramId,
         completionCount: currentCount,
         openedAt: nowIso(),
       })
-
-      if (saveError) {
-        throw saveError
-      }
-
-      return res.status(200).json({
-        success: true,
-        message:
-          'Task open recorded',
-      })
+      if (saveError) throw saveError
+      return res.status(200).json({ success: true, message: 'Task open recorded' })
     }
 
     let reward = 0
     let progress = null
 
-    if (
-      taskId !== undefined &&
-      taskId !== null &&
-      String(taskId).trim() !== ''
-    ) {
-      const normalizedTaskId =
-        toPositiveInt(taskId)
-
+    if (taskId !== undefined && taskId !== null && String(taskId).trim() !== '') {
+      const normalizedTaskId = toPositiveInt(taskId)
       if (!normalizedTaskId) {
-        return res.status(400).json({
-          error: 'Invalid Task ID',
-        })
+        return res.status(400).json({ error: 'Invalid Task ID' })
       }
-
-      const {
-        data: task,
-        error: taskError,
-      } = await getTask(
-        normalizedTaskId
-      )
-
-      if (
-        taskError ||
-        !task ||
-        !task.is_active
-      ) {
-        return res.status(400).json({
-          error:
-            'Task not found or inactive',
-        })
+      const { data: task, error: taskError } = await getTask(normalizedTaskId)
+      if (taskError || !task || !task.is_active) {
+        return res.status(400).json({ error: 'Task not found or inactive' })
       }
-
-      const maxCompletions = Math.max(
-        1,
-        Number(
-          task.max_completions || 1
-        )
-      )
-
-      if (
-        String(task.task_type || '')
-          .toLowerCase() === 'watch_ad'
-      ) {
-        return res.status(400).json({
-          error:
-            'watch_ad tasks are completed by AdsGram callback only',
-        })
+      const maxCompletions = Math.max(1, Number(task.max_completions || 1))
+      if (String(task.task_type || '').toLowerCase() === 'watch_ad') {
+        return res.status(400).json({ error: 'watch_ad tasks are completed by AdsGram callback only' })
       }
-
-      const {
-        data: completionRow,
-        error: completionError,
-      } = await getCompletionRow(
-        normalizedTaskId,
-        telegramId
-      )
-
-      if (completionError) {
-        throw completionError
+      const { data: completionRow, error: completionError } = await getCompletionRow(normalizedTaskId, telegramId)
+      if (completionError) throw completionError
+      const currentCount = Number(completionRow?.completion_count || 0)
+      if (currentCount >= maxCompletions) {
+        return res.status(400).json({ error: 'Task completion limit reached for this player' })
       }
-
-      const currentCount = Number(
-        completionRow?.completion_count || 0
-      )
-
-      if (
-        currentCount >= maxCompletions
-      ) {
-        return res.status(400).json({
-          error:
-            'Task completion limit reached for this player',
-        })
+      if (!completionRow?.opened_at) {
+        return res.status(400).json({ error: 'Open the task link first' })
       }
-
-      if (
-        !completionRow?.opened_at
-      ) {
-        return res.status(400).json({
-          error:
-            'Open the task link first',
-        })
+      const openedTimestamp = Date.parse(completionRow.opened_at)
+      const requiredWaitMs = getRequiredWaitMs(task.task_type)
+      if (!Number.isFinite(openedTimestamp) || Date.now() - openedTimestamp < requiredWaitMs) {
+        return res.status(400).json({ error: `Wait ${requiredWaitMs / 1000} seconds after opening the task` })
       }
-
-      const openedTimestamp =
-        Date.parse(
-          completionRow.opened_at
-        )
-
-      const requiredWaitMs =
-        getRequiredWaitMs(
-          task.task_type
-        )
-
-      if (
-        !Number.isFinite(
-          openedTimestamp
-        ) ||
-        Date.now() -
-          openedTimestamp <
-          requiredWaitMs
-      ) {
-        return res.status(400).json({
-          error:
-            `Wait ${requiredWaitMs / 1000} seconds after opening the task`,
-        })
-      }
-
-      const nextCount =
-        currentCount + 1
-
-      reward = Number(
-        task.reward || 0
-      )
-
-      const {
-        error: saveError,
-      } = await saveCompletionRow({
+      const nextCount = currentCount + 1
+      reward = Number(task.reward || 0)
+      const { error: saveError } = await saveCompletionRow({
         taskId: normalizedTaskId,
         telegramId,
         completionCount: nextCount,
         openedAt: null,
       })
-
-      if (saveError) {
-        throw saveError
-      }
-
-      progress = {
-        completed: nextCount,
-        max_completions: maxCompletions,
-      }
-    }
-
-    else if (
-      taskType &&
-      taskType in BUILTIN_TASKS
-    ) {
-      if (
-        BUILTIN_TASKS[taskType] === null
-      ) {
-        const val =
-          Number(clientReward)
-
-        if (
-          !Number.isFinite(val) ||
-          val <= 0 ||
-          val > 5000
-        ) {
-          return res.status(400).json({
-            error:
-              'Invalid reward amount',
-          })
+      if (saveError) throw saveError
+      progress = { completed: nextCount, max_completions: maxCompletions }
+    } else if (taskType && taskType in BUILTIN_TASKS) {
+      if (BUILTIN_TASKS[taskType] === null) {
+        const val = Number(clientReward)
+        if (!Number.isFinite(val) || val <= 0 || val > 5000) {
+          return res.status(400).json({ error: 'Invalid reward amount' })
         }
-
         reward = val
       } else {
-        reward =
-          BUILTIN_TASKS[taskType]
+        reward = BUILTIN_TASKS[taskType]
       }
+    } else {
+      return res.status(400).json({ error: 'Invalid task' })
     }
 
-    else {
-      return res.status(400).json({
-        error: 'Invalid task',
-      })
-    }
-
-    const coinResult =
-      await addCoinsToPlayer(
-        telegramId,
-        reward
-      )
-
-    if (coinResult.error) {
-      throw new Error(
-        coinResult.error
-      )
-    }
+    const coinResult = await addCoinsToPlayer(telegramId, reward)
+    if (coinResult.error) throw new Error(coinResult.error)
 
     return res.status(200).json({
       success: true,
       coins: coinResult.newCoins,
       reward,
-      ...(progress
-        ? { progress }
-        : {}),
+      ...(progress ? { progress } : {}),
     })
   } catch (err) {
-    console.error(
-      'tasks/complete error:',
-      err
-    )
-
-    return res.status(500).json({
-      error:
-        err.message ||
-        'Failed to complete task',
-    })
+    console.error('tasks/complete error:', err)
+    return res.status(500).json({ error: err.message || 'Failed to complete task' })
   }
 }

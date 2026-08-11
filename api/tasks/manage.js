@@ -8,22 +8,20 @@ function isAuthorized(req) {
 
 function normalizeTaskType(value) {
   const type = String(value || 'normal').trim()
-
-  if (['normal', 'watch_ad', 'join_channel', 'custom'].includes(type)) {
-    return type
-  }
-
-  return 'normal'
+  // قبول جميع الأنواع المطلوبة
+  const allowed = ['normal', 'watch_ad', 'smart_ad', 'ads_galaxy', 'join_channel', 'custom']
+  return allowed.includes(type) ? type : 'normal'
 }
 
 function normalizeMaxCompletions(value) {
   const num = Number(value)
-
-  if (!Number.isFinite(num) || num < 1) {
-    return 1
-  }
-
+  if (!Number.isFinite(num) || num < 1) return 1
   return Math.floor(num)
+}
+
+function isAdTask(taskType) {
+  const type = String(taskType || '').toLowerCase()
+  return ['watch_ad', 'smart_ad', 'ads_galaxy'].includes(type)
 }
 
 export default async function handler(req, res) {
@@ -52,7 +50,6 @@ export default async function handler(req, res) {
       })
     } catch (err) {
       console.error('GET /api/tasks/manage failed:', err)
-
       return res.status(500).json({
         success: false,
         error: 'Failed to load tasks',
@@ -66,31 +63,21 @@ export default async function handler(req, res) {
   if (req.method === 'POST') {
     try {
       const body = req.body || {}
-
-      const {
-        id,
-        title,
-        reward,
-        url,
-        is_active,
-        action,
-        task_type,
-        max_completions,
-      } = body
+      const { id, title, reward, url, is_active, action, task_type, max_completions } = body
+      const normalizedType = normalizeTaskType(task_type)
+      const isAd = isAdTask(normalizedType)
 
       // =========================
       // TOGGLE TASK
       // =========================
       if (action === 'toggle') {
-        if (id === undefined || id === null || String(id).trim() === '') {
+        if (!id) {
           return res.status(400).json({
             success: false,
             error: 'Task ID is required',
           })
         }
-
         const normalizedId = String(id).trim()
-
         const { data: task, error: fetchError } = await supabase
           .from('tasks')
           .select('*')
@@ -105,12 +92,9 @@ export default async function handler(req, res) {
         }
 
         const newStatus = !Boolean(task.is_active)
-
         const { data: updated, error: updateError } = await supabase
           .from('tasks')
-          .update({
-            is_active: newStatus,
-          })
+          .update({ is_active: newStatus })
           .eq('id', normalizedId)
           .select()
           .single()
@@ -128,15 +112,13 @@ export default async function handler(req, res) {
       // DELETE — حذف مهمة
       // =========================
       if (action === 'delete') {
-        if (id === undefined || id === null || String(id).trim() === '') {
+        if (!id) {
           return res.status(400).json({
             success: false,
             error: 'Task ID is required',
           })
         }
-
         const normalizedId = String(id).trim()
-
         const { error: deleteError } = await supabase
           .from('tasks')
           .delete()
@@ -160,15 +142,17 @@ export default async function handler(req, res) {
         })
       }
 
-      if (typeof url !== 'string' || !url.trim()) {
-        return res.status(400).json({
-          success: false,
-          error: 'URL is required',
-        })
+      // المهام غير الإعلانية تتطلب رابطاً
+      if (!isAd) {
+        if (typeof url !== 'string' || !url.trim()) {
+          return res.status(400).json({
+            success: false,
+            error: 'URL is required for non-ad tasks',
+          })
+        }
       }
 
       const rewardNum = Number(reward)
-
       if (!Number.isFinite(rewardNum) || rewardNum <= 0) {
         return res.status(400).json({
           success: false,
@@ -177,7 +161,6 @@ export default async function handler(req, res) {
       }
 
       const MAX_REWARD = 100000
-
       if (rewardNum > MAX_REWARD) {
         return res.status(400).json({
           success: false,
@@ -188,9 +171,9 @@ export default async function handler(req, res) {
       const payload = {
         title: title.trim(),
         reward: rewardNum,
-        url: url.trim(),
+        url: isAd ? (url || '') : url.trim(),
         is_active: typeof is_active === 'boolean' ? is_active : true,
-        task_type: normalizeTaskType(task_type),
+        task_type: normalizedType,
         max_completions: normalizeMaxCompletions(max_completions),
       }
 
@@ -199,14 +182,12 @@ export default async function handler(req, res) {
       // UPDATE
       if (id !== undefined && id !== null && String(id).trim() !== '') {
         const normalizedId = String(id).trim()
-
         result = await supabase
           .from('tasks')
           .update(payload)
           .eq('id', normalizedId)
           .select()
       }
-
       // CREATE
       else {
         result = await supabase
@@ -215,9 +196,7 @@ export default async function handler(req, res) {
           .select()
       }
 
-      if (result.error) {
-        throw result.error
-      }
+      if (result.error) throw result.error
 
       if (!result.data || result.data.length === 0) {
         return res.status(404).json({
@@ -232,7 +211,6 @@ export default async function handler(req, res) {
       })
     } catch (err) {
       console.error('POST /api/tasks/manage failed:', err)
-
       return res.status(500).json({
         success: false,
         error: err.message || 'Failed to save task',
@@ -241,7 +219,6 @@ export default async function handler(req, res) {
   }
 
   res.setHeader('Allow', ['GET', 'POST'])
-
   return res.status(405).json({
     success: false,
     error: `Method ${req.method} Not Allowed`,
