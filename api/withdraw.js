@@ -1,7 +1,7 @@
 import { supabase } from '../lib/supabase.js'
 import { authenticateRequest } from '../lib/telegram-auth.js'
 
-const MIN_WITHDRAW = 0.5
+const MIN_WITHDRAW = 0.1
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })

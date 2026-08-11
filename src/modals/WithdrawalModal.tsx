@@ -9,7 +9,7 @@ type Props = {
   onConfirm: (amount: number) => void;
 };
 
-const MIN_WITHDRAW = 0.5;
+const MIN_WITHDRAW = 0.1;
 
 export default function WithdrawalModal({
   open,
