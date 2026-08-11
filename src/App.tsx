@@ -43,7 +43,7 @@ export const ENERGY_MAX = 5;
 
 const GIGAPUB_PROJECT_ID = "7665";
 const GIGAPUB_SCRIPT_SRC = `https://ad.gigapub.tech/script?id=${GIGAPUB_PROJECT_ID}`;
-const REPEAT_AD_DELAY_MS = 30000;
+const REPEAT_AD_DELAY_MS = 50000;
 
 function makeId() {
   return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
