@@ -15,9 +15,7 @@
   align-items:flex-end;
   gap:12px;
   padding:10px 2px 14px;
-  background:rgba(16,21,22,.85);
-  backdrop-filter:blur(8px);
-  -webkit-backdrop-filter:blur(8px);
+  background:rgba(14,18,19,.96);
   border-bottom:1px solid rgba(255,255,255,.04);
 }
 
