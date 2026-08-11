@@ -26,6 +26,8 @@ type OpenedMap = Record<string, number>;
 const PROGRESS_KEY = "sly.tasks.progress.v3";
 const CLAIM_DELAY_MS = 5000;
 const SMART_AD_CLAIM_DELAY_MS = 5000;
+const ADS_GALAXY_CLAIM_DELAY_MS = 0;
+const ADSGALAXY_MINI_APP_ID = "32";
 
 function loadProgress(): ProgressMap {
   if (typeof window === "undefined") return {};
@@ -66,8 +68,14 @@ function isSmartAdTask(task: ServerTask) {
   return String(task.task_type || "").toLowerCase() === "smart_ad";
 }
 
+function isAdsGalaxyTask(task: ServerTask) {
+  return String(task.task_type || "").toLowerCase() === "ads_galaxy";
+}
+
 function getClaimDelayMs(task: ServerTask) {
-  return isSmartAdTask(task) ? SMART_AD_CLAIM_DELAY_MS : CLAIM_DELAY_MS;
+  if (isSmartAdTask(task)) return SMART_AD_CLAIM_DELAY_MS;
+  if (isAdsGalaxyTask(task)) return ADS_GALAXY_CLAIM_DELAY_MS;
+  return CLAIM_DELAY_MS;
 }
 
 function TaskIcon() {
@@ -128,6 +136,20 @@ export default function Tasks({ onRewardCoins }: Props) {
 
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+  }, []);
+
+  // Load the AdsGalaxy SDK once. Ads only display via window.showAdsGalaxy()
+  // once this script tag is present, so it's injected globally here rather
+  // than per task.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (document.getElementById("adsgalaxy-sdk")) return;
+
+    const script = document.createElement("script");
+    script.id = "adsgalaxy-sdk";
+    script.src = `https://app.adsgalaxy.online/sdk.js?id=${ADSGALAXY_MINI_APP_ID}`;
+    script.async = true;
+    document.body.appendChild(script);
   }, []);
 
   useEffect(() => {
@@ -313,6 +335,45 @@ export default function Tasks({ onRewardCoins }: Props) {
     setOpeningIds((prev) => ({ ...prev, [id]: true }));
 
     try {
+      // AdsGalaxy tasks show an in-app ad via the SDK instead of opening a URL.
+      // Coins are claimed right after the ad promise resolves (no wait).
+      if (isAdsGalaxyTask(task)) {
+        const showAd = (window as any).showAdsGalaxy;
+
+        if (typeof showAd !== "function") {
+          setToast("Ad not ready yet. Try again in a moment.");
+          return;
+        }
+
+        try {
+          await showAd();
+        } catch (adErr: any) {
+          const code = adErr?.code || "";
+          if (code === "NO_FILL") {
+            setToast("No ad available right now.");
+          } else if (code === "INVALID_INIT_DATA") {
+            setToast("Open this from inside Telegram.");
+          } else {
+            setToast(adErr?.message || "Ad failed to load.");
+          }
+          return;
+        }
+
+        await postTaskAction({ taskId: task.id, action: "open" });
+
+        const openedAt = Date.now();
+
+        setOpenedAtById((prev) => ({
+          ...prev,
+          [id]: openedAt,
+        }));
+
+        scheduleAutoClaim(task, openedAt);
+
+        setToast("Ad watched. Claiming coins...");
+        return;
+      }
+
       const url = String(task.url || "").trim();
 
       if (!url) {
@@ -376,6 +437,7 @@ export default function Tasks({ onRewardCoins }: Props) {
             const id = String(task.id);
             const isWatchAd = isWatchAdTask(task);
             const isSmartAd = isSmartAdTask(task);
+            const isAdsGalaxy = isAdsGalaxyTask(task);
             const claimDelayMs = getClaimDelayMs(task);
 
             const progress = progressById[id] || {
@@ -400,7 +462,7 @@ export default function Tasks({ onRewardCoins }: Props) {
                   <div className="task-topline">
                     <div>
                       <p className="task-type">
-                        {isSmartAd ? "smart ad" : task.task_type || "task"}
+                        {isSmartAd ? "smart ad" : isAdsGalaxy ? "ads galaxy" : task.task_type || "task"}
                       </p>
                       <h2>{task.title}</h2>
                     </div>
@@ -413,7 +475,9 @@ export default function Tasks({ onRewardCoins }: Props) {
                     ) : claimedAll ? (
                       <span className="green">Completed</span>
                     ) : !opened ? (
-                      <span className="gray">Open link first</span>
+                      <span className="gray">
+                        {isAdsGalaxy ? "Watch the ad to earn coins" : "Open link first"}
+                      </span>
                     ) : !waitedEnough ? (
                       <span className="blue">
                         Sending coins in {Math.ceil((claimDelayMs - (Date.now() - openedAt)) / 1000)} seconds
@@ -454,7 +518,9 @@ export default function Tasks({ onRewardCoins }: Props) {
                       onClick={() => handleOpenTask(task)}
                       disabled={opening || claimedAll}
                     >
-                      {opening ? "Opening..." : "Open"}
+                      {opening
+                        ? (isAdsGalaxy ? "Loading ad..." : "Opening...")
+                        : (isAdsGalaxy ? "Watch Ad" : "Open")}
                     </button>
                   )}
                 </div>

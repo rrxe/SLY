@@ -10,6 +10,7 @@ const BUILTIN_TASKS = {
 const AD_SESSION_WINDOW_MS = 10 * 60 * 1000
 const NORMAL_TASK_WAIT_MS = 5000
 const SMART_AD_TASK_WAIT_MS = 5000
+const ADS_GALAXY_TASK_WAIT_MS = 0
 
 function toPositiveInt(value) {
   const raw = Array.isArray(value) ? value[0] : value
@@ -37,9 +38,12 @@ function isFreshTimestamp(value) {
 }
 
 function getRequiredWaitMs(taskType) {
-  return String(taskType || '').toLowerCase() === 'smart_ad'
-    ? SMART_AD_TASK_WAIT_MS
-    : NORMAL_TASK_WAIT_MS
+  const type = String(taskType || '').toLowerCase()
+
+  if (type === 'smart_ad') return SMART_AD_TASK_WAIT_MS
+  if (type === 'ads_galaxy') return ADS_GALAXY_TASK_WAIT_MS
+
+  return NORMAL_TASK_WAIT_MS
 }
 
 async function getTask(taskId) {
@@ -337,7 +341,7 @@ export default async function handler(
       // watch_ad tasks are still completed only through the
       // AdsGram GET callback (handleAdsgramReward), never through
       // the POST claim flow below — this just lets the wait timer
-      // (5s) be tracked server-side for join/smart_ad tasks too.
+      // (5s / 0s for ads_galaxy) be tracked server-side too.
 
       const {
         data: completionRow,
