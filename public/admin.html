@@ -270,7 +270,6 @@
     <div id="tasksList"><p class="loading">جاري تحميل المهام...</p></div>
     <button class="refresh-btn" onclick="loadTasks()">تحديث المهام</button>
   </div>
-
   <div class="card">
     <h3>طلبات السحب</h3>
     <div id="withdrawalsList" class="loading">جاري التحميل...</div>
@@ -331,6 +330,7 @@
         else setAdminStatus(data.error || "فشل التحقق من صلاحيات المشرف.", "error");
       } catch (err) { setAdminStatus(err.message || "تعذر الاتصال بالسيرفر.", "error"); }
     }
+
     // ==========================================
     // دوال إدارة المستخدمين والحظر
     // ==========================================
@@ -477,6 +477,7 @@
       } catch (err) { alert(err.message || "تعذر حذف المهمة."); }
     }
 
+    // ======== دالة addTask المعدلة ========
     async function addTask() {
       const title = document.getElementById("taskTitle").value.trim();
       const reward = Number(document.getElementById("taskCoins").value);
@@ -487,26 +488,29 @@
       // تحويل custom إلى normal للتخزين
       const normalizedTaskType = taskType === "custom" ? "normal" : taskType;
 
-      // تعيين رابط افتراضي لأنواع الإعلانات
-      let url = rawUrl;
-      if (normalizedTaskType === "smart_ad") {
-        url = "https://link.gigapub.tech/l/9xgr7ru4wo"; // رابط افتراضي للـ smart_ad
-      } else if (normalizedTaskType === "ads_galaxy" || normalizedTaskType === "giga_pub") {
-        // يمكن ترك الرابط فارغاً لأنه سيتم استدعاء SDK
-        url = rawUrl || "";
-      } else {
-        // للمهام العادية يجب أن يكون هناك رابط
-        if (!url) {
-          alert("يرجى إدخال رابط المهمة للمهام العادية.");
-          return;
-        }
-      }
+      // أنواع الإعلانات التي لا تحتاج رابطاً
+      const adTypes = ["smart_ad", "ads_galaxy", "giga_pub"];
+      const isAdType = adTypes.includes(normalizedTaskType);
 
+      // تعيين رابط افتراضي للإعلانات إذا كان الرابط فارغاً (اختياري)
+      let url = rawUrl;
+      if (normalizedTaskType === "smart_ad" && !url) {
+        url = "https://link.gigapub.tech/l/9xgr7ru4wo";
+      } else if ((normalizedTaskType === "ads_galaxy" || normalizedTaskType === "giga_pub") && !url) {
+        url = ""; // يمكن تركه فارغاً
+      }
 
       if (!title || !Number.isFinite(reward) || reward <= 0) {
         alert("يرجى تعبئة العنوان والمكافأة بشكل صحيح.");
         return;
       }
+
+      // التحقق من الرابط فقط للمهام غير الإعلانية
+      if (!isAdType && !url) {
+        alert("يرجى إدخال رابط المهمة للمهام العادية.");
+        return;
+      }
+
       if (!Number.isFinite(maxCompletions) || maxCompletions < 1) {
         alert("عدد مرات الإكمال يجب أن يكون 1 أو أكثر.");
         return;
@@ -535,6 +539,7 @@
         }
       } catch (err) { alert(err.message || "تعذر الاتصال بالسيرفر."); }
     }
+    // ======== نهاية التعديل ========
 
     // ==========================================
     // دوال السحب
