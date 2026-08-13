@@ -164,6 +164,20 @@ async function regenerateEnergy(player) {
   }
 }
 
+// يحدث last_seen_at بصمت (بدون ما يفشل الطلب الأساسي لو صار خطأ هنا).
+// يستخدمه لوحة تحكم الأدمن لحساب عدد اللاعبين "أونلاين الآن" -
+// نعتبر أي لاعب نشط خلال آخر دقيقتين "متصل".
+async function touchLastSeen(telegramId) {
+  try {
+    await supabase
+      .from('players')
+      .update({ last_seen_at: new Date().toISOString() })
+      .eq('telegram_id', telegramId)
+  } catch (err) {
+    console.error('touchLastSeen error:', err)
+  }
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'GET' && req.method !== 'POST') {
     return res.status(405).json({
@@ -248,6 +262,9 @@ export default async function handler(req, res) {
       })
     }
     // ==========================================
+
+    // نحدث "آخر ظهور" لكل طلب موثّق ناجح (GET أو POST)، بصمت
+    touchLastSeen(telegramId)
 
     /*
      * CONSUME ENERGY

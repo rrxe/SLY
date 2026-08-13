@@ -43,7 +43,7 @@ export const ENERGY_MAX = 5;
 
 const ADSGALAXY_MINI_APP_ID = "32";
 const ADSGALAXY_SCRIPT_SRC = `https://app.adsgalaxy.online/sdk.js?id=${ADSGALAXY_MINI_APP_ID}`;
-const REPEAT_AD_DELAY_MS = 50000;
+const REPEAT_AD_DELAY_MS = 90000;
 
 function makeId() {
   return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
