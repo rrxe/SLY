@@ -27,7 +27,10 @@ const PROGRESS_KEY = "sly.tasks.progress.v3";
 const CLAIM_DELAY_MS = 5000;
 const SMART_AD_CLAIM_DELAY_MS = 5000;
 const ADS_GALAXY_CLAIM_DELAY_MS = 0;
-const ADSGALAXY_MINI_APP_ID = "32";
+
+// ثوابت GigaPub
+const GIGAPUB_PROJECT_ID = "7665";
+const GIGAPUB_SCRIPT_SRC = `https://ad.gigapub.tech/script?id=${GIGAPUB_PROJECT_ID}`;
 
 function loadProgress(): ProgressMap {
   if (typeof window === "undefined") return {};
@@ -53,10 +56,6 @@ function getInitData() {
   return tg?.initData || "";
 }
 
-function isWatchAdTask(task: ServerTask) {
-  return String(task.task_type || "").toLowerCase() === "watch_ad";
-}
-
 function isSmartAdTask(task: ServerTask) {
   return String(task.task_type || "").toLowerCase() === "smart_ad";
 }
@@ -65,8 +64,12 @@ function isAdsGalaxyTask(task: ServerTask) {
   return String(task.task_type || "").toLowerCase() === "ads_galaxy";
 }
 
+function isGigaPubTask(task: ServerTask) {
+  return String(task.task_type || "").toLowerCase() === "giga_pub";
+}
+
 function getClaimDelayMs(task: ServerTask) {
-  if (isSmartAdTask(task)) return SMART_AD_CLAIM_DELAY_MS;
+  if (isSmartAdTask(task) || isGigaPubTask(task)) return SMART_AD_CLAIM_DELAY_MS;
   if (isAdsGalaxyTask(task)) return ADS_GALAXY_CLAIM_DELAY_MS;
   return CLAIM_DELAY_MS;
 }
@@ -98,18 +101,31 @@ export default function Tasks({ onRewardCoins }: Props) {
   const [openedAtById, setOpenedAtById] = useState<OpenedMap>({});
   const [openingIds, setOpeningIds] = useState<Record<string, boolean>>({});
   const [claimingIds, setClaimingIds] = useState<Record<string, boolean>>({});
+  const [gigapubReady, setGigapubReady] = useState(false);
   const claimTimersRef = useRef<Record<string, number>>({});
 
   useEffect(() => { window.scrollTo({ top: 0, left: 0, behavior: "auto" }); }, []);
 
+  // تحميل SDK الخاص بـ GigaPub
   useEffect(() => {
     if (typeof window === "undefined") return;
-    if (document.getElementById("adsgalaxy-sdk")) return;
+    if (window.showGiga) {
+      setGigapubReady(true);
+      return;
+    }
     const script = document.createElement("script");
-    script.id = "adsgalaxy-sdk";
-    script.src = `https://app.adsgalaxy.online/sdk.js?id=${ADSGALAXY_MINI_APP_ID}`;
+    script.src = GIGAPUB_SCRIPT_SRC;
     script.async = true;
+    script.onload = () => setGigapubReady(true);
+    script.onerror = () => {
+      setGigapubReady(false);
+      console.log("Failed to load GigaPub SDK");
+    };
     document.body.appendChild(script);
+    return () => {
+      script.onload = null;
+      script.onerror = null;
+    };
   }, []);
 
   useEffect(() => {
@@ -154,7 +170,6 @@ export default function Tasks({ onRewardCoins }: Props) {
   };
 
   const handleClaimServerTask = async (task: ServerTask) => {
-    if (isWatchAdTask(task)) return;
     const id = String(task.id);
     if (claimingIds[id]) return;
     const openedAt = openedAtById[id];
@@ -183,7 +198,6 @@ export default function Tasks({ onRewardCoins }: Props) {
   };
 
   const scheduleAutoClaim = (task: ServerTask, openedAt: number) => {
-    if (isWatchAdTask(task)) return;
     const id = String(task.id);
     clearClaimTimer(id);
     const delayMs = getClaimDelayMs(task);
@@ -198,7 +212,7 @@ export default function Tasks({ onRewardCoins }: Props) {
     Object.entries(openedAtById).forEach(([id, openedAt]) => {
       if (claimTimersRef.current[id]) return;
       const task = serverTasks.find((t) => String(t.id) === id);
-      if (!task || isWatchAdTask(task)) return;
+      if (!task) return;
       const progress = progressById[id] || { completed: 0, max_completions: Math.max(1, Number(task.max_completions || 1)) };
       if (progress.completed >= progress.max_completions) return;
       scheduleAutoClaim(task, openedAt);
@@ -218,9 +232,8 @@ export default function Tasks({ onRewardCoins }: Props) {
     const progress = progressById[id] || { completed: 0, max_completions: Math.max(1, Number(task.max_completions || 1)) };
     if (progress.completed >= progress.max_completions) { setToast("Task limit reached."); return; }
 
-    // ✅ التحقق الإضافي للأمان: إذا كان نوع المهمة غير معروف ولا ينتمي للأنواع المسموح بها، امنع الفتح
     const taskType = String(task.task_type || "").toLowerCase();
-    const allowedTypes = ["normal", "watch_ad", "smart_ad", "ads_galaxy", "join_channel", "custom"];
+    const allowedTypes = ["normal", "smart_ad", "ads_galaxy", "join_channel", "custom", "giga_pub"];
     if (!allowedTypes.includes(taskType)) {
       setToast("Invalid task type.");
       return;
@@ -229,6 +242,7 @@ export default function Tasks({ onRewardCoins }: Props) {
     setOpeningIds((prev) => ({ ...prev, [id]: true }));
 
     try {
+      // معالجة AdsGalaxy
       if (isAdsGalaxyTask(task)) {
         const showAd = (window as any).showAdsGalaxy;
         if (typeof showAd !== "function") {
@@ -252,12 +266,36 @@ export default function Tasks({ onRewardCoins }: Props) {
         return;
       }
 
+      // معالجة GigaPub
+      if (isGigaPubTask(task)) {
+        if (!gigapubReady) {
+          setToast("GigaPub ad not ready yet. Try again.");
+          return;
+        }
+        const showGiga = (window as any).showGiga;
+        if (typeof showGiga !== "function") {
+          setToast("GigaPub SDK not loaded.");
+          return;
+        }
+        try {
+          await showGiga();
+        } catch (err: any) {
+          setToast(err?.message || "Ad failed to load.");
+          return;
+        }
+        await postTaskAction({ taskId: task.id, action: "open" });
+        const openedAt = Date.now();
+        setOpenedAtById((prev) => ({ ...prev, [id]: openedAt }));
+        scheduleAutoClaim(task, openedAt);
+        setToast("Ad watched. Claiming coins...");
+        return;
+      }
+
+      // المهام العادية (مع رابط)
       const url = String(task.url || "").trim();
       if (!url) { setToast("Task has no URL."); return; }
 
-      if (!isWatchAdTask(task)) {
-        await postTaskAction({ taskId: task.id, action: "open" });
-      }
+      await postTaskAction({ taskId: task.id, action: "open" });
       window.open(url, "_blank", "noopener,noreferrer");
       const openedAt = Date.now();
       setOpenedAtById((prev) => ({ ...prev, [id]: openedAt }));
@@ -286,9 +324,9 @@ export default function Tasks({ onRewardCoins }: Props) {
         ) : (
           serverTasks.map((task) => {
             const id = String(task.id);
-            const isWatchAd = isWatchAdTask(task);
             const isSmartAd = isSmartAdTask(task);
             const isAdsGalaxy = isAdsGalaxyTask(task);
+            const isGigaPub = isGigaPubTask(task);
             const claimDelayMs = getClaimDelayMs(task);
             const progress = progressById[id] || { completed: 0, max_completions: Math.max(1, Number(task.max_completions || 1)) };
             const openedAt = openedAtById[id];
@@ -298,24 +336,27 @@ export default function Tasks({ onRewardCoins }: Props) {
             const opening = Boolean(openingIds[id]);
             const claiming = Boolean(claimingIds[id]);
 
+            let taskTypeLabel = task.task_type || "task";
+            if (isSmartAd) taskTypeLabel = "smart ad";
+            else if (isAdsGalaxy) taskTypeLabel = "ads galaxy";
+            else if (isGigaPub) taskTypeLabel = "giga pub";
+
             return (
               <article key={id} className={`task-row ${claimedAll ? "done" : ""}`}>
                 <div className="task-icon channel"><TaskIcon /></div>
                 <div className="task-main">
                   <div className="task-topline">
                     <div>
-                      <p className="task-type">{isSmartAd ? "smart ad" : isAdsGalaxy ? "ads galaxy" : task.task_type || "task"}</p>
+                      <p className="task-type">{taskTypeLabel}</p>
                       <h2>{task.title}</h2>
                     </div>
                     <strong className="task-reward">+{Number(task.reward || 0)}</strong>
                   </div>
                   <div className="task-mini-status">
-                    {isWatchAd ? (
-                      <span className="gray">Ad temporarily unavailable</span>
-                    ) : claimedAll ? (
+                    {claimedAll ? (
                       <span className="green">Completed</span>
                     ) : !opened ? (
-                      <span className="gray">{isAdsGalaxy ? "Watch the ad to earn coins" : "Open link first"}</span>
+                      <span className="gray">{isAdsGalaxy || isGigaPub ? "Watch the ad to earn coins" : "Open link first"}</span>
                     ) : !waitedEnough ? (
                       <span className="blue">Sending coins in {Math.ceil((claimDelayMs - (Date.now() - openedAt)) / 1000)} seconds</span>
                     ) : (
@@ -324,18 +365,12 @@ export default function Tasks({ onRewardCoins }: Props) {
                   </div>
                 </div>
                 <div className="task-actions">
-                  {!isWatchAd && (
-                    <div style={{ textAlign: "right", fontSize: "12px", fontWeight: 600, color: "#9ca3af", marginBottom: "6px", paddingRight: "6px", letterSpacing: "0.5px" }}>
-                      <span style={{ color: "#fff" }}>{progress.completed}</span> <span style={{ opacity: 0.5 }}> / {progress.max_completions}</span>
-                    </div>
-                  )}
-                  {isWatchAd ? (
-                    <div className="task-btn join" style={{ opacity: 0.6 }}>Unavailable</div>
-                  ) : (
-                    <button type="button" className="task-btn join" onClick={() => handleOpenTask(task)} disabled={opening || claimedAll}>
-                      {opening ? (isAdsGalaxy ? "Loading ad..." : "Opening...") : (isAdsGalaxy ? "Watch Ad" : "Open")}
-                    </button>
-                  )}
+                  <div style={{ textAlign: "right", fontSize: "12px", fontWeight: 600, color: "#9ca3af", marginBottom: "6px", paddingRight: "6px", letterSpacing: "0.5px" }}>
+                    <span style={{ color: "#fff" }}>{progress.completed}</span> <span style={{ opacity: 0.5 }}> / {progress.max_completions}</span>
+                  </div>
+                  <button type="button" className="task-btn join" onClick={() => handleOpenTask(task)} disabled={opening || claimedAll}>
+                    {opening ? (isAdsGalaxy || isGigaPub ? "Loading ad..." : "Opening...") : (isAdsGalaxy || isGigaPub ? "Watch Ad" : "Open")}
+                  </button>
                 </div>
               </article>
             );

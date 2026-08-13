@@ -3,7 +3,6 @@ import { authenticateRequest } from '../../lib/telegram-auth.js'
 
 const BUILTIN_TASKS = {
   join_channel: 500,
-  watch_ad: 150,
   game_run: null,
 }
 
@@ -33,7 +32,7 @@ function isFreshTimestamp(value) {
 
 function getRequiredWaitMs(taskType) {
   const type = String(taskType || '').toLowerCase()
-  if (type === 'smart_ad') return SMART_AD_TASK_WAIT_MS
+  if (type === 'smart_ad' || type === 'giga_pub') return SMART_AD_TASK_WAIT_MS
   if (type === 'ads_galaxy') return ADS_GALAXY_TASK_WAIT_MS
   return NORMAL_TASK_WAIT_MS
 }
@@ -87,69 +86,7 @@ async function addCoinsToPlayer(telegramId, reward) {
   return { newCoins }
 }
 
-// معالج AdsGram callback (GET)
-async function handleAdsgramReward(req, res) {
-  const taskId = toPositiveInt(req.query.taskId || req.query.task_id)
-  const telegramId = toPositiveInt(req.query.userid || req.query.userId || req.query.tgid)
-
-  if (!taskId || !telegramId) {
-    return res.status(400).json({ error: 'Missing taskId or userid' })
-  }
-
-  try {
-    const { data: task, error: taskError } = await getTask(taskId)
-    if (taskError || !task || !task.is_active) {
-      return res.status(400).json({ error: 'Task not found or inactive' })
-    }
-    if (String(task.task_type || '').toLowerCase() !== 'watch_ad') {
-      return res.status(400).json({ error: 'Reward callback is only allowed for watch_ad tasks' })
-    }
-
-    const maxCompletions = Math.max(1, Number(task.max_completions || 1))
-    const { data: completionRow, error: completionError } = await getCompletionRow(taskId, telegramId)
-    if (completionError) throw completionError
-    if (!completionRow || !completionRow.opened_at) {
-      return res.status(400).json({ error: 'No active ad session for this player' })
-    }
-    if (!isFreshTimestamp(completionRow.opened_at)) {
-      return res.status(400).json({ error: 'Ad session expired. Open the ad again.' })
-    }
-
-    const currentCount = Number(completionRow.completion_count || 0)
-    if (currentCount >= maxCompletions) {
-      return res.status(400).json({ error: 'Task completion limit reached for this player' })
-    }
-
-    const nextCount = currentCount + 1
-    const reward = Number(task.reward || 0)
-    const { error: consumeError } = await saveCompletionRow({
-      taskId,
-      telegramId,
-      completionCount: nextCount,
-      openedAt: null,
-    })
-    if (consumeError) throw consumeError
-
-    const coinResult = await addCoinsToPlayer(telegramId, reward)
-    if (coinResult.error) throw new Error(coinResult.error)
-
-    return res.status(200).json({
-      success: true,
-      reward,
-      coins: coinResult.newCoins,
-      progress: { completed: nextCount, max_completions: maxCompletions },
-    })
-  } catch (err) {
-    console.error('AdsGram reward error:', err)
-    return res.status(500).json({ error: err.message || 'Failed to process reward' })
-  }
-}
-
 export default async function handler(req, res) {
-  if (req.method === 'GET') {
-    return handleAdsgramReward(req, res)
-  }
-
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' })
   }
@@ -203,9 +140,6 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: 'Task not found or inactive' })
       }
       const maxCompletions = Math.max(1, Number(task.max_completions || 1))
-      if (String(task.task_type || '').toLowerCase() === 'watch_ad') {
-        return res.status(400).json({ error: 'watch_ad tasks are completed by AdsGram callback only' })
-      }
       const { data: completionRow, error: completionError } = await getCompletionRow(normalizedTaskId, telegramId)
       if (completionError) throw completionError
       const currentCount = Number(completionRow?.completion_count || 0)

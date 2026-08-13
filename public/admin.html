@@ -224,7 +224,7 @@
     <div id="adminStatus" class="admin-status muted">أدخل ADMIN_SECRET ثم اضغط اختبار الاتصال.</div>
   </div>
 
-  <!-- قسم إدارة الأعضاء والحظر المضاف حديثاً -->
+  <!-- قسم إدارة الأعضاء والحظر -->
   <div class="card">
     <h3>🛡️ إدارة اللاعبين والحظر</h3>
     <input type="text" id="userSearch" placeholder="ابحث باسم المستخدم أو Telegram ID..." oninput="filterUsers()" />
@@ -244,9 +244,9 @@
     <div class="field-hint">مثال: مشاهدة إعلان، زيارة قناة، إكمال تحدي.</div>
     <select id="taskType">
       <option value="normal">مهمة عادية</option>
-      <option value="watch_ad">مشاهدة إعلان (AdsGram)</option>
       <option value="smart_ad">إعلان ذكي (Smart Ad)</option>
       <option value="ads_galaxy">إعلان AdsGalaxy</option>
+      <option value="giga_pub">إعلان GigaPub</option>
       <option value="join_channel">الانضمام إلى قناة</option>
       <option value="custom">مهمة مخصصة</option>
     </select>
@@ -254,8 +254,8 @@
       <div><input type="number" id="taskCoins" placeholder="مكافأة العملات" min="0" step="1" /></div>
       <div><input type="number" id="taskMaxCompletions" placeholder="عدد مرات لكل لاعب" min="1" step="1" value="1" /></div>
     </div>
-    <input type="url" id="taskLink" placeholder="رابط المهمة URL (اختياري لمهام مشاهدة الإعلان)" />
-    <div class="field-hint">اتركه فارغًا إذا كانت المهمة من نوع مشاهدة إعلان. لمهام "إعلان ذكي" و"AdsGalaxy" يتم تعبئة الرابط تلقائيًا.</div>
+    <input type="url" id="taskLink" placeholder="رابط المهمة URL (اختياري لمهام الإعلان)" />
+    <div class="field-hint">اتركه فارغًا إذا كانت المهمة من نوع إعلان (سيتم تعبئة رابط تلقائي).</div>
     <button onclick="addTask()">إضافة المهمة</button>
   </div>
 
@@ -331,9 +331,8 @@
         else setAdminStatus(data.error || "فشل التحقق من صلاحيات المشرف.", "error");
       } catch (err) { setAdminStatus(err.message || "تعذر الاتصال بالسيرفر.", "error"); }
     }
-
     // ==========================================
-    // دوال جلب الأجهزة والحظر المضافة
+    // دوال إدارة المستخدمين والحظر
     // ==========================================
     async function loadUsers() {
       const container = document.getElementById("usersList");
@@ -397,7 +396,6 @@
         : "هل أنت متأكد من فك الحظر عن هذا المستخدم؟";
       if (!confirm(confirmText)) return;
 
-
       try {
         const result = await apiCall("/api/auth/me", "POST", { action, targetTelegramId: telegramId });
         if (result && result.success) {
@@ -412,7 +410,7 @@
     }
 
     // ==========================================
-    // باقي الدوال الأصلية الخاصة بك كما هي تماماً
+    // دوال إدارة المهام
     // ==========================================
     async function loadTasks() {
       const container = document.getElementById("tasksList");
@@ -486,23 +484,27 @@
       const taskType = document.getElementById("taskType").value;
       const maxCompletions = Number(document.getElementById("taskMaxCompletions").value);
 
+      // تحويل custom إلى normal للتخزين
       const normalizedTaskType = taskType === "custom" ? "normal" : taskType;
 
-      const isWatchAd = normalizedTaskType === "watch_ad";
-      const isSmartAd = normalizedTaskType === "smart_ad";
-      const isAdsGalaxy = normalizedTaskType === "ads_galaxy";
-
+      // تعيين رابط افتراضي لأنواع الإعلانات
       let url = rawUrl;
-      if (isWatchAd) url = window.location.origin + "/";
-      else if (isSmartAd) url = "https://link.gigapub.tech/l/9xgr7ru4wo";
-      else if (isAdsGalaxy) url = window.location.origin + "/";
+      if (normalizedTaskType === "smart_ad") {
+        url = "https://link.gigapub.tech/l/9xgr7ru4wo"; // رابط افتراضي للـ smart_ad
+      } else if (normalizedTaskType === "ads_galaxy" || normalizedTaskType === "giga_pub") {
+        // يمكن ترك الرابط فارغاً لأنه سيتم استدعاء SDK
+        url = rawUrl || "";
+      } else {
+        // للمهام العادية يجب أن يكون هناك رابط
+        if (!url) {
+          alert("يرجى إدخال رابط المهمة للمهام العادية.");
+          return;
+        }
+      }
+
 
       if (!title || !Number.isFinite(reward) || reward <= 0) {
         alert("يرجى تعبئة العنوان والمكافأة بشكل صحيح.");
-        return;
-      }
-      if (!isWatchAd && !isSmartAd && !isAdsGalaxy && !url) {
-        alert("يرجى إدخال رابط المهمة، أو اختر مشاهدة إعلان لتركه فارغًا.");
         return;
       }
       if (!Number.isFinite(maxCompletions) || maxCompletions < 1) {
@@ -534,6 +536,9 @@
       } catch (err) { alert(err.message || "تعذر الاتصال بالسيرفر."); }
     }
 
+    // ==========================================
+    // دوال السحب
+    // ==========================================
     async function loadWithdrawals() {
       const container = document.getElementById("withdrawalsList");
       container.innerHTML = '<p class="loading">جاري تحميل طلبات السحب...</p>';
@@ -585,6 +590,9 @@
       } catch (err) { alert(err.message || "تعذر تنفيذ العملية."); }
     }
 
+    // ==========================================
+    // دوال البث
+    // ==========================================
     async function sendBroadcast() {
       const textarea = document.getElementById("broadcastMsg");
       const message = textarea.value.trim();
@@ -597,6 +605,9 @@
       } catch (err) { alert(err.message || "تعذر الاتصال بالسيرفر."); }
     }
 
+    // ==========================================
+    // دوال مساعدة
+    // ==========================================
     function escapeHtml(value) {
       return String(value).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
     }
