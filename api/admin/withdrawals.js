@@ -9,7 +9,7 @@ export default async function handler(req, res) {
     try {
       const { data, error } = await supabase
         .from('players')
-        .select('telegram_id, username, usdt_balance, wallet_address, withdrawal_status, withdrawal_amount')
+        .select('telegram_id, username, usdt_balance, wallet_address, withdrawal_status, withdrawal_amount, withdrawal_method, withdrawal_target, withdrawal_bnb_amount, withdrawal_bnb_price_usd')
         .eq('withdrawal_status', 'pending')
 
       if (error) throw error
@@ -19,7 +19,10 @@ export default async function handler(req, res) {
         telegram_id: p.telegram_id,
         username: p.username || 'NoUsername',
         amount_usdt: p.withdrawal_amount,
-        wallet_address: p.wallet_address,
+        method: p.withdrawal_method || 'bnb',
+        target: p.withdrawal_target || p.wallet_address,
+        bnb_amount: p.withdrawal_bnb_amount,
+        bnb_price_usd: p.withdrawal_bnb_price_usd,
         status: p.withdrawal_status ? p.withdrawal_status.toUpperCase() : 'PENDING',
       }))
 

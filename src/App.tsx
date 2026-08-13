@@ -303,20 +303,26 @@ export default function App() {
     }
   };
 
-  const handleWithdraw = async (amount: number) => {
+  const handleWithdraw = async (
+    amount: number,
+    method: "binance" | "bnb",
+    target: string
+  ) => {
     if (amount <= 0 || amount > wallet.usdt) return;
 
     try {
       const data = await callApi("/api/withdraw", {
         method: "POST",
-        body: JSON.stringify({ amount }),
+        body: JSON.stringify({ amount, method, target }),
       });
 
       setWallet((prev) => ({ ...prev, usdt: data.usdtBalance }));
 
       pushActivity(
         "Withdrawal requested",
-        `${amount.toFixed(4)} USDT sent for processing`,
+        method === "binance"
+          ? `${amount.toFixed(4)} USDT to Binance ID ${target}`
+          : `${amount.toFixed(4)} USDT ≈ ${data.bnbAmount ?? "?"} BNB to ${target.slice(0, 6)}...${target.slice(-4)}`,
         "exchange"
       );
     } catch (err: any) {
@@ -500,6 +506,7 @@ export default function App() {
       <WithdrawalModal
         open={withdrawOpen}
         usdtBalance={wallet.usdt}
+        walletAddress={wallet.walletAddress}
         onClose={() => setWithdrawOpen(false)}
         onConfirm={handleWithdraw}
       />

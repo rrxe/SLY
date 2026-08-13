@@ -3,6 +3,33 @@ import { authenticateRequest } from '../lib/telegram-auth.js'
 
 const MIN_WITHDRAW = 0.1
 
+// يجيب سعر BNB الحالي بالدولار من Binance (API عام، بدون مفتاح).
+// نستخدم AbortController كمهلة أمان (5 ثواني) حتى ما يعلّق الطلب لو
+// Binance بطيء أو مو متاح مؤقتاً.
+async function getBnbPriceUsd() {
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), 5000)
+
+  try {
+    const res = await fetch('https://api.binance.com/api/v3/ticker/price?symbol=BNBUSDT', {
+      signal: controller.signal,
+    })
+
+    if (!res.ok) throw new Error('Price lookup failed')
+
+    const data = await res.json()
+    const price = Number(data.price)
+
+    if (!Number.isFinite(price) || price <= 0) {
+      throw new Error('Invalid BNB price received')
+    }
+
+    return price
+  } finally {
+    clearTimeout(timeout)
+  }
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
 
@@ -12,11 +39,15 @@ export default async function handler(req, res) {
   const telegramId = auth.id
 
   try {
-    const { amount } = req.body || {}
+    const { amount, method, target } = req.body || {}
     const amt = Number(amount)
 
     if (!Number.isFinite(amt) || amt < MIN_WITHDRAW) {
       return res.status(400).json({ error: `Minimum withdrawal is ${MIN_WITHDRAW} USDT` })
+    }
+
+    if (method !== 'binance' && method !== 'bnb') {
+      return res.status(400).json({ error: 'Invalid withdrawal method' })
     }
 
     const { data: player, error: fetchError } = await supabase
@@ -27,10 +58,6 @@ export default async function handler(req, res) {
 
     if (fetchError || !player) return res.status(404).json({ error: 'Player not found' })
 
-    if (!player.wallet_address) {
-      return res.status(400).json({ error: 'Wallet address not connected' })
-    }
-
     // امنع طلب سحب جديد إذا اكو طلب pending سابق لسه ما تعالج
     if (player.withdrawal_status === 'pending') {
       return res.status(400).json({ error: 'You already have a pending withdrawal request' })
@@ -38,6 +65,33 @@ export default async function handler(req, res) {
 
     if ((player.usdt_balance || 0) < amt) {
       return res.status(400).json({ error: 'Insufficient USDT balance' })
+    }
+
+    let withdrawalTarget
+    let bnbAmount = null
+    let bnbPriceUsd = null
+
+    if (method === 'binance') {
+      const trimmedTarget = typeof target === 'string' ? target.trim() : ''
+      if (!trimmedTarget) {
+        return res.status(400).json({ error: 'Binance ID is required' })
+      }
+      withdrawalTarget = trimmedTarget
+    } else {
+      // method === 'bnb' - نستخدم عنوان المحفظة المحفوظ بالسيرفر فقط
+      // (مو أي عنوان يرسله الفرونت اند) حتى ما يقدر أحد يزور الهدف
+      if (!player.wallet_address) {
+        return res.status(400).json({ error: 'Wallet address not connected' })
+      }
+      withdrawalTarget = player.wallet_address
+
+      try {
+        bnbPriceUsd = await getBnbPriceUsd()
+        bnbAmount = Number((amt / bnbPriceUsd).toFixed(8))
+      } catch (priceErr) {
+        console.error('BNB price lookup failed:', priceErr)
+        return res.status(503).json({ error: 'Unable to fetch BNB price right now, try again shortly' })
+      }
     }
 
     const newUsdtBalance = Number((player.usdt_balance - amt).toFixed(4))
@@ -48,12 +102,21 @@ export default async function handler(req, res) {
         usdt_balance: newUsdtBalance,
         withdrawal_status: 'pending',
         withdrawal_amount: amt,
+        withdrawal_method: method,
+        withdrawal_target: withdrawalTarget,
+        withdrawal_bnb_amount: bnbAmount,
+        withdrawal_bnb_price_usd: bnbPriceUsd,
       })
       .eq('telegram_id', telegramId)
 
     if (updateError) throw updateError
 
-    return res.status(200).json({ success: true, usdtBalance: newUsdtBalance })
+    return res.status(200).json({
+      success: true,
+      usdtBalance: newUsdtBalance,
+      bnbAmount,
+      bnbPriceUsd,
+    })
   } catch (err) {
     console.error('withdraw error:', err)
     return res.status(500).json({ error: err.message })
