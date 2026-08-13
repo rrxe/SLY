@@ -90,6 +90,11 @@
       border-radius: 6px;
       font-size: 11px;
     }
+    #usersList {
+      max-height: 420px;
+      overflow-y: auto;
+      padding-right: 2px;
+    }
     .tasks-toolbar {
       display: flex;
       justify-content: space-between;
@@ -209,8 +214,68 @@
       border: 1px solid rgba(64, 167, 227, 0.2);
     }
     .task-summary { display: grid; gap: 10px; }
+
+    /* بطاقة الإحصائيات */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    .stat-box {
+      background: rgba(255, 255, 255, 0.035);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 13px;
+      padding: 14px;
+      text-align: center;
+    }
+
+    .stat-box .stat-value {
+      font-size: 28px;
+      font-weight: 800;
+      color: #ffffff;
+      line-height: 1.2;
+    }
+    .stat-box.online .stat-value { color: #81c784; }
+    .stat-box .stat-label {
+      font-size: 12px;
+      color: #8fa0b6;
+      margin-top: 4px;
+    }
+
+    /* رفع صورة بالبث الجماعي */
+    .photo-upload-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 6px 0;
+    }
+    .photo-upload-row input[type="file"] {
+      margin: 0;
+      padding: 8px;
+    }
+    .photo-preview-wrap {
+      position: relative;
+      margin: 8px 0;
+      display: none;
+    }
+    .photo-preview-wrap.visible { display: block; }
+    .photo-preview-wrap img {
+      max-width: 100%;
+      max-height: 220px;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      display: block;
+    }
+    .photo-remove-btn {
+      width: auto;
+      margin: 8px 0 0;
+      padding: 6px 12px;
+      background: #273449;
+      font-size: 12px;
+    }
+
     @media (max-width: 430px) {
-      .task-actions, .mini-grid { grid-template-columns: 1fr; }
+      .task-actions, .mini-grid, .stats-grid { grid-template-columns: 1fr; }
     }
   </style>
 </head>
@@ -224,17 +289,35 @@
     <div id="adminStatus" class="admin-status muted">أدخل ADMIN_SECRET ثم اضغط اختبار الاتصال.</div>
   </div>
 
-  <!-- قسم إدارة الأعضاء والحظر -->
+  <!-- بطاقة الإحصائيات العامة -->
   <div class="card">
-    <h3>🛡️ إدارة اللاعبين والحظر</h3>
-    <input type="text" id="userSearch" placeholder="ابحث باسم المستخدم أو Telegram ID..." oninput="filterUsers()" />
-    <div id="usersList" class="loading">جاري التحميل...</div>
-    <button class="refresh-btn" onclick="loadUsers()">تحديث قائمة اللاعبين</button>
+    <h3>📊 إحصائيات عامة</h3>
+    <div class="stats-grid">
+      <div class="stat-box">
+        <div class="stat-value" id="statTotalPlayers">—</div>
+        <div class="stat-label">إجمالي اللاعبين المسجلين</div>
+      </div>
+      <div class="stat-box online">
+        <div class="stat-value" id="statOnlineNow">—</div>
+        <div class="stat-label">متصل الآن</div>
+      </div>
+    </div>
+    <button class="refresh-btn" onclick="loadStats()">تحديث الإحصائيات</button>
   </div>
 
   <div class="card">
     <h3>إرسال رسالة جماعية</h3>
     <textarea id="broadcastMsg" rows="4" placeholder="اكتب الرسالة التي تريد إرسالها لجميع اللاعبين..."></textarea>
+
+    <div class="field-hint">يمكنك إرفاق صورة اختيارياً (سترسل مع النص كـ caption). الحجم الأنسب أقل من 3 ميجابايت.</div>
+    <div class="photo-upload-row">
+      <input type="file" id="broadcastPhoto" accept="image/*" onchange="handlePhotoSelect(event)" />
+    </div>
+    <div class="photo-preview-wrap" id="photoPreviewWrap">
+      <img id="photoPreviewImg" alt="معاينة الصورة" />
+      <button type="button" class="photo-remove-btn" onclick="clearBroadcastPhoto()">إزالة الصورة</button>
+    </div>
+
     <button onclick="sendBroadcast()">إرسال للجميع</button>
   </div>
 
@@ -252,6 +335,7 @@
     </select>
     <div class="mini-grid">
       <div><input type="number" id="taskCoins" placeholder="مكافأة العملات" min="0" step="1" /></div>
+
       <div><input type="number" id="taskMaxCompletions" placeholder="عدد مرات لكل لاعب" min="1" step="1" value="1" /></div>
     </div>
     <input type="url" id="taskLink" placeholder="رابط المهمة URL (اختياري لمهام الإعلان)" />
@@ -278,16 +362,27 @@
     <button class="refresh-btn" onclick="loadWithdrawals()">تحديث طلبات السحب</button>
   </div>
 
+  <!-- قسم إدارة الأعضاء والحظر: آخر شي بالقائمة، مع سكرول داخلي -->
+  <div class="card">
+    <h3>🛡️ إدارة اللاعبين والحظر</h3>
+    <input type="text" id="userSearch" placeholder="ابحث باسم المستخدم أو Telegram ID..." oninput="filterUsers()" />
+    <div id="usersList" class="loading">جاري التحميل...</div>
+    <button class="refresh-btn" onclick="loadUsers()">تحديث قائمة اللاعبين</button>
+  </div>
+
   <script>
     const tg = window.Telegram?.WebApp;
     if (tg) tg.expand();
 
     const API_BASE = "";
     let allUsers = [];
+    let broadcastPhotoBase64 = null;
+    let broadcastPhotoMime = null;
 
     document.addEventListener("DOMContentLoaded", () => {
       const savedSecret = localStorage.getItem("admin_secret") || "";
       document.getElementById("adminSecretInput").value = savedSecret;
+      loadStats();
       loadTasks();
       loadWithdrawals();
       loadUsers();
@@ -331,6 +426,27 @@
         if (data && data.success !== false) setAdminStatus("الاتصال بالسيرفر ناجح وصلاحيات المشرف تعمل.", "success");
         else setAdminStatus(data.error || "فشل التحقق من صلاحيات المشرف.", "error");
       } catch (err) { setAdminStatus(err.message || "تعذر الاتصال بالسيرفر.", "error"); }
+    }
+
+    // ==========================================
+    // دوال الإحصائيات العامة
+    // ==========================================
+    async function loadStats() {
+      const totalEl = document.getElementById("statTotalPlayers");
+      const onlineEl = document.getElementById("statOnlineNow");
+      try {
+        const data = await apiCall("/api/admin/stats", "GET");
+        if (data && data.success) {
+          totalEl.textContent = Number(data.totalPlayers || 0).toLocaleString();
+          onlineEl.textContent = Number(data.onlineNow || 0).toLocaleString();
+        } else {
+          totalEl.textContent = "—";
+          onlineEl.textContent = "—";
+        }
+      } catch (err) {
+        totalEl.textContent = "—";
+        onlineEl.textContent = "—";
+      }
     }
 
     // ==========================================
@@ -597,19 +713,82 @@
     }
 
     // ==========================================
-    // دوال البث
+    // دوال البث (مع دعم الصور)
     // ==========================================
+    function handlePhotoSelect(event) {
+      const file = event.target.files && event.target.files[0];
+      if (!file) { clearBroadcastPhoto(); return; }
+
+      if (!file.type.startsWith("image/")) {
+        alert("الملف المختار مو صورة.");
+        event.target.value = "";
+        return;
+      }
+
+      if (file.size > 5 * 1024 * 1024) {
+        alert("حجم الصورة كبير جداً، اختر صورة أقل من 5 ميجابايت.");
+        event.target.value = "";
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = String(reader.result || "");
+        // result يجي بصيغة "data:image/jpeg;base64,XXXXX" - نفصل الجزء بعد الفاصلة بس
+        const base64 = result.split(",")[1] || "";
+        broadcastPhotoBase64 = base64;
+        broadcastPhotoMime = file.type;
+
+        document.getElementById("photoPreviewImg").src = result;
+        document.getElementById("photoPreviewWrap").classList.add("visible");
+      };
+      reader.onerror = () => {
+        alert("تعذر قراءة الصورة.");
+        clearBroadcastPhoto();
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function clearBroadcastPhoto() {
+      broadcastPhotoBase64 = null;
+      broadcastPhotoMime = null;
+      const fileInput = document.getElementById("broadcastPhoto");
+      if (fileInput) fileInput.value = "";
+      document.getElementById("photoPreviewWrap").classList.remove("visible");
+      document.getElementById("photoPreviewImg").src = "";
+    }
+
     async function sendBroadcast() {
       const textarea = document.getElementById("broadcastMsg");
       const message = textarea.value.trim();
-      if (!message) { alert("يرجى كتابة رسالة أولاً."); return; }
-      if (!confirm("هل تريد إرسال هذه الرسالة إلى جميع اللاعبين؟")) return;
+
+      if (!message && !broadcastPhotoBase64) {
+        alert("يرجى كتابة رسالة أو إرفاق صورة على الأقل.");
+        return;
+      }
+
+      const confirmText = broadcastPhotoBase64
+        ? "هل تريد إرسال هذه الصورة (مع الرسالة إن وجدت) إلى جميع اللاعبين؟"
+        : "هل تريد إرسال هذه الرسالة إلى جميع اللاعبين؟";
+      if (!confirm(confirmText)) return;
+
       try {
-        const result = await apiCall("/api/admin/broadcast", "POST", { message });
-        if (result.success) { alert(`تم الإرسال بنجاح إلى ${result.sentCount || 0} مستخدم.`); textarea.value = ""; }
-        else alert(result.error || "فشل إرسال الرسالة.");
+        const payload = { message };
+        if (broadcastPhotoBase64) {
+          payload.photoBase64 = broadcastPhotoBase64;
+          payload.photoMime = broadcastPhotoMime;
+        }
+
+        const result = await apiCall("/api/admin/broadcast", "POST", payload);
+        if (result.success) {
+          alert(`تم الإرسال بنجاح إلى ${result.sentCount || 0} مستخدم.`);
+          textarea.value = "";
+          clearBroadcastPhoto();
+        } else {
+          alert(result.error || "فشل إرسال الرسالة.");
+        }
       } catch (err) { alert(err.message || "تعذر الاتصال بالسيرفر."); }
-    }
+}
 
     // ==========================================
     // دوال مساعدة
