@@ -255,6 +255,7 @@
       <div><input type="number" id="taskMaxCompletions" placeholder="عدد مرات لكل لاعب" min="1" step="1" value="1" /></div>
     </div>
     <input type="url" id="taskLink" placeholder="رابط المهمة URL (اختياري لمهام الإعلان)" />
+
     <div class="field-hint">اتركه فارغًا إذا كانت المهمة من نوع إعلان (سيتم تعبئة رابط تلقائي).</div>
     <button onclick="addTask()">إضافة المهمة</button>
   </div>
@@ -405,7 +406,6 @@
         } else {
           alert(result.error || "فشلت العملية.");
         }
-
       } catch (err) {
         alert(err.message || "خطأ في تنفيذ العملية.");
       }
@@ -479,7 +479,7 @@
       } catch (err) { alert(err.message || "تعذر حذف المهمة."); }
     }
 
-    // ======== دالة addTask المعدلة ========
+    // ======== دالة addTask المعدلة (نهائياً) ========
     async function addTask() {
       const title = document.getElementById("taskTitle").value.trim();
       const reward = Number(document.getElementById("taskCoins").value);
@@ -490,16 +490,17 @@
       // تحويل custom إلى normal للتخزين
       const normalizedTaskType = taskType === "custom" ? "normal" : taskType;
 
-      // أنواع الإعلانات التي لا تحتاج رابطاً
+      // أنواع الإعلانات التي لا تحتاج رابطاً (بما فيها giga_pub)
       const adTypes = ["smart_ad", "ads_galaxy", "giga_pub"];
       const isAdType = adTypes.includes(normalizedTaskType);
 
-      // تعيين رابط افتراضي للإعلانات إذا كان الرابط فارغاً (اختياري)
+      // معالجة الرابط: للإعلانات نسمح بأن يكون فارغاً
       let url = rawUrl;
       if (isAdType && !url) {
-        url = ""; // يمكن تركه فارغاً
+        url = ""; // ترك الرابط فارغاً
       }
 
+      // التحقق من صحة الحقول
       if (!title || !Number.isFinite(reward) || reward <= 0) {
         alert("يرجى تعبئة العنوان والمكافأة بشكل صحيح.");
         return;
