@@ -8,8 +8,8 @@ function isAuthorized(req) {
 
 function normalizeTaskType(value) {
   const type = String(value || 'normal').trim()
-  // قبول جميع الأنواع المطلوبة
-  const allowed = ['normal', 'watch_ad', 'smart_ad', 'ads_galaxy', 'join_channel', 'custom']
+  // قبول جميع الأنواع المطلوبة مع إضافة giga_pub
+  const allowed = ['normal', 'watch_ad', 'smart_ad', 'ads_galaxy', 'join_channel', 'custom', 'giga_pub']
   return allowed.includes(type) ? type : 'normal'
 }
 
@@ -21,7 +21,7 @@ function normalizeMaxCompletions(value) {
 
 function isAdTask(taskType) {
   const type = String(taskType || '').toLowerCase()
-  return ['watch_ad', 'smart_ad', 'ads_galaxy'].includes(type)
+  return ['watch_ad', 'smart_ad', 'ads_galaxy', 'giga_pub'].includes(type)
 }
 
 export default async function handler(req, res) {
