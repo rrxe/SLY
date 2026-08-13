@@ -270,6 +270,7 @@
     <div id="tasksList"><p class="loading">جاري تحميل المهام...</p></div>
     <button class="refresh-btn" onclick="loadTasks()">تحديث المهام</button>
   </div>
+
   <div class="card">
     <h3>طلبات السحب</h3>
     <div id="withdrawalsList" class="loading">جاري التحميل...</div>
@@ -404,6 +405,7 @@
         } else {
           alert(result.error || "فشلت العملية.");
         }
+
       } catch (err) {
         alert(err.message || "خطأ في تنفيذ العملية.");
       }
@@ -494,9 +496,7 @@
 
       // تعيين رابط افتراضي للإعلانات إذا كان الرابط فارغاً (اختياري)
       let url = rawUrl;
-      if (normalizedTaskType === "smart_ad" && !url) {
-        url = "https://link.gigapub.tech/l/9xgr7ru4wo";
-      } else if ((normalizedTaskType === "ads_galaxy" || normalizedTaskType === "giga_pub") && !url) {
+      if (isAdType && !url) {
         url = ""; // يمكن تركه فارغاً
       }
 
