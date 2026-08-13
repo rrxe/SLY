@@ -136,9 +136,10 @@ export default function Profile({
         <div className="wallet-hero-top">
           <div>
             <p className="wallet-kicker">Wallet Center</p>
-            <h1>{connectedAddress ? "Wallet connected" : "Connect your USDT wallet"}</h1>
+            <h1>{connectedAddress ? "Wallet connected" : "Connect your BNB wallet"}</h1>
             <p className="wallet-lead">
-              Link a BEP20 address to enable withdrawals. Only USDT on BNB Smart Chain (BEP20) is supported.
+              Link a BEP20 address to withdraw as BNB. Prefer Binance? You can also withdraw
+              USDT directly to your Binance ID — no wallet needed for that option.
             </p>
           </div>
 
@@ -263,13 +264,9 @@ export default function Profile({
           <span>Exchange Coins</span>
         </button>
 
-        <button
-          className="profile-action ghost"
-          disabled={!connectedAddress}
-          onClick={onOpenWithdraw}
-        >
+        <button className="profile-action ghost" onClick={onOpenWithdraw}>
           <UiIcons name="withdraw" className="profile-action-icon" />
-          <span>{connectedAddress ? "Withdraw USDT" : "Connect Wallet First"}</span>
+          <span>Withdraw USDT</span>
         </button>
       </section>
     </section>
