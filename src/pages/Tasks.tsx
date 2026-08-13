@@ -27,6 +27,7 @@ const PROGRESS_KEY = "sly.tasks.progress.v3";
 const CLAIM_DELAY_MS = 5000;
 const SMART_AD_CLAIM_DELAY_MS = 5000;
 const ADS_GALAXY_CLAIM_DELAY_MS = 0;
+const GIGA_PUB_CLAIM_DELAY_MS = 0;  // صفر لـ GigaPub
 
 // ثوابت GigaPub
 const GIGAPUB_PROJECT_ID = "7665";
@@ -69,7 +70,8 @@ function isGigaPubTask(task: ServerTask) {
 }
 
 function getClaimDelayMs(task: ServerTask) {
-  if (isSmartAdTask(task) || isGigaPubTask(task)) return SMART_AD_CLAIM_DELAY_MS;
+  if (isSmartAdTask(task)) return SMART_AD_CLAIM_DELAY_MS;
+  if (isGigaPubTask(task)) return GIGA_PUB_CLAIM_DELAY_MS;   // صفر
   if (isAdsGalaxyTask(task)) return ADS_GALAXY_CLAIM_DELAY_MS;
   return CLAIM_DELAY_MS;
 }

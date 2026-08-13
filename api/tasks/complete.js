@@ -10,6 +10,7 @@ const AD_SESSION_WINDOW_MS = 10 * 60 * 1000
 const NORMAL_TASK_WAIT_MS = 5000
 const SMART_AD_TASK_WAIT_MS = 5000
 const ADS_GALAXY_TASK_WAIT_MS = 0
+const GIGA_PUB_TASK_WAIT_MS = 0  // إضافة زمن صفر لـ GigaPub
 
 function toPositiveInt(value) {
   const raw = Array.isArray(value) ? value[0] : value
@@ -32,7 +33,8 @@ function isFreshTimestamp(value) {
 
 function getRequiredWaitMs(taskType) {
   const type = String(taskType || '').toLowerCase()
-  if (type === 'smart_ad' || type === 'giga_pub') return SMART_AD_TASK_WAIT_MS
+  if (type === 'smart_ad') return SMART_AD_TASK_WAIT_MS
+  if (type === 'giga_pub') return GIGA_PUB_TASK_WAIT_MS   // صفر
   if (type === 'ads_galaxy') return ADS_GALAXY_TASK_WAIT_MS
   return NORMAL_TASK_WAIT_MS
 }
