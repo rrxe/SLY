@@ -3,7 +3,7 @@ import { authenticateRequest } from '../../lib/telegram-auth.js'
 
 const ENERGY_MAX = 5
 const ENERGY_REGEN_MS = 30 * 60 * 1000
-const REFERRAL_REWARD = 1000
+const REFERRAL_REWARD = 2000
 
 function isSameUtcDay(dateA, dateB) {
   return (
