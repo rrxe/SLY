@@ -152,6 +152,7 @@
       font-weight: 800;
       white-space: nowrap;
     }
+
     .badge-active {
       color: #8be59a;
       background: rgba(76, 175, 80, 0.13);
@@ -274,6 +275,50 @@
       font-size: 12px;
     }
 
+    /* بطاقات طلبات السحب (كانت ناقصة تماماً - سبب الشكل بدون تنسيق) */
+    .withdrawal-card {
+      background: rgba(255, 255, 255, 0.035);
+      border: 1px solid rgba(255, 255, 255, 0.07);
+      border-radius: 14px;
+      padding: 14px;
+      margin-bottom: 12px;
+    }
+    .withdrawal-card p {
+      margin: 6px 0;
+      font-size: 13.5px;
+      line-height: 1.6;
+    }
+    .withdraw-method-tag {
+      display: inline-block;
+      padding: 3px 9px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 800;
+      background: rgba(64, 167, 227, 0.14);
+      color: #8fd5ff;
+      border: 1px solid rgba(64, 167, 227, 0.22);
+      margin-inline-start: 6px;
+    }
+    .status-pending {
+      color: #ffca28;
+      font-weight: 800;
+    }
+    .status-completed {
+      color: #81c784;
+      font-weight: 800;
+    }
+    .status-rejected {
+      color: #ff6b6b;
+      font-weight: 800;
+    }
+    .withdraw-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 10px;
+    }
+    .withdraw-actions button { margin: 0; }
+
     @media (max-width: 430px) {
       .task-actions, .mini-grid, .stats-grid { grid-template-columns: 1fr; }
     }
@@ -281,6 +326,7 @@
 </head>
 <body>
   <h2>SLY Admin Panel</h2>
+
   
   <div class="card">
     <h3>إعدادات المشرف</h3>
@@ -654,6 +700,7 @@
         } else {
           alert(result.error || "فشل حفظ المهمة.");
         }
+
       } catch (err) { alert(err.message || "تعذر الاتصال بالسيرفر."); }
     }
     // ======== نهاية التعديل ========
@@ -675,16 +722,33 @@
           const telegramId = withdrawal.telegram_id || withdrawal.telegramId || "";
           const username = withdrawal.username || "NoUsername";
           const amount = withdrawal.amount_usdt ?? withdrawal.withdrawal_amount ?? withdrawal.amount ?? 0;
-          const wallet = withdrawal.wallet_address || withdrawal.walletAddress || "غير محددة";
+
+          // طريقة السحب: binance أو bnb. نتعامل مع الحقول الجديدة (method/target)
+          // مع fallback للحقل القديم wallet_address لو رجع من نسخة سيرفر أقدم
+          const method = withdrawal.method || (withdrawal.wallet_address ? "bnb" : "binance");
+          const target = withdrawal.target || withdrawal.wallet_address || withdrawal.walletAddress || "";
+          const bnbAmount = withdrawal.bnb_amount ?? withdrawal.bnbAmount ?? null;
+          const bnbPriceUsd = withdrawal.bnb_price_usd ?? withdrawal.bnbPriceUsd ?? null;
+
           const rawStatus = withdrawal.status || withdrawal.withdrawal_status || "pending";
           const status = String(rawStatus).toLowerCase();
           const isPending = status === "pending";
+
+          const methodLabel = method === "binance" ? "Binance ID" : "BNB Wallet";
+          const targetDisplay = target ? escapeHtml(String(target)) : "غير محددة";
+
+          const bnbLine = method === "bnb" && bnbAmount !== null
+            ? `<p><strong>الكمية بـ BNB:</strong> ${Number(bnbAmount).toFixed(8)} BNB${bnbPriceUsd ? ` <span class="muted">(سعر BNB وقت الطلب: $${Number(bnbPriceUsd).toFixed(2)})</span>` : ""}</p>`
+            : "";
+
           return `
-            <div class="item">
+            <div class="withdrawal-card">
               <p><strong>المستخدم:</strong> @${escapeHtml(String(username))}</p>
               <p><strong>Telegram ID:</strong> <code>${escapeHtml(String(telegramId))}</code></p>
               <p><strong>المبلغ:</strong> $${Number(amount).toFixed(4)} USDT</p>
-              <p><strong>المحفظة:</strong> <code>${escapeHtml(String(wallet))}</code></p>
+              <p><strong>طريقة الاستلام:</strong> <span class="withdraw-method-tag">${methodLabel}</span></p>
+              <p><strong>${method === "binance" ? "Binance ID" : "عنوان المحفظة"}:</strong> <code>${targetDisplay}</code></p>
+              ${bnbLine}
               <p><strong>الحالة:</strong> <span class="status-${escapeHtml(status)}">${escapeHtml(String(rawStatus))}</span></p>
               ${isPending ? `
                 <div class="withdraw-actions">
@@ -788,7 +852,7 @@
           alert(result.error || "فشل إرسال الرسالة.");
         }
       } catch (err) { alert(err.message || "تعذر الاتصال بالسيرفر."); }
-}
+    }
 
     // ==========================================
     // دوال مساعدة
