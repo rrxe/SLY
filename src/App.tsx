@@ -35,14 +35,14 @@ type WalletState = {
 
 declare global {
   interface Window {
-    showAdsGalaxy?: () => Promise<{ request_id: string }>;
+    showGiga?: () => Promise<void>;
   }
 }
 
 export const ENERGY_MAX = 5;
 
-const ADSGALAXY_MINI_APP_ID = "32";
-const ADSGALAXY_SCRIPT_SRC = `https://app.adsgalaxy.online/sdk.js?id=${ADSGALAXY_MINI_APP_ID}`;
+const GIGAPUB_PROJECT_ID = "7665";
+const GIGAPUB_SCRIPT_SRC = `https://ad.gigapub.tech/script?id=${GIGAPUB_PROJECT_ID}`;
 const REPEAT_AD_DELAY_MS = 90000;
 
 function makeId() {
@@ -93,7 +93,7 @@ export default function App() {
   const [activities, setActivities] = useState<Activity[]>([]);
   const [booting, setBooting] = useState(true);
   const [bootError, setBootError] = useState("");
-  const [adsGalaxyReady, setAdsGalaxyReady] = useState(false);
+  const [gigapubReady, setGigapubReady] = useState(false);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const firstAdShownRef = useRef(false);
@@ -102,32 +102,32 @@ export default function App() {
     scrollRef.current?.scrollTo({ top: 0, left: 0, behavior: "auto" });
   }, [page]);
 
-  // تحميل SDK الخاص بـ AdsGalaxy
+  // تحميل SDK الخاص بـ GigaPub
   useEffect(() => {
     if (typeof window === "undefined") return;
 
-    if (window.showAdsGalaxy) {
-      setAdsGalaxyReady(true);
+    if (window.showGiga) {
+      setGigapubReady(true);
       return;
     }
 
     const existingScript = document.querySelector(
-      `script[src="${ADSGALAXY_SCRIPT_SRC}"]`
+      `script[src="${GIGAPUB_SCRIPT_SRC}"]`
     );
 
     if (existingScript) {
-      existingScript.addEventListener("load", () => setAdsGalaxyReady(true), { once: true });
+      existingScript.addEventListener("load", () => setGigapubReady(true), { once: true });
       return;
     }
 
     const script = document.createElement("script");
-    script.src = ADSGALAXY_SCRIPT_SRC;
+    script.src = GIGAPUB_SCRIPT_SRC;
     script.async = true;
 
-    script.onload = () => setAdsGalaxyReady(true);
+    script.onload = () => setGigapubReady(true);
     script.onerror = () => {
-      setAdsGalaxyReady(false);
-      console.log("Failed to load AdsGalaxy SDK");
+      setGigapubReady(false);
+      console.log("Failed to load GigaPub SDK");
     };
 
     document.head.appendChild(script);
@@ -138,19 +138,19 @@ export default function App() {
     };
   }, []);
 
-  const showAdsGalaxyAd = async () => {
-    if (!window.showAdsGalaxy) return;
+  const showGigaAd = async () => {
+    if (!window.showGiga) return;
     try {
-      await window.showAdsGalaxy();
+      await window.showGiga();
     } catch (err) {
-      console.log("AdsGalaxy ad skipped or unavailable", err);
+      console.log("GigaPub ad skipped or unavailable", err);
     }
   };
 
   // عرض الإعلان التلقائي (أول ضغطة ثم تكرار)
   useEffect(() => {
     if (booting || bootError || mode !== "lobby") return;
-    if (!adsGalaxyReady) return;
+    if (!gigapubReady) return;
 
     let cancelled = false;
     let repeatTimer: number | null = null;
@@ -159,14 +159,14 @@ export default function App() {
       if (repeatTimer) return;
       repeatTimer = window.setInterval(() => {
         if (cancelled) return;
-        void showAdsGalaxyAd();
+        void showGigaAd();
       }, REPEAT_AD_DELAY_MS);
     };
 
     const handleFirstInteraction = () => {
       if (firstAdShownRef.current) return;
       firstAdShownRef.current = true;
-      void showAdsGalaxyAd();
+      void showGigaAd();
       startRepeating();
       window.removeEventListener("click", handleFirstInteraction);
       window.removeEventListener("touchstart", handleFirstInteraction);
@@ -186,7 +186,7 @@ export default function App() {
       window.removeEventListener("touchstart", handleFirstInteraction);
       if (repeatTimer) window.clearInterval(repeatTimer);
     };
-  }, [booting, bootError, mode, adsGalaxyReady]);
+  }, [booting, bootError, mode, gigapubReady]);
 
   const loadPlayerData = async () => {
     const data = await callApi("/api/auth/me", { method: "GET" });
