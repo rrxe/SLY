@@ -3,7 +3,7 @@ import { authenticateRequest } from '../../lib/telegram-auth.js'
 
 const ENERGY_MAX = 5
 const ENERGY_REGEN_MS = 30 * 60 * 1000
-const REFERRAL_REWARD = 2000
+const REFERRAL_REWARD_USDT = 0.005
 
 function isSameUtcDay(dateA, dateB) {
   return (
@@ -54,19 +54,23 @@ async function getOrCreatePlayer(auth, telegramId) {
 
     player = created
 
-    // مكافأة للمُحيل عند أول إحالة ناجحة
+    // مكافأة للمُحيل عند أول إحالة ناجحة - USDT مباشرة بدل الكوينز
     if (referrerId) {
       const { data: referrer } = await supabase
         .from('players')
-        .select('coin')
+        .select('usdt_balance')
         .eq('telegram_id', referrerId)
         .single()
 
       if (referrer) {
+        const newUsdtBalance = Number(
+          ((referrer.usdt_balance || 0) + REFERRAL_REWARD_USDT).toFixed(6)
+        )
+
         await supabase
           .from('players')
           .update({
-            coin: (referrer.coin || 0) + REFERRAL_REWARD,
+            usdt_balance: newUsdtBalance,
           })
           .eq('telegram_id', referrerId)
       }
@@ -87,6 +91,9 @@ async function getOrCreatePlayer(auth, telegramId) {
 
 /**
  * يحسب الطاقة المسترجعة من الوقت الذي مر.
+ *
+ * كل 30 دقيقة = +1 Energy
+ * الحد الأقصى = 5
  */
 async function regenerateEnergy(player) {
   let energy = Number(player.energy ?? ENERGY_MAX)
@@ -107,6 +114,7 @@ async function regenerateEnergy(player) {
 
   const now = new Date()
 
+  // إذا الطاقة ممتلئة، ما نحتاج نحسب Regen
   if (energy >= ENERGY_MAX) {
     if (!player.energy_updated_at) {
       await supabase
@@ -139,9 +147,20 @@ async function regenerateEnergy(player) {
     energy + regenerated
   )
 
+  /*
+   * نحافظ على الوقت المتبقي الجزئي.
+   *
+   * مثال:
+   * مرّت 65 دقيقة
+   * يرجع +2
+   * ويبقى 5 دقائق محسوبة للـ Energy القادمة.
+   */
   const consumedRegenTime = regenerated * ENERGY_REGEN_MS
-  let newUpdatedAtMs = updatedAt.getTime() + consumedRegenTime
 
+  let newUpdatedAtMs =
+    updatedAt.getTime() + consumedRegenTime
+
+  // إذا وصلنا للـ 5/5 نبدأ عداد جديد من الآن
   if (newEnergy >= ENERGY_MAX) {
     newUpdatedAtMs = now.getTime()
   }
