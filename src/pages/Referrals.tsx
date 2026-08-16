@@ -42,8 +42,8 @@ export default function Referrals() {
       });
   }, []);
 
-  const botUsername = "SLYmint_bot";
-  const appShortName = "sly";
+  const botUsername = "SLYMintX_bot";
+  const appShortName = "start";
   const referralLink = user?.telegramId
     ? `https://t.me/${botUsername}/${appShortName}?startapp=ref_${user.telegramId}`
     : "";
