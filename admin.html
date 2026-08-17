@@ -434,7 +434,7 @@
       const totalEl = document.getElementById("statTotalPlayers");
       const onlineEl = document.getElementById("statOnlineNow");
       try {
-        const data = await apiCall("/api/admin/stats", "GET");
+        const data = await apiCall("/api/auth/me?admin=stats", "GET");
         if (data && data.success) {
           totalEl.textContent = Number(data.totalPlayers || 0).toLocaleString();
           onlineEl.textContent = Number(data.onlineNow || 0).toLocaleString();

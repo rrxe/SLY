@@ -4,6 +4,7 @@ import { authenticateRequest } from '../../lib/telegram-auth.js'
 const ENERGY_MAX = 5
 const ENERGY_REGEN_MS = 30 * 60 * 1000
 const REFERRAL_REWARD_USDT = 0.01
+const ONLINE_THRESHOLD_MINUTES = 2
 
 function isSameUtcDay(dateA, dateB) {
   return (
@@ -184,8 +185,8 @@ async function regenerateEnergy(player) {
 }
 
 // يحدث last_seen_at بصمت (بدون ما يفشل الطلب الأساسي لو صار خطأ هنا).
-// يستخدمه لوحة تحكم الأدمن لحساب عدد اللاعبين "أونلاين الآن" -
-// نعتبر أي لاعب نشط خلال آخر دقيقتين "متصل".
+// يستخدمه قسم الإحصائيات (admin=stats تحت) لحساب عدد اللاعبين
+// "أونلاين الآن" - نعتبر أي لاعب نشط خلال آخر دقيقتين "متصل".
 async function touchLastSeen(telegramId) {
   try {
     await supabase
@@ -205,7 +206,9 @@ export default async function handler(req, res) {
   }
 
   // ==========================================
-  // 1. نظام المشرف (الإدارة والحظر) المدمج
+  // 1. نظام المشرف (الإدارة والحظر والإحصائيات) المدمج
+  //    ملاحظة: كل ميزات الأدمن مجمّعة بنفس الملف عمداً (بدل ملفات
+  //    API منفصلة) لأن حساب Vercel محدود بـ 12 Serverless Function.
   // ==========================================
   const adminSecret = req.headers['x-admin-secret']
   
@@ -223,6 +226,34 @@ export default async function handler(req, res) {
         return res.status(500).json({ error: error.message })
       }
       return res.status(200).json({ success: true, users: data || [] })
+    }
+
+    // إحصائيات عامة: إجمالي اللاعبين + المتصلين الآن
+    if (req.method === 'GET' && req.query.admin === 'stats') {
+      const { count: totalPlayers, error: totalError } = await supabase
+        .from('players')
+        .select('telegram_id', { count: 'exact', head: true })
+
+      if (totalError) {
+        return res.status(500).json({ success: false, error: totalError.message })
+      }
+
+      const onlineSince = new Date(Date.now() - ONLINE_THRESHOLD_MINUTES * 60 * 1000).toISOString()
+
+      const { count: onlineNow, error: onlineError } = await supabase
+        .from('players')
+        .select('telegram_id', { count: 'exact', head: true })
+        .gte('last_seen_at', onlineSince)
+
+      if (onlineError) {
+        return res.status(500).json({ success: false, error: onlineError.message })
+      }
+
+      return res.status(200).json({
+        success: true,
+        totalPlayers: totalPlayers || 0,
+        onlineNow: onlineNow || 0,
+      })
     }
 
     // تطبيق الحظر أو فك الحظر
