@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { TadsWidget, renderTadsWidget } from "react-tads-widget";
 import "./App.css";
 
 import Background from "./components/Background";
@@ -95,6 +96,11 @@ export default function App() {
   const [bootError, setBootError] = useState("");
   const [gigapubReady, setGigapubReady] = useState(false);
 
+  // حالة بوابة السحب: عدد الإعلانات المشاهدة + وقت رجوع إمكانية السحب
+  const [withdrawalAdsWatched, setWithdrawalAdsWatched] = useState(0);
+  const [withdrawalAdsRequired, setWithdrawalAdsRequired] = useState(10);
+  const [nextWithdrawalAvailableAt, setNextWithdrawalAvailableAt] = useState<string | null>(null);
+
   const scrollRef = useRef<HTMLDivElement>(null);
   const firstAdShownRef = useRef(false);
 
@@ -102,7 +108,6 @@ export default function App() {
     scrollRef.current?.scrollTo({ top: 0, left: 0, behavior: "auto" });
   }, [page]);
 
-  // تحميل SDK الخاص بـ GigaPub
   useEffect(() => {
     if (typeof window === "undefined") return;
 
@@ -147,7 +152,6 @@ export default function App() {
     }
   };
 
-  // عرض الإعلان التلقائي (أول ضغطة ثم تكرار)
   useEffect(() => {
     if (booting || bootError || mode !== "lobby") return;
     if (!gigapubReady) return;
@@ -173,7 +177,6 @@ export default function App() {
     };
 
     if (firstAdShownRef.current) {
-      // الإعلان الأول ظهر سابقاً بهذه الجلسة، فقط نكمل جدولة التكرار
       startRepeating();
     } else {
       window.addEventListener("click", handleFirstInteraction);
@@ -199,6 +202,9 @@ export default function App() {
       walletAddress: data.walletAddress ?? null,
     }));
     setStreak(data.streak ?? 0);
+    setWithdrawalAdsWatched(data.withdrawalAdsWatched ?? 0);
+    setWithdrawalAdsRequired(data.withdrawalAdsRequired ?? 10);
+    setNextWithdrawalAvailableAt(data.nextWithdrawalAvailableAt ?? null);
 
     return data;
   };
@@ -317,6 +323,12 @@ export default function App() {
       });
 
       setWallet((prev) => ({ ...prev, usdt: data.usdtBalance }));
+      setWithdrawalAdsWatched(0);
+      // بعد نجاح السحب، السيرفر يفرض 24 ساعة جديدة - نحدث الحالة محلياً
+      // بتقريب بسيط، والقيمة الدقيقة ترجع أوتوماتيكياً بالتحديث الدوري
+      setNextWithdrawalAvailableAt(
+        new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+      );
 
       pushActivity(
         "Withdrawal requested",
@@ -327,6 +339,20 @@ export default function App() {
       );
     } catch (err: any) {
       pushActivity("Withdrawal failed", err.message, "info");
+    }
+  };
+
+  const handleWatchWithdrawAd = async () => {
+    try {
+      const data = await callApi("/api/auth/me", {
+        method: "POST",
+        body: JSON.stringify({ action: "watch_withdraw_ad" }),
+      });
+
+      setWithdrawalAdsWatched(data.withdrawalAdsWatched ?? 0);
+      setWithdrawalAdsRequired(data.withdrawalAdsRequired ?? 10);
+    } catch (err) {
+      console.log("watch_withdraw_ad failed", err);
     }
   };
 
@@ -494,6 +520,15 @@ export default function App() {
         </div>
       </main>
 
+      <TadsWidget
+        id={GIGAPUB_PROJECT_ID}
+        type="fullscreen"
+        debug={false}
+        onAdsNotFound={() => {
+          console.log("No TADS fullscreen ad found");
+        }}
+      />
+
       <BottomNav page={page} setPage={setPage} />
 
       <ExchangeModal
@@ -507,6 +542,10 @@ export default function App() {
         open={withdrawOpen}
         usdtBalance={wallet.usdt}
         walletAddress={wallet.walletAddress}
+        withdrawalAdsWatched={withdrawalAdsWatched}
+        withdrawalAdsRequired={withdrawalAdsRequired}
+        nextWithdrawalAvailableAt={nextWithdrawalAvailableAt}
+        onWatchAd={handleWatchWithdrawAd}
         onClose={() => setWithdrawOpen(false)}
         onConfirm={handleWithdraw}
       />

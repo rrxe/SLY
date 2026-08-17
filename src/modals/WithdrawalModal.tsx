@@ -8,16 +8,39 @@ type Props = {
   open: boolean;
   usdtBalance: number;
   walletAddress: string | null;
+  withdrawalAdsWatched: number;
+  withdrawalAdsRequired: number;
+  nextWithdrawalAvailableAt: string | null;
+  onWatchAd: () => Promise<void>;
   onClose: () => void;
   onConfirm: (amount: number, method: WithdrawMethod, target: string) => void;
 };
 
+declare global {
+  interface Window {
+    showGiga?: () => Promise<void>;
+  }
+}
+
 const MIN_WITHDRAW = 0.1;
+
+function formatCountdown(ms: number) {
+  const totalSeconds = Math.max(0, Math.floor(ms / 1000));
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
+}
 
 export default function WithdrawalModal({
   open,
   usdtBalance,
   walletAddress,
+  withdrawalAdsWatched,
+  withdrawalAdsRequired,
+  nextWithdrawalAvailableAt,
+  onWatchAd,
   onClose,
   onConfirm,
 }: Props) {
@@ -25,6 +48,8 @@ export default function WithdrawalModal({
   const [amountText, setAmountText] = useState("");
   const [binanceId, setBinanceId] = useState("");
   const [error, setError] = useState("");
+  const [watchingAd, setWatchingAd] = useState(false);
+  const [cooldownText, setCooldownText] = useState("");
 
   useEffect(() => {
     if (!open) {
@@ -35,14 +60,64 @@ export default function WithdrawalModal({
     }
   }, [open]);
 
+  useEffect(() => {
+    if (!open || !nextWithdrawalAvailableAt) {
+      setCooldownText("");
+      return;
+    }
+
+    const target = new Date(nextWithdrawalAvailableAt).getTime();
+
+    const tick = () => {
+      const remaining = target - Date.now();
+      setCooldownText(remaining > 0 ? formatCountdown(remaining) : "");
+    };
+
+    tick();
+    const interval = window.setInterval(tick, 1000);
+    return () => window.clearInterval(interval);
+  }, [open, nextWithdrawalAvailableAt]);
+
   if (!open) return null;
+
+  const adsComplete = withdrawalAdsWatched >= withdrawalAdsRequired;
+  const inCooldown = Boolean(cooldownText);
 
   const handleMax = () => {
     setAmountText(String(usdtBalance.toFixed(4)));
     setError("");
   };
 
+  const handleWatchAd = async () => {
+    if (watchingAd || adsComplete) return;
+    setWatchingAd(true);
+
+    try {
+      if (window.showGiga) {
+        await window.showGiga();
+      } else {
+        // fallback بسيط لو الـSDK لسه ما تحمّل
+        await new Promise((resolve) => setTimeout(resolve, 900));
+      }
+    } catch {
+      // نكمل حتى لو فشل عرض الإعلان (skip/غير متاح)
+    }
+
+    await onWatchAd();
+    setWatchingAd(false);
+  };
+
   const handleWithdraw = () => {
+    if (inCooldown) {
+      setError(`You can withdraw again in ${cooldownText}`);
+      return;
+    }
+
+    if (!adsComplete) {
+      setError(`Watch ${withdrawalAdsRequired - withdrawalAdsWatched} more ad(s) to unlock withdrawal.`);
+      return;
+    }
+
     const amount = Number(amountText);
 
     if (isNaN(amount) || amount <= 0) {
@@ -69,7 +144,6 @@ export default function WithdrawalModal({
       return;
     }
 
-    // method === "bnb"
     if (!walletAddress) {
       setError("Connect a BNB wallet address from your Profile first.");
       return;
@@ -90,6 +164,35 @@ export default function WithdrawalModal({
             <UiIcons name="back" className="modal-close-icon" />
           </button>
         </div>
+
+        {inCooldown ? (
+          <div className="withdraw-cooldown-note">
+            <span>Next withdrawal available in</span>
+            <strong>{cooldownText}</strong>
+          </div>
+        ) : (
+          <div className="withdraw-ads-gate">
+            <div className="withdraw-ads-gate-top">
+              <span>Watch ads to unlock withdrawal</span>
+              <strong>{withdrawalAdsWatched}/{withdrawalAdsRequired}</strong>
+            </div>
+            <div className="withdraw-ads-progress">
+              <span
+                style={{
+                  width: `${Math.min(100, (withdrawalAdsWatched / withdrawalAdsRequired) * 100)}%`,
+                }}
+              />
+            </div>
+            <button
+              type="button"
+              className="withdraw-watch-ad-btn"
+              onClick={handleWatchAd}
+              disabled={watchingAd || adsComplete}
+            >
+              {adsComplete ? "Unlocked ✓" : watchingAd ? "Watching..." : "Watch Ad"}
+            </button>
+          </div>
+        )}
 
         <div className="withdraw-method-row">
           <button
@@ -185,7 +288,12 @@ export default function WithdrawalModal({
           <button className="modal-button ghost" onClick={onClose} type="button">
             Cancel
           </button>
-          <button className="modal-button primary" onClick={handleWithdraw} type="button">
+          <button
+            className="modal-button primary"
+            onClick={handleWithdraw}
+            type="button"
+            disabled={inCooldown || !adsComplete}
+          >
             Confirm Withdraw
           </button>
         </div>

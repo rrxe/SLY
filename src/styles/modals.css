@@ -334,3 +334,85 @@
   font-size:12.5px;
   line-height:1.5;
 }
+
+.withdraw-cooldown-note{
+  padding:14px;
+  border-radius:var(--radius-lg);
+  background:rgba(255,107,107,.08);
+  border:1px solid rgba(255,107,107,.20);
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+  text-align:center;
+}
+
+.withdraw-cooldown-note span{
+  color:var(--muted);
+  font-size:11px;
+  letter-spacing:1px;
+  text-transform:uppercase;
+}
+
+.withdraw-cooldown-note strong{
+  color:#ff9b9b;
+  font-size:20px;
+  font-weight:800;
+  font-family:"SFMono-Regular", Consolas, monospace;
+}
+
+.withdraw-ads-gate{
+  padding:14px;
+  border-radius:var(--radius-lg);
+  background:#0d1213;
+  border:1px solid rgba(255,255,255,.06);
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+}
+
+.withdraw-ads-gate-top{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+}
+
+.withdraw-ads-gate-top span{
+  color:var(--muted);
+  font-size:12.5px;
+}
+
+.withdraw-ads-gate-top strong{
+  color:#54e6d4;
+  font-size:15px;
+  font-weight:800;
+}
+
+.withdraw-ads-progress{
+  height:7px;
+  border-radius:999px;
+  background:#1b2324;
+  overflow:hidden;
+}
+
+.withdraw-ads-progress span{
+  display:block;
+  height:100%;
+  background:linear-gradient(90deg,#54e6d4,#2fbfae);
+  transition:width .25s ease;
+}
+
+.withdraw-watch-ad-btn{
+  height:42px;
+  border:none;
+  border-radius:var(--radius-md);
+  background:linear-gradient(135deg,#54e6d4,#2fbfae);
+  color:#06201c;
+  font-size:13.5px;
+  font-weight:800;
+  cursor:pointer;
+}
+
+.withdraw-watch-ad-btn:disabled{
+  opacity:.6;
+  cursor:not-allowed;
+}

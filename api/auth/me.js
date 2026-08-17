@@ -5,6 +5,8 @@ const ENERGY_MAX = 5
 const ENERGY_REGEN_MS = 30 * 60 * 1000
 const REFERRAL_REWARD_USDT = 0.01
 const ONLINE_THRESHOLD_MINUTES = 2
+const WITHDRAWAL_COOLDOWN_MS = 24 * 60 * 60 * 1000
+const REQUIRED_WITHDRAW_ADS = 10
 
 function isSameUtcDay(dateA, dateB) {
   return (
@@ -32,6 +34,7 @@ async function getOrCreatePlayer(auth, telegramId) {
       energy: ENERGY_MAX,
       energy_updated_at: new Date().toISOString(),
       is_banned: false,
+      withdrawal_ads_watched: 0,
     }
 
     let referrerId = null
@@ -148,18 +151,8 @@ async function regenerateEnergy(player) {
     energy + regenerated
   )
 
-  /*
-   * نحافظ على الوقت المتبقي الجزئي.
-   *
-   * مثال:
-   * مرّت 65 دقيقة
-   * يرجع +2
-   * ويبقى 5 دقائق محسوبة للـ Energy القادمة.
-   */
   const consumedRegenTime = regenerated * ENERGY_REGEN_MS
-
-  let newUpdatedAtMs =
-    updatedAt.getTime() + consumedRegenTime
+  let newUpdatedAtMs = updatedAt.getTime() + consumedRegenTime
 
   // إذا وصلنا للـ 5/5 نبدأ عداد جديد من الآن
   if (newEnergy >= ENERGY_MAX) {
@@ -185,8 +178,6 @@ async function regenerateEnergy(player) {
 }
 
 // يحدث last_seen_at بصمت (بدون ما يفشل الطلب الأساسي لو صار خطأ هنا).
-// يستخدمه قسم الإحصائيات (admin=stats تحت) لحساب عدد اللاعبين
-// "أونلاين الآن" - نعتبر أي لاعب نشط خلال آخر دقيقتين "متصل".
 async function touchLastSeen(telegramId) {
   try {
     await supabase
@@ -207,14 +198,11 @@ export default async function handler(req, res) {
 
   // ==========================================
   // 1. نظام المشرف (الإدارة والحظر والإحصائيات) المدمج
-  //    ملاحظة: كل ميزات الأدمن مجمّعة بنفس الملف عمداً (بدل ملفات
-  //    API منفصلة) لأن حساب Vercel محدود بـ 12 Serverless Function.
   // ==========================================
   const adminSecret = req.headers['x-admin-secret']
   
   if (adminSecret && process.env.ADMIN_SECRET && adminSecret === process.env.ADMIN_SECRET) {
     
-    // جلب قائمة اللاعبين للمشرف
     if (req.method === 'GET' && req.query.admin === 'users') {
       const { data, error } = await supabase
         .from('players')
@@ -228,7 +216,6 @@ export default async function handler(req, res) {
       return res.status(200).json({ success: true, users: data || [] })
     }
 
-    // إحصائيات عامة: إجمالي اللاعبين + المتصلين الآن
     if (req.method === 'GET' && req.query.admin === 'stats') {
       const { count: totalPlayers, error: totalError } = await supabase
         .from('players')
@@ -256,7 +243,6 @@ export default async function handler(req, res) {
       })
     }
 
-    // تطبيق الحظر أو فك الحظر
     if (req.method === 'POST') {
       const { action, targetTelegramId } = req.body || {}
       
@@ -268,7 +254,6 @@ export default async function handler(req, res) {
         const isBanned = action === 'admin_ban'
         const updateData = { is_banned: isBanned }
         
-        // تصفير الرصيد عند الحظر لمنعه من تصدر الليدربورد
         if (isBanned) {
           updateData.coin = 0
         }
@@ -304,20 +289,17 @@ export default async function handler(req, res) {
   try {
     const player = await getOrCreatePlayer(auth, telegramId)
 
-    // ===== الجدار الناري للحسابات المحظورة =====
     if (player.is_banned) {
       return res.status(403).json({
         error: 'ACCOUNT_BANNED',
         message: 'تم حظر حسابك بسبب استخدام سكربتات أو طرق غير مشروعة.'
       })
     }
-    // ==========================================
 
-    // نحدث "آخر ظهور" لكل طلب موثّق ناجح (GET أو POST)، بصمت
     touchLastSeen(telegramId)
 
     /*
-     * CONSUME ENERGY
+     * CONSUME ENERGY / WATCH WITHDRAWAL AD
      */
     if (req.method === 'POST') {
       const { action } = req.body || {}
@@ -360,6 +342,25 @@ export default async function handler(req, res) {
         })
       }
 
+      // شاهد إعلان لفك قفل السحب (بوابة، بدون مكافأة كوينز)
+      if (action === 'watch_withdraw_ad') {
+        const currentWatched = Number(player.withdrawal_ads_watched || 0)
+        const newWatched = Math.min(REQUIRED_WITHDRAW_ADS, currentWatched + 1)
+
+        const { error: updateError } = await supabase
+          .from('players')
+          .update({ withdrawal_ads_watched: newWatched })
+          .eq('telegram_id', telegramId)
+
+        if (updateError) throw updateError
+
+        return res.status(200).json({
+          success: true,
+          withdrawalAdsWatched: newWatched,
+          withdrawalAdsRequired: REQUIRED_WITHDRAW_ADS,
+        })
+      }
+
       return res.status(400).json({
         error: 'Unknown action',
       })
@@ -386,6 +387,14 @@ export default async function handler(req, res) {
       })
       .eq('referred_by', telegramId)
 
+    let nextWithdrawalAvailableAt = null
+    if (player.last_withdrawal_at) {
+      const nextTime = new Date(player.last_withdrawal_at).getTime() + WITHDRAWAL_COOLDOWN_MS
+      if (nextTime > Date.now()) {
+        nextWithdrawalAvailableAt = new Date(nextTime).toISOString()
+      }
+    }
+
     return res.status(200).json({
       telegramId: String(player.telegram_id),
       username: player.username,
@@ -403,6 +412,10 @@ export default async function handler(req, res) {
       energyMax: ENERGY_MAX,
       energyUpdatedAt: energyState.energyUpdatedAt,
       energyRegenMinutes: 30,
+
+      withdrawalAdsWatched: player.withdrawal_ads_watched || 0,
+      withdrawalAdsRequired: REQUIRED_WITHDRAW_ADS,
+      nextWithdrawalAvailableAt,
     })
   } catch (err) {
     console.error('auth/me error:', err)
