@@ -152,7 +152,6 @@
       font-weight: 800;
       white-space: nowrap;
     }
-
     .badge-active {
       color: #8be59a;
       background: rgba(76, 175, 80, 0.13);
@@ -188,6 +187,7 @@
       background: rgba(255, 255, 255, 0.025);
       border-radius: 12px;
     }
+
     .field-hint {
       font-size: 12px;
       color: #8fa0b6;
@@ -275,7 +275,7 @@
       font-size: 12px;
     }
 
-    /* بطاقات طلبات السحب (كانت ناقصة تماماً - سبب الشكل بدون تنسيق) */
+    /* بطاقات طلبات السحب */
     .withdrawal-card {
       background: rgba(255, 255, 255, 0.035);
       border: 1px solid rgba(255, 255, 255, 0.07);
@@ -326,7 +326,6 @@
 </head>
 <body>
   <h2>SLY Admin Panel</h2>
-
   
   <div class="card">
     <h3>إعدادات المشرف</h3>
@@ -439,6 +438,7 @@
       setAdminStatus("تم حفظ مفتاح المشرف محلياً.", "success");
     }
 
+
     function getSecret() {
       return (localStorage.getItem("admin_secret") || document.getElementById("adminSecretInput").value || "").trim();
     }
@@ -476,12 +476,14 @@
 
     // ==========================================
     // دوال الإحصائيات العامة
+    // (تستخدم /api/auth/me?admin=stats عمداً - بدون ملف API
+    // منفصل، لأن حساب Vercel محدود بـ 12 Serverless Function)
     // ==========================================
     async function loadStats() {
       const totalEl = document.getElementById("statTotalPlayers");
       const onlineEl = document.getElementById("statOnlineNow");
       try {
-        const data = await apiCall("/api/admin/stats", "GET");
+        const data = await apiCall("/api/auth/me?admin=stats", "GET");
         if (data && data.success) {
           totalEl.textContent = Number(data.totalPlayers || 0).toLocaleString();
           onlineEl.textContent = Number(data.onlineNow || 0).toLocaleString();
@@ -637,7 +639,7 @@
       if (!confirm("⚠️ تحذير\n\nسيتم حذف المهمة نهائياً من قاعدة البيانات.\nلا يمكن التراجع عن هذا الإجراء.\n\nهل أنت متأكد؟")) return;
       try {
         const result = await apiCall("/api/tasks/manage", "POST", { id: taskId, action: "delete" });
-        if (result.success) { alert("تم حذف المهمة نهائياً."); await loadTasks(); } else alert(result.error || "فشل حذف المهمة.");
+        if (result.success) { alert("تم حذف المهمة نهائياً."); await loadTasks(); } else alert(result.error || "فشل حذف المهمة."); 
       } catch (err) { alert(err.message || "تعذر حذف المهمة."); }
     }
 
@@ -700,7 +702,6 @@
         } else {
           alert(result.error || "فشل حفظ المهمة.");
         }
-
       } catch (err) { alert(err.message || "تعذر الاتصال بالسيرفر."); }
     }
     // ======== نهاية التعديل ========
@@ -723,8 +724,6 @@
           const username = withdrawal.username || "NoUsername";
           const amount = withdrawal.amount_usdt ?? withdrawal.withdrawal_amount ?? withdrawal.amount ?? 0;
 
-          // طريقة السحب: binance أو bnb. نتعامل مع الحقول الجديدة (method/target)
-          // مع fallback للحقل القديم wallet_address لو رجع من نسخة سيرفر أقدم
           const method = withdrawal.method || (withdrawal.wallet_address ? "bnb" : "binance");
           const target = withdrawal.target || withdrawal.wallet_address || withdrawal.walletAddress || "";
           const bnbAmount = withdrawal.bnb_amount ?? withdrawal.bnbAmount ?? null;
@@ -740,6 +739,7 @@
           const bnbLine = method === "bnb" && bnbAmount !== null
             ? `<p><strong>الكمية بـ BNB:</strong> ${Number(bnbAmount).toFixed(8)} BNB${bnbPriceUsd ? ` <span class="muted">(سعر BNB وقت الطلب: $${Number(bnbPriceUsd).toFixed(2)})</span>` : ""}</p>`
             : "";
+
 
           return `
             <div class="withdrawal-card">
@@ -798,7 +798,6 @@
       const reader = new FileReader();
       reader.onload = () => {
         const result = String(reader.result || "");
-        // result يجي بصيغة "data:image/jpeg;base64,XXXXX" - نفصل الجزء بعد الفاصلة بس
         const base64 = result.split(",")[1] || "";
         broadcastPhotoBase64 = base64;
         broadcastPhotoMime = file.type;
