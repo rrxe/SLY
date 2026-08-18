@@ -37,6 +37,7 @@ type WalletState = {
 declare global {
   interface Window {
     showGiga?: () => Promise<void>;
+    showAdsGalaxy?: () => Promise<any>;
   }
 }
 
@@ -44,6 +45,10 @@ export const ENERGY_MAX = 5;
 
 const GIGAPUB_PROJECT_ID = "7665";
 const GIGAPUB_SCRIPT_SRC = `https://ad.gigapub.tech/script?id=${GIGAPUB_PROJECT_ID}`;
+
+const ADSGALAXY_MINI_APP_ID = "32";
+const ADSGALAXY_SCRIPT_SRC = `https://app.adsgalaxy.online/sdk.js?id=${ADSGALAXY_MINI_APP_ID}`;
+
 const REPEAT_AD_DELAY_MS = 40000;
 
 function makeId() {
@@ -95,6 +100,7 @@ export default function App() {
   const [booting, setBooting] = useState(true);
   const [bootError, setBootError] = useState("");
   const [gigapubReady, setGigapubReady] = useState(false);
+  const [adsGalaxyReady, setAdsGalaxyReady] = useState(false);
 
   // حالة بوابة السحب: عدد الإعلانات المشاهدة + وقت رجوع إمكانية السحب
   const [withdrawalAdsWatched, setWithdrawalAdsWatched] = useState(0);
@@ -108,6 +114,7 @@ export default function App() {
     scrollRef.current?.scrollTo({ top: 0, left: 0, behavior: "auto" });
   }, [page]);
 
+  // تحميل SDK الخاص بـ GigaPub
   useEffect(() => {
     if (typeof window === "undefined") return;
 
@@ -133,6 +140,42 @@ export default function App() {
     script.onerror = () => {
       setGigapubReady(false);
       console.log("Failed to load GigaPub SDK");
+    };
+
+    document.head.appendChild(script);
+
+    return () => {
+      script.onload = null;
+      script.onerror = null;
+    };
+  }, []);
+
+  // تحميل SDK الخاص بـ AdsGalaxy
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    if (window.showAdsGalaxy) {
+      setAdsGalaxyReady(true);
+      return;
+    }
+
+    const existingScript = document.querySelector(
+      `script[src="${ADSGALAXY_SCRIPT_SRC}"]`
+    );
+
+    if (existingScript) {
+      existingScript.addEventListener("load", () => setAdsGalaxyReady(true), { once: true });
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.src = ADSGALAXY_SCRIPT_SRC;
+    script.async = true;
+
+    script.onload = () => setAdsGalaxyReady(true);
+    script.onerror = () => {
+      setAdsGalaxyReady(false);
+      console.log("Failed to load AdsGalaxy SDK");
     };
 
     document.head.appendChild(script);
@@ -324,8 +367,6 @@ export default function App() {
 
       setWallet((prev) => ({ ...prev, usdt: data.usdtBalance }));
       setWithdrawalAdsWatched(0);
-      // بعد نجاح السحب، السيرفر يفرض 24 ساعة جديدة - نحدث الحالة محلياً
-      // بتقريب بسيط، والقيمة الدقيقة ترجع أوتوماتيكياً بالتحديث الدوري
       setNextWithdrawalAvailableAt(
         new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
       );
