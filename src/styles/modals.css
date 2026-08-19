@@ -416,3 +416,10 @@
   opacity:.6;
   cursor:not-allowed;
 }
+
+.modal-card{
+  max-height: calc(100vh - 36px);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+}
