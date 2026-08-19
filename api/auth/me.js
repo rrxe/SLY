@@ -3,7 +3,7 @@ import { authenticateRequest } from '../../lib/telegram-auth.js'
 
 const ENERGY_MAX = 5
 const ENERGY_REGEN_MS = 30 * 60 * 1000
-const REFERRAL_REWARD_USDT = 0.02
+const REFERRAL_REWARD_USDT = 0.01
 const ONLINE_THRESHOLD_MINUTES = 2
 const WITHDRAWAL_COOLDOWN_MS = 24 * 60 * 60 * 1000
 const REQUIRED_WITHDRAW_ADS = 10
