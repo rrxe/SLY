@@ -147,7 +147,7 @@ export default function Home({
           </div>
           <div className="hero-meta-divider" />
           <div className="hero-meta-item">
-            <strong>50</strong>
+            <strong>100</strong>
             <span>Per Wave</span>
           </div>
           <div className="hero-meta-divider" />
