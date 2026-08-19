@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import UiIcons from "../components/UiIcons";
 import "../styles/modals.css";
 
@@ -16,11 +16,29 @@ type Props = {
   onConfirm: (amount: number, method: WithdrawMethod, target: string) => void;
 };
 
+type AdsgramShowResult = {
+  done: boolean;
+  description: string;
+  state: "load" | "render" | "playing" | "destroy";
+  error: boolean;
+};
+
+type AdsgramController = {
+  show: () => Promise<AdsgramShowResult>;
+};
+
 declare global {
   interface Window {
-    showGiga?: () => Promise<void>;
+    Adsgram?: {
+      init: (opts: { blockId: string }) => AdsgramController;
+    };
   }
 }
+
+// نفس البلوك المستخدم في بقية التطبيق
+const ADSGRAM_BLOCK_ID = "int-43434";
+// مدة عرض الإعلان قبل احتساب المشاهدة (إعلانات Adsgram لا يمكن تخطّيها)
+const AD_WATCH_DURATION_MS = 10000;
 
 const MIN_WITHDRAW = 0.1;
 
@@ -50,6 +68,7 @@ export default function WithdrawalModal({
   const [error, setError] = useState("");
   const [watchingAd, setWatchingAd] = useState(false);
   const [cooldownText, setCooldownText] = useState("");
+  const adsgramControllerRef = useRef<AdsgramController | null>(null);
 
   useEffect(() => {
     if (!open) {
@@ -93,15 +112,22 @@ export default function WithdrawalModal({
     setWatchingAd(true);
 
     try {
-      if (window.showGiga) {
-        await window.showGiga();
-      } else {
-        // fallback بسيط لو الـSDK لسه ما تحمّل
-        await new Promise((resolve) => setTimeout(resolve, 900));
+      if (!adsgramControllerRef.current && window.Adsgram) {
+        adsgramControllerRef.current = window.Adsgram.init({ blockId: ADSGRAM_BLOCK_ID });
+      }
+
+      if (adsgramControllerRef.current) {
+        // نطلق عرض الإعلان، وبما أنه لا يمكن تخطيه ننتظر مدة العرض القياسية بالتوازي
+        adsgramControllerRef.current.show().catch(() => {
+          // نتجاهل الفشل (عدم توفر إعلان...) ونكمل بعد المهلة أدناه
+        });
       }
     } catch {
-      // نكمل حتى لو فشل عرض الإعلان (skip/غير متاح)
+      // نكمل حتى لو فشل تهيئة الإعلان
     }
+
+    // إعلانات Adsgram لا تدعم التخطي، فننتظر مدة العرض قبل احتساب المشاهدة
+    await new Promise((resolve) => setTimeout(resolve, AD_WATCH_DURATION_MS));
 
     await onWatchAd();
     setWatchingAd(false);
