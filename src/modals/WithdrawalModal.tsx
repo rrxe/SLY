@@ -35,10 +35,11 @@ declare global {
   }
 }
 
-// نفس البلوك المستخدم في بقية التطبيق
-const ADSGRAM_BLOCK_ID = "int-43434";
-// مدة عرض الإعلان قبل احتساب المشاهدة (إعلانات Adsgram لا يمكن تخطّيها)
-const AD_WATCH_DURATION_MS = 10000;
+// AdsGram Reward Block ID
+const ADSGRAM_REWARD_BLOCK_ID = "43643";
+
+// مهلة بسيطة بعد انتهاء الإعلان لإعطاء الـwebhook وقت يوصل
+const WEBHOOK_GRACE_MS = 2500;
 
 const MIN_WITHDRAW = 0.1;
 
@@ -93,7 +94,9 @@ export default function WithdrawalModal({
     };
 
     tick();
+
     const interval = window.setInterval(tick, 1000);
+
     return () => window.clearInterval(interval);
   }, [open, nextWithdrawalAvailableAt]);
 
@@ -109,28 +112,36 @@ export default function WithdrawalModal({
 
   const handleWatchAd = async () => {
     if (watchingAd || adsComplete) return;
+
     setWatchingAd(true);
+    setError("");
 
     try {
       if (!adsgramControllerRef.current && window.Adsgram) {
-        adsgramControllerRef.current = window.Adsgram.init({ blockId: ADSGRAM_BLOCK_ID });
-      }
-
-      if (adsgramControllerRef.current) {
-        // نطلق عرض الإعلان، وبما أنه لا يمكن تخطيه ننتظر مدة العرض القياسية بالتوازي
-        adsgramControllerRef.current.show().catch(() => {
-          // نتجاهل الفشل (عدم توفر إعلان...) ونكمل بعد المهلة أدناه
+        adsgramControllerRef.current = window.Adsgram.init({
+          blockId: ADSGRAM_REWARD_BLOCK_ID,
         });
       }
+
+      if (!adsgramControllerRef.current) {
+        setError("Ads are currently unavailable. Please try again.");
+        setWatchingAd(false);
+        return;
+      }
+
+      await adsgramControllerRef.current.show();
+
+      // ننتظر قليلاً حتى يصل webhook من AdsGram
+      await new Promise((resolve) =>
+        setTimeout(resolve, WEBHOOK_GRACE_MS)
+      );
+
+      await onWatchAd();
     } catch {
-      // نكمل حتى لو فشل تهيئة الإعلان
+      setError("The ad could not be completed. Please try again.");
+    } finally {
+      setWatchingAd(false);
     }
-
-    // إعلانات Adsgram لا تدعم التخطي، فننتظر مدة العرض قبل احتساب المشاهدة
-    await new Promise((resolve) => setTimeout(resolve, AD_WATCH_DURATION_MS));
-
-    await onWatchAd();
-    setWatchingAd(false);
   };
 
   const handleWithdraw = () => {
@@ -140,7 +151,11 @@ export default function WithdrawalModal({
     }
 
     if (!adsComplete) {
-      setError(`Watch ${withdrawalAdsRequired - withdrawalAdsWatched} more ad(s) to unlock withdrawal.`);
+      setError(
+        `Watch ${
+          withdrawalAdsRequired - withdrawalAdsWatched
+        } more ad(s) to unlock withdrawal.`
+      );
       return;
     }
 
@@ -150,10 +165,12 @@ export default function WithdrawalModal({
       setError("Please enter a valid amount.");
       return;
     }
+
     if (amount > usdtBalance) {
       setError("Insufficient USDT balance.");
       return;
     }
+
     if (amount < MIN_WITHDRAW) {
       setError(`Minimum withdrawal is ${MIN_WITHDRAW} USDT.`);
       return;
@@ -161,10 +178,12 @@ export default function WithdrawalModal({
 
     if (method === "binance") {
       const trimmed = binanceId.trim();
+
       if (!trimmed) {
         setError("Enter your Binance ID.");
         return;
       }
+
       onConfirm(amount, "binance", trimmed);
       onClose();
       return;
@@ -174,19 +193,28 @@ export default function WithdrawalModal({
       setError("Connect a BNB wallet address from your Profile first.");
       return;
     }
+
     onConfirm(amount, "bnb", walletAddress);
     onClose();
   };
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal-card exchange-modal" onClick={(e) => e.stopPropagation()}>
+      <div
+        className="modal-card exchange-modal"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="modal-head">
           <div>
             <p>Withdraw</p>
             <h2>Withdraw USDT</h2>
           </div>
-          <button className="modal-close" onClick={onClose} aria-label="Close modal">
+
+          <button
+            className="modal-close"
+            onClick={onClose}
+            aria-label="Close modal"
+          >
             <UiIcons name="back" className="modal-close-icon" />
           </button>
         </div>
@@ -200,22 +228,34 @@ export default function WithdrawalModal({
           <div className="withdraw-ads-gate">
             <div className="withdraw-ads-gate-top">
               <span>Watch ads to unlock withdrawal</span>
-              <strong>{withdrawalAdsWatched}/{withdrawalAdsRequired}</strong>
+
+              <strong>
+                {withdrawalAdsWatched}/{withdrawalAdsRequired}
+              </strong>
             </div>
+
             <div className="withdraw-ads-progress">
               <span
                 style={{
-                  width: `${Math.min(100, (withdrawalAdsWatched / withdrawalAdsRequired) * 100)}%`,
+                  width: `${Math.min(
+                    100,
+                    (withdrawalAdsWatched / withdrawalAdsRequired) * 100
+                  )}%`,
                 }}
               />
             </div>
+
             <button
               type="button"
               className="withdraw-watch-ad-btn"
               onClick={handleWatchAd}
               disabled={watchingAd || adsComplete}
             >
-              {adsComplete ? "Unlocked ✓" : watchingAd ? "Watching..." : "Watch Ad"}
+              {adsComplete
+                ? "Unlocked ✓"
+                : watchingAd
+                ? "Watching..."
+                : "Watch Ad"}
             </button>
           </div>
         )}
@@ -223,7 +263,9 @@ export default function WithdrawalModal({
         <div className="withdraw-method-row">
           <button
             type="button"
-            className={`withdraw-method-btn ${method === "binance" ? "active" : ""}`}
+            className={`withdraw-method-btn ${
+              method === "binance" ? "active" : ""
+            }`}
             onClick={() => {
               setMethod("binance");
               setError("");
@@ -231,9 +273,12 @@ export default function WithdrawalModal({
           >
             Binance ID (USDT)
           </button>
+
           <button
             type="button"
-            className={`withdraw-method-btn ${method === "bnb" ? "active" : ""}`}
+            className={`withdraw-method-btn ${
+              method === "bnb" ? "active" : ""
+            }`}
             onClick={() => {
               setMethod("bnb");
               setError("");
@@ -246,6 +291,7 @@ export default function WithdrawalModal({
         {method === "binance" ? (
           <label className="exchange-field">
             <span>Binance ID</span>
+
             <div className="exchange-input-row">
               <input
                 type="text"
@@ -263,13 +309,16 @@ export default function WithdrawalModal({
             {walletAddress ? (
               <>
                 <span>Payout to connected wallet</span>
+
                 <strong>
-                  {walletAddress.slice(0, 6)}...{walletAddress.slice(-4)}
+                  {walletAddress.slice(0, 6)}...
+                  {walletAddress.slice(-4)}
                 </strong>
               </>
             ) : (
               <span className="withdraw-bnb-warning">
-                No wallet connected. Connect a BEP20 address from your Profile page first.
+                No wallet connected. Connect a BEP20 address from your Profile
+                page first.
               </span>
             )}
           </div>
@@ -277,6 +326,7 @@ export default function WithdrawalModal({
 
         <label className="exchange-field">
           <span>Amount (USDT)</span>
+
           <div className="exchange-input-row">
             <input
               type="number"
@@ -287,7 +337,12 @@ export default function WithdrawalModal({
               }}
               placeholder={`Min ${MIN_WITHDRAW} USDT`}
             />
-            <button className="exchange-max" onClick={handleMax} type="button">
+
+            <button
+              className="exchange-max"
+              onClick={handleMax}
+              type="button"
+            >
               MAX
             </button>
           </div>
@@ -304,16 +359,26 @@ export default function WithdrawalModal({
           {error ? (
             <p style={{ color: "#ff6b6b" }}>{error}</p>
           ) : method === "binance" ? (
-            <p>Funds will be sent as USDT directly to your Binance account ID.</p>
+            <p>
+              Funds will be sent as USDT directly to your Binance account ID.
+            </p>
           ) : (
-            <p>Funds will be sent as BNB (converted at live price) to your connected wallet — cheaper network fees outside Binance.</p>
+            <p>
+              Funds will be sent as BNB (converted at live price) to your
+              connected wallet — cheaper network fees outside Binance.
+            </p>
           )}
         </div>
 
         <div className="modal-actions">
-          <button className="modal-button ghost" onClick={onClose} type="button">
+          <button
+            className="modal-button ghost"
+            onClick={onClose}
+            type="button"
+          >
             Cancel
           </button>
+
           <button
             className="modal-button primary"
             onClick={handleWithdraw}

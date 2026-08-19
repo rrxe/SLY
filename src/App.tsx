@@ -405,16 +405,16 @@ export default function App() {
   };
 
   const handleWatchWithdrawAd = async () => {
+    // العداد ما عاد يزيد من هنا مباشرة - AdsGram يستدعي webhook آمن
+    // (adsgram_reward) بعد ما يتأكد المستخدم شاهد الإعلان فعلاً،
+    // وهذا يحدث القيمة الحقيقية بقاعدة البيانات. هنا بس نحدث الحالة
+    // المحلية من السيرفر (مصدر الحقيقة الوحيد).
     try {
-      const data = await callApi("/api/auth/me", {
-        method: "POST",
-        body: JSON.stringify({ action: "watch_withdraw_ad" }),
-      });
-
+      const data = await loadPlayerData();
       setWithdrawalAdsWatched(data.withdrawalAdsWatched ?? 0);
       setWithdrawalAdsRequired(data.withdrawalAdsRequired ?? 10);
     } catch (err) {
-      console.log("watch_withdraw_ad failed", err);
+      console.log("refresh after watch ad failed", err);
     }
   };
 

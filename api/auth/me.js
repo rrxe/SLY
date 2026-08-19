@@ -58,7 +58,6 @@ async function getOrCreatePlayer(auth, telegramId) {
 
     player = created
 
-    // مكافأة للمُحيل عند أول إحالة ناجحة - USDT مباشرة بدل الكوينز
     if (referrerId) {
       const { data: referrer } = await supabase
         .from('players')
@@ -93,12 +92,6 @@ async function getOrCreatePlayer(auth, telegramId) {
   return player
 }
 
-/**
- * يحسب الطاقة المسترجعة من الوقت الذي مر.
- *
- * كل 30 دقيقة = +1 Energy
- * الحد الأقصى = 5
- */
 async function regenerateEnergy(player) {
   let energy = Number(player.energy ?? ENERGY_MAX)
 
@@ -118,7 +111,6 @@ async function regenerateEnergy(player) {
 
   const now = new Date()
 
-  // إذا الطاقة ممتلئة، ما نحتاج نحسب Regen
   if (energy >= ENERGY_MAX) {
     if (!player.energy_updated_at) {
       await supabase
@@ -154,7 +146,6 @@ async function regenerateEnergy(player) {
   const consumedRegenTime = regenerated * ENERGY_REGEN_MS
   let newUpdatedAtMs = updatedAt.getTime() + consumedRegenTime
 
-  // إذا وصلنا للـ 5/5 نبدأ عداد جديد من الآن
   if (newEnergy >= ENERGY_MAX) {
     newUpdatedAtMs = now.getTime()
   }
@@ -177,7 +168,6 @@ async function regenerateEnergy(player) {
   }
 }
 
-// يحدث last_seen_at بصمت (بدون ما يفشل الطلب الأساسي لو صار خطأ هنا).
 async function touchLastSeen(telegramId) {
   try {
     await supabase
@@ -190,6 +180,54 @@ async function touchLastSeen(telegramId) {
 }
 
 export default async function handler(req, res) {
+  // ==========================================
+  // 0. Webhook آمن من AdsGram (Reward URL) - يستدعيه سيرفر AdsGram
+  //    مباشرة (server-to-server) بعد ما يتأكدوا المستخدم شاهد
+  //    إعلان Reward فعلاً لين النهاية. هذا هو المصدر الوحيد
+  //    الموثوق لزيادة عداد withdrawal_ads_watched - الفرونت اند
+  //    ما عاد يقدر يزيده مباشرة (كان ثغرة أمنية سابقاً).
+  // ==========================================
+  if (req.method === 'GET' && req.query.adsgram_reward === '1') {
+    const providedSecret = req.query.secret
+    const expectedSecret = process.env.ADSGRAM_REWARD_SECRET
+
+    if (!expectedSecret || providedSecret !== expectedSecret) {
+      return res.status(401).json({ success: false, error: 'Unauthorized' })
+    }
+
+    const telegramId = req.query.userid
+    if (!telegramId) {
+      return res.status(400).json({ success: false, error: 'Missing userid' })
+    }
+
+    try {
+      const { data: player, error: fetchError } = await supabase
+        .from('players')
+        .select('withdrawal_ads_watched')
+        .eq('telegram_id', telegramId)
+        .single()
+
+      if (fetchError || !player) {
+        return res.status(404).json({ success: false, error: 'Player not found' })
+      }
+
+      const currentWatched = Number(player.withdrawal_ads_watched || 0)
+      const newWatched = Math.min(REQUIRED_WITHDRAW_ADS, currentWatched + 1)
+
+      const { error: updateError } = await supabase
+        .from('players')
+        .update({ withdrawal_ads_watched: newWatched })
+        .eq('telegram_id', telegramId)
+
+      if (updateError) throw updateError
+
+      return res.status(200).json({ success: true, withdrawalAdsWatched: newWatched })
+    } catch (err) {
+      console.error('adsgram_reward webhook error:', err)
+      return res.status(500).json({ success: false, error: err.message })
+    }
+  }
+
   if (req.method !== 'GET' && req.method !== 'POST') {
     return res.status(405).json({
       error: 'Method not allowed',
@@ -299,7 +337,7 @@ export default async function handler(req, res) {
     touchLastSeen(telegramId)
 
     /*
-     * CONSUME ENERGY / WATCH WITHDRAWAL AD
+     * CONSUME ENERGY
      */
     if (req.method === 'POST') {
       const { action } = req.body || {}
@@ -339,25 +377,6 @@ export default async function handler(req, res) {
           energyMax: ENERGY_MAX,
           energyRegenMinutes: 30,
           energyUpdatedAt: updated.energy_updated_at,
-        })
-      }
-
-      // شاهد إعلان لفك قفل السحب (بوابة، بدون مكافأة كوينز)
-      if (action === 'watch_withdraw_ad') {
-        const currentWatched = Number(player.withdrawal_ads_watched || 0)
-        const newWatched = Math.min(REQUIRED_WITHDRAW_ADS, currentWatched + 1)
-
-        const { error: updateError } = await supabase
-          .from('players')
-          .update({ withdrawal_ads_watched: newWatched })
-          .eq('telegram_id', telegramId)
-
-        if (updateError) throw updateError
-
-        return res.status(200).json({
-          success: true,
-          withdrawalAdsWatched: newWatched,
-          withdrawalAdsRequired: REQUIRED_WITHDRAW_ADS,
         })
       }
 
