@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { TadsWidget, renderTadsWidget } from "react-tads-widget";
 import "./App.css";
 
 import Background from "./components/Background";
@@ -34,17 +33,30 @@ type WalletState = {
   walletAddress: string | null;
 };
 
+type AdsgramShowResult = {
+  done: boolean;
+  description: string;
+  state: "load" | "render" | "playing" | "destroy";
+  error: boolean;
+};
+
+type AdsgramController = {
+  show: () => Promise<AdsgramShowResult>;
+};
+
 declare global {
   interface Window {
-    showGiga?: () => Promise<void>;
     showAdsGalaxy?: () => Promise<any>;
+    Adsgram?: {
+      init: (opts: { blockId: string }) => AdsgramController;
+    };
   }
 }
 
 export const ENERGY_MAX = 5;
 
-const GIGAPUB_PROJECT_ID = "7665";
-const GIGAPUB_SCRIPT_SRC = `https://ad.gigapub.tech/script?id=${GIGAPUB_PROJECT_ID}`;
+const ADSGRAM_BLOCK_ID = "int-43434";
+const ADSGRAM_SCRIPT_SRC = "https://sad.adsgram.ai/js/sad.min.js";
 
 const ADSGALAXY_MINI_APP_ID = "32";
 const ADSGALAXY_SCRIPT_SRC = `https://app.adsgalaxy.online/sdk.js?id=${ADSGALAXY_MINI_APP_ID}`;
@@ -99,8 +111,9 @@ export default function App() {
   const [activities, setActivities] = useState<Activity[]>([]);
   const [booting, setBooting] = useState(true);
   const [bootError, setBootError] = useState("");
-  const [gigapubReady, setGigapubReady] = useState(false);
+  const [adsgramReady, setAdsgramReady] = useState(false);
   const [adsGalaxyReady, setAdsGalaxyReady] = useState(false);
+  const adsgramControllerRef = useRef<AdsgramController | null>(null);
 
   // حالة بوابة السحب: عدد الإعلانات المشاهدة + وقت رجوع إمكانية السحب
   const [withdrawalAdsWatched, setWithdrawalAdsWatched] = useState(0);
@@ -114,32 +127,40 @@ export default function App() {
     scrollRef.current?.scrollTo({ top: 0, left: 0, behavior: "auto" });
   }, [page]);
 
-  // تحميل SDK الخاص بـ GigaPub
+  // تحميل SDK الخاص بـ AdsGram
   useEffect(() => {
     if (typeof window === "undefined") return;
 
-    if (window.showGiga) {
-      setGigapubReady(true);
+    const initAdsgram = () => {
+      if (!window.Adsgram) return;
+      if (!adsgramControllerRef.current) {
+        adsgramControllerRef.current = window.Adsgram.init({ blockId: ADSGRAM_BLOCK_ID });
+      }
+      setAdsgramReady(true);
+    };
+
+    if (window.Adsgram) {
+      initAdsgram();
       return;
     }
 
     const existingScript = document.querySelector(
-      `script[src="${GIGAPUB_SCRIPT_SRC}"]`
+      `script[src="${ADSGRAM_SCRIPT_SRC}"]`
     );
 
     if (existingScript) {
-      existingScript.addEventListener("load", () => setGigapubReady(true), { once: true });
+      existingScript.addEventListener("load", initAdsgram, { once: true });
       return;
     }
 
     const script = document.createElement("script");
-    script.src = GIGAPUB_SCRIPT_SRC;
+    script.src = ADSGRAM_SCRIPT_SRC;
     script.async = true;
 
-    script.onload = () => setGigapubReady(true);
+    script.onload = initAdsgram;
     script.onerror = () => {
-      setGigapubReady(false);
-      console.log("Failed to load GigaPub SDK");
+      setAdsgramReady(false);
+      console.log("Failed to load AdsGram SDK");
     };
 
     document.head.appendChild(script);
@@ -186,18 +207,18 @@ export default function App() {
     };
   }, []);
 
-  const showGigaAd = async () => {
-    if (!window.showGiga) return;
+  const showAdsgramAd = async () => {
+    if (!adsgramControllerRef.current) return;
     try {
-      await window.showGiga();
+      await adsgramControllerRef.current.show();
     } catch (err) {
-      console.log("GigaPub ad skipped or unavailable", err);
+      console.log("AdsGram ad skipped or unavailable", err);
     }
   };
 
   useEffect(() => {
     if (booting || bootError || mode !== "lobby") return;
-    if (!gigapubReady) return;
+    if (!adsgramReady) return;
 
     let cancelled = false;
     let repeatTimer: number | null = null;
@@ -206,14 +227,14 @@ export default function App() {
       if (repeatTimer) return;
       repeatTimer = window.setInterval(() => {
         if (cancelled) return;
-        void showGigaAd();
+        void showAdsgramAd();
       }, REPEAT_AD_DELAY_MS);
     };
 
     const handleFirstInteraction = () => {
       if (firstAdShownRef.current) return;
       firstAdShownRef.current = true;
-      void showGigaAd();
+      void showAdsgramAd();
       startRepeating();
       window.removeEventListener("click", handleFirstInteraction);
       window.removeEventListener("touchstart", handleFirstInteraction);
@@ -232,7 +253,7 @@ export default function App() {
       window.removeEventListener("touchstart", handleFirstInteraction);
       if (repeatTimer) window.clearInterval(repeatTimer);
     };
-  }, [booting, bootError, mode, gigapubReady]);
+  }, [booting, bootError, mode, adsgramReady]);
 
   const loadPlayerData = async () => {
     const data = await callApi("/api/auth/me", { method: "GET" });
@@ -560,15 +581,6 @@ export default function App() {
           )}
         </div>
       </main>
-
-      <TadsWidget
-        id={GIGAPUB_PROJECT_ID}
-        type="fullscreen"
-        debug={false}
-        onAdsNotFound={() => {
-          console.log("No TADS fullscreen ad found");
-        }}
-      />
 
       <BottomNav page={page} setPage={setPage} />
 
