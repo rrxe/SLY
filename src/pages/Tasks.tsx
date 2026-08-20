@@ -28,10 +28,33 @@ const CLAIM_DELAY_MS = 5000;
 const SMART_AD_CLAIM_DELAY_MS = 5000;
 const ADS_GALAXY_CLAIM_DELAY_MS = 0;
 const GIGA_PUB_CLAIM_DELAY_MS = 0;  // صفر لـ GigaPub
+const ADSGRAM_CLAIM_DELAY_MS = 0;   // صفر لـ AdsGram أيضاً (إعلان لا يمكن تخطيه)
 
 // ثوابت GigaPub
 const GIGAPUB_PROJECT_ID = "7665";
 const GIGAPUB_SCRIPT_SRC = `https://ad.gigapub.tech/script?id=${GIGAPUB_PROJECT_ID}`;
+
+// بلوك AdsGram الخاص بمهام المشاهدة (نفس نوع البلوك المستخدم في بوابة السحب)
+const ADSGRAM_TASK_BLOCK_ID = "43643";
+
+type AdsgramShowResult = {
+  done: boolean;
+  description: string;
+  state: "load" | "render" | "playing" | "destroy";
+  error: boolean;
+};
+
+type AdsgramController = {
+  show: () => Promise<AdsgramShowResult>;
+};
+
+declare global {
+  interface Window {
+    Adsgram?: {
+      init: (opts: { blockId: string }) => AdsgramController;
+    };
+  }
+}
 
 function loadProgress(): ProgressMap {
   if (typeof window === "undefined") return {};
@@ -69,10 +92,15 @@ function isGigaPubTask(task: ServerTask) {
   return String(task.task_type || "").toLowerCase() === "giga_pub";
 }
 
+function isAdsGramTask(task: ServerTask) {
+  return String(task.task_type || "").toLowerCase() === "adsgram";
+}
+
 function getClaimDelayMs(task: ServerTask) {
   if (isSmartAdTask(task)) return SMART_AD_CLAIM_DELAY_MS;
   if (isGigaPubTask(task)) return GIGA_PUB_CLAIM_DELAY_MS;   // صفر
   if (isAdsGalaxyTask(task)) return ADS_GALAXY_CLAIM_DELAY_MS;
+  if (isAdsGramTask(task)) return ADSGRAM_CLAIM_DELAY_MS;    // صفر
   return CLAIM_DELAY_MS;
 }
 
@@ -105,6 +133,7 @@ export default function Tasks({ onRewardCoins }: Props) {
   const [claimingIds, setClaimingIds] = useState<Record<string, boolean>>({});
   const [gigapubReady, setGigapubReady] = useState(false);
   const claimTimersRef = useRef<Record<string, number>>({});
+  const adsgramControllerRef = useRef<AdsgramController | null>(null);
 
   useEffect(() => { window.scrollTo({ top: 0, left: 0, behavior: "auto" }); }, []);
 
@@ -235,7 +264,7 @@ export default function Tasks({ onRewardCoins }: Props) {
     if (progress.completed >= progress.max_completions) { setToast("Task limit reached."); return; }
 
     const taskType = String(task.task_type || "").toLowerCase();
-    const allowedTypes = ["normal", "smart_ad", "ads_galaxy", "join_channel", "custom", "giga_pub"];
+    const allowedTypes = ["normal", "smart_ad", "ads_galaxy", "join_channel", "custom", "giga_pub", "adsgram"];
     if (!allowedTypes.includes(taskType)) {
       setToast("Invalid task type.");
       return;
@@ -293,6 +322,29 @@ export default function Tasks({ onRewardCoins }: Props) {
         return;
       }
 
+      // معالجة AdsGram
+      if (isAdsGramTask(task)) {
+        if (!adsgramControllerRef.current && window.Adsgram) {
+          adsgramControllerRef.current = window.Adsgram.init({ blockId: ADSGRAM_TASK_BLOCK_ID });
+        }
+        if (!adsgramControllerRef.current) {
+          setToast("AdsGram ad not ready yet. Try again.");
+          return;
+        }
+        try {
+          await adsgramControllerRef.current.show();
+        } catch (err: any) {
+          setToast(err?.message || "Ad failed to load.");
+          return;
+        }
+        await postTaskAction({ taskId: task.id, action: "open" });
+        const openedAt = Date.now();
+        setOpenedAtById((prev) => ({ ...prev, [id]: openedAt }));
+        scheduleAutoClaim(task, openedAt);
+        setToast("Ad watched. Claiming coins...");
+        return;
+      }
+
       // المهام العادية (مع رابط)
       const url = String(task.url || "").trim();
       if (!url) { setToast("Task has no URL."); return; }
@@ -329,6 +381,7 @@ export default function Tasks({ onRewardCoins }: Props) {
             const isSmartAd = isSmartAdTask(task);
             const isAdsGalaxy = isAdsGalaxyTask(task);
             const isGigaPub = isGigaPubTask(task);
+            const isAdsGram = isAdsGramTask(task);
             const claimDelayMs = getClaimDelayMs(task);
             const progress = progressById[id] || { completed: 0, max_completions: Math.max(1, Number(task.max_completions || 1)) };
             const openedAt = openedAtById[id];
@@ -342,6 +395,7 @@ export default function Tasks({ onRewardCoins }: Props) {
             if (isSmartAd) taskTypeLabel = "smart ad";
             else if (isAdsGalaxy) taskTypeLabel = "ads galaxy";
             else if (isGigaPub) taskTypeLabel = "giga pub";
+            else if (isAdsGram) taskTypeLabel = "adsgram";
 
             return (
               <article key={id} className={`task-row ${claimedAll ? "done" : ""}`}>
@@ -358,7 +412,7 @@ export default function Tasks({ onRewardCoins }: Props) {
                     {claimedAll ? (
                       <span className="green">Completed</span>
                     ) : !opened ? (
-                      <span className="gray">{isAdsGalaxy || isGigaPub ? "Watch the ad to earn coins" : "Open link first"}</span>
+                      <span className="gray">{isAdsGalaxy || isGigaPub || isAdsGram ? "Watch the ad to earn coins" : "Open link first"}</span>
                     ) : !waitedEnough ? (
                       <span className="blue">Sending coins in {Math.ceil((claimDelayMs - (Date.now() - openedAt)) / 1000)} seconds</span>
                     ) : (
@@ -371,7 +425,7 @@ export default function Tasks({ onRewardCoins }: Props) {
                     <span style={{ color: "#fff" }}>{progress.completed}</span> <span style={{ opacity: 0.5 }}> / {progress.max_completions}</span>
                   </div>
                   <button type="button" className="task-btn join" onClick={() => handleOpenTask(task)} disabled={opening || claimedAll}>
-                    {opening ? (isAdsGalaxy || isGigaPub ? "Loading ad..." : "Opening...") : (isAdsGalaxy || isGigaPub ? "Watch Ad" : "Open")}
+                    {opening ? (isAdsGalaxy || isGigaPub || isAdsGram ? "Loading ad..." : "Opening...") : (isAdsGalaxy || isGigaPub || isAdsGram ? "Watch Ad" : "Open")}
                   </button>
                 </div>
               </article>

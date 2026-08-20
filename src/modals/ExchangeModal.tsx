@@ -9,6 +9,28 @@ type Props = {
   onConfirm: (amountCoins: number) => void;
 };
 
+type AdsgramShowResult = {
+  done: boolean;
+  description: string;
+  state: "load" | "render" | "playing" | "destroy";
+  error: boolean;
+};
+
+type AdsgramController = {
+  show: () => Promise<AdsgramShowResult>;
+};
+
+declare global {
+  interface Window {
+    Adsgram?: {
+      init: (opts: { blockId: string }) => AdsgramController;
+    };
+  }
+}
+
+// نفس بلوك المكافأة (reward) المستخدم في بوابة السحب — يتحقق من اكتمال مشاهدة الإعلان فعلياً
+const ADSGRAM_BLOCK_ID = "43643";
+
 const MIN_COINS = 1000;
 const RATE = 0.0000025;
 
@@ -18,7 +40,7 @@ export default function ExchangeModal({
   onClose,
   onConfirm,
 }: Props) {
-  const timerRef = useRef<number | null>(null);
+  const adsgramControllerRef = useRef<AdsgramController | null>(null);
   const [amountText, setAmountText] = useState("5000");
   const [stage, setStage] = useState<"edit" | "watching">("edit");
   const [message, setMessage] = useState("");
@@ -34,12 +56,6 @@ export default function ExchangeModal({
     setStage("edit");
     setMessage("");
   }, [open, coins]);
-
-  useEffect(() => {
-    return () => {
-      if (timerRef.current) window.clearTimeout(timerRef.current);
-    };
-  }, []);
 
   const amount = useMemo(() => {
     const parsed = Math.floor(Number(amountText));
@@ -57,7 +73,7 @@ export default function ExchangeModal({
     setMessage("");
   };
 
-  const handleWatchAd = () => {
+  const handleWatchAd = async () => {
     if (!canExchange) {
       setMessage(
         coins < MIN_COINS
@@ -70,10 +86,26 @@ export default function ExchangeModal({
     setStage("watching");
     setMessage("Watching ad...");
 
-    timerRef.current = window.setTimeout(() => {
-      onConfirm(amount);
-      onClose();
-    }, 1400);
+    try {
+      if (!adsgramControllerRef.current && window.Adsgram) {
+        adsgramControllerRef.current = window.Adsgram.init({ blockId: ADSGRAM_BLOCK_ID });
+      }
+
+      if (!adsgramControllerRef.current) {
+        setMessage("Ads are currently unavailable. Please try again.");
+        setStage("edit");
+        return;
+      }
+
+      await adsgramControllerRef.current.show();
+    } catch {
+      setMessage("The ad could not be completed. Please try again.");
+      setStage("edit");
+      return;
+    }
+
+    onConfirm(amount);
+    onClose();
   };
 
   const handleBackdrop = () => {

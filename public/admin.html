@@ -375,6 +375,7 @@
       <option value="smart_ad">إعلان ذكي (Smart Ad)</option>
       <option value="ads_galaxy">إعلان AdsGalaxy</option>
       <option value="giga_pub">إعلان GigaPub</option>
+      <option value="adsgram">إعلان AdsGram</option>
       <option value="join_channel">الانضمام إلى قناة</option>
       <option value="custom">مهمة مخصصة</option>
     </select>
@@ -654,8 +655,8 @@
       // تحويل custom إلى normal للتخزين
       const normalizedTaskType = taskType === "custom" ? "normal" : taskType;
 
-      // أنواع الإعلانات التي لا تحتاج رابطاً (بما فيها giga_pub)
-      const adTypes = ["smart_ad", "ads_galaxy", "giga_pub"];
+      // أنواع الإعلانات التي لا تحتاج رابطاً (بما فيها giga_pub و adsgram)
+      const adTypes = ["smart_ad", "ads_galaxy", "giga_pub", "adsgram"];
       const isAdType = adTypes.includes(normalizedTaskType);
 
       // معالجة الرابط: للإعلانات نسمح بأن يكون فارغاً
