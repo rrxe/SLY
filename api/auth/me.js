@@ -4,6 +4,7 @@ import { authenticateRequest } from '../../lib/telegram-auth.js'
 const ENERGY_MAX = 5
 const ENERGY_REGEN_MS = 30 * 60 * 1000
 const REFERRAL_REWARD_USDT = 0.01
+const REFERRAL_REQUIRED_TASKS = 10
 const ONLINE_THRESHOLD_MINUTES = 2
 const WITHDRAWAL_COOLDOWN_MS = 24 * 60 * 60 * 1000
 const REQUIRED_WITHDRAW_ADS = 10
@@ -58,26 +59,8 @@ async function getOrCreatePlayer(auth, telegramId) {
 
     player = created
 
-    if (referrerId) {
-      const { data: referrer } = await supabase
-        .from('players')
-        .select('usdt_balance')
-        .eq('telegram_id', referrerId)
-        .single()
-
-      if (referrer) {
-        const newUsdtBalance = Number(
-          ((referrer.usdt_balance || 0) + REFERRAL_REWARD_USDT).toFixed(6)
-        )
-
-        await supabase
-          .from('players')
-          .update({
-            usdt_balance: newUsdtBalance,
-          })
-          .eq('telegram_id', referrerId)
-      }
-    }
+    // لا يتم منح مكافأة الإحالة عند التسجيل.
+    // تُمنح فقط بعد إكمال المُحال 10 Tasks.
   } else if (auth.username && auth.username !== player.username) {
     await supabase
       .from('players')
@@ -90,6 +73,111 @@ async function getOrCreatePlayer(auth, telegramId) {
   }
 
   return player
+}
+
+async function processQualifiedReferral(player) {
+  if (
+    !player?.referred_by ||
+    player.referral_reward_claimed === true
+  ) {
+    return false
+  }
+
+  const { data: completions, error: completionsError } = await supabase
+    .from('task_completions')
+    .select('completion_count')
+    .eq('telegram_id', player.telegram_id)
+
+  if (completionsError) {
+    throw completionsError
+  }
+
+  const completedTasks = (completions || []).reduce((sum, row) => {
+    const count = Number(row.completion_count || 0)
+
+    if (!Number.isFinite(count) || count <= 0) {
+      return sum
+    }
+
+    return sum + Math.trunc(count)
+  }, 0)
+
+  if (completedTasks < REFERRAL_REQUIRED_TASKS) {
+    return false
+  }
+
+  const { data: claimedRows, error: claimError } = await supabase
+    .from('players')
+    .update({
+      referral_reward_claimed: true,
+    })
+    .eq('telegram_id', player.telegram_id)
+    .eq('referral_reward_claimed', false)
+    .not('referred_by', 'is', null)
+    .select('referred_by')
+    .limit(1)
+
+  if (claimError) {
+    throw claimError
+  }
+
+  const claimed = Array.isArray(claimedRows)
+    ? claimedRows[0]
+    : null
+
+  if (!claimed?.referred_by) {
+    return false
+  }
+
+  const { data: referrer, error: referrerError } = await supabase
+    .from('players')
+    .select('telegram_id, usdt_balance')
+    .eq('telegram_id', claimed.referred_by)
+    .single()
+
+  if (referrerError || !referrer) {
+    await supabase
+      .from('players')
+      .update({
+        referral_reward_claimed: false,
+      })
+      .eq('telegram_id', player.telegram_id)
+
+    if (referrerError) {
+      throw referrerError
+    }
+
+    return false
+  }
+
+  const newUsdtBalance = Number(
+    ((referrer.usdt_balance || 0) + REFERRAL_REWARD_USDT).toFixed(6)
+  )
+
+  const { error: rewardError } = await supabase
+    .from('players')
+    .update({
+      usdt_balance: newUsdtBalance,
+    })
+    .eq('telegram_id', referrer.telegram_id)
+
+  if (rewardError) {
+    await supabase
+      .from('players')
+      .update({
+        referral_reward_claimed: false,
+      })
+      .eq('telegram_id', player.telegram_id)
+
+    throw rewardError
+  }
+
+  console.log(
+    `[Referral] ${player.telegram_id} qualified after ${completedTasks} tasks. ` +
+    `Referrer ${referrer.telegram_id} received ${REFERRAL_REWARD_USDT} USDT.`
+  )
+
+  return true
 }
 
 async function regenerateEnergy(player) {
@@ -327,6 +415,8 @@ export default async function handler(req, res) {
   try {
     const player = await getOrCreatePlayer(auth, telegramId)
 
+    await processQualifiedReferral(player)
+
     if (player.is_banned) {
       return res.status(403).json({
         error: 'ACCOUNT_BANNED',
@@ -405,6 +495,7 @@ export default async function handler(req, res) {
         head: true,
       })
       .eq('referred_by', telegramId)
+      .eq('referral_reward_claimed', true)
 
     let nextWithdrawalAvailableAt = null
     if (player.last_withdrawal_at) {

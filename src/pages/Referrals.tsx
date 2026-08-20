@@ -50,8 +50,10 @@ export default function Referrals() {
 
   const handleCopy = () => {
     if (!referralLink) return;
+
     navigator.clipboard.writeText(referralLink);
     setCopied(true);
+
     setTimeout(() => setCopied(false), 2000);
   };
 
@@ -72,12 +74,25 @@ export default function Referrals() {
         }}
       >
         <h2 style={{ margin: 0, fontSize: 28 }}>Referrals</h2>
-        <p style={{ marginTop: 8, color: "#8fa19e", lineHeight: 1.6 }}>
-          Referral rewards, 0.01 USDT first bonus, and extra bonuses for invited users.
+
+        <p
+          style={{
+            marginTop: 8,
+            color: "#8fa19e",
+            lineHeight: 1.6,
+          }}
+        >
+          Your referral is accepted after the invited user completes{" "}
+          <strong style={{ color: "#eaf4f2" }}>10 tasks</strong>.
+          Every successful task completion counts, including repeatable tasks.
+          You receive <strong style={{ color: "#54e6d4" }}>0.01 USDT</strong>{" "}
+          when the referral is confirmed.
         </p>
 
         {loading ? (
-          <p style={{ color: "#8fa19e", marginTop: 20 }}>Loading...</p>
+          <p style={{ color: "#8fa19e", marginTop: 20 }}>
+            Loading...
+          </p>
         ) : (
           <div style={{ marginTop: 20 }}>
             <div
@@ -88,9 +103,15 @@ export default function Referrals() {
                 marginBottom: 16,
               }}
             >
-              <span style={{ fontSize: 14, color: "#8fa19e" }}>
-                Total Referrals
+              <span
+                style={{
+                  fontSize: 14,
+                  color: "#8fa19e",
+                }}
+              >
+                Qualified Referrals
               </span>
+
               <div
                 style={{
                   fontSize: 24,
@@ -100,6 +121,51 @@ export default function Referrals() {
                 }}
               >
                 {user?.referralsCount || 0}
+              </div>
+            </div>
+
+            <div
+              style={{
+                background: "rgba(84,230,212,.06)",
+                border: "1px solid rgba(84,230,212,.12)",
+                padding: 14,
+                borderRadius: 14,
+                marginBottom: 16,
+              }}
+            >
+              <div
+                style={{
+                  fontSize: 14,
+                  fontWeight: 700,
+                  color: "#eaf4f2",
+                }}
+              >
+                Referral requirement
+              </div>
+
+              <div
+                style={{
+                  marginTop: 6,
+                  fontSize: 13,
+                  color: "#8fa19e",
+                  lineHeight: 1.6,
+                }}
+              >
+                The invited user must complete{" "}
+                <strong style={{ color: "#54e6d4" }}>10 tasks</strong>{" "}
+                before the referral is counted.
+              </div>
+
+              <div
+                style={{
+                  marginTop: 4,
+                  fontSize: 12,
+                  color: "#72817e",
+                  lineHeight: 1.5,
+                }}
+              >
+                Example: 5 normal tasks + 5 ad completions = 10 tasks.
+                Repeating an allowed task also counts each successful completion.
               </div>
             </div>
 
@@ -114,12 +180,17 @@ export default function Referrals() {
               >
                 Your Referral Link
               </label>
+
               <div style={{ display: "flex", gap: 8 }}>
                 <input
                   type="text"
                   readOnly
                   value={referralLink}
-                  placeholder={user ? "" : "Referral link unavailable"}
+                  placeholder={
+                    user
+                      ? ""
+                      : "Referral link unavailable"
+                  }
                   style={{
                     flex: 1,
                     background: "#101516",
@@ -131,21 +202,22 @@ export default function Referrals() {
                     outline: "none",
                   }}
                 />
+
                 <button
                   onClick={handleCopy}
                   disabled={!referralLink}
                   style={{
                     background: !referralLink
                       ? "rgba(84,230,212,0.30)"
-                      : copied
-                      ? "#54e6d4"
                       : "#54e6d4",
                     color: "#06201c",
                     border: "none",
                     borderRadius: 12,
                     padding: "0 18px",
                     fontWeight: "bold",
-                    cursor: !referralLink ? "not-allowed" : "pointer",
+                    cursor: !referralLink
+                      ? "not-allowed"
+                      : "pointer",
                     transition: "background 0.2s",
                   }}
                 >
