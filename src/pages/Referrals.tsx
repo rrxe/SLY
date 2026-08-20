@@ -83,7 +83,7 @@ export default function Referrals() {
           }}
         >
           Your referral is accepted after the invited user completes{" "}
-          <strong style={{ color: "#eaf4f2" }}>10 tasks</strong>.
+          <strong style={{ color: "#eaf4f2" }}>4 tasks</strong>.
           Every successful task completion counts, including repeatable tasks.
           You receive <strong style={{ color: "#54e6d4" }}>0.01 USDT</strong>{" "}
           when the referral is confirmed.
@@ -152,7 +152,7 @@ export default function Referrals() {
                 }}
               >
                 The invited user must complete{" "}
-                <strong style={{ color: "#54e6d4" }}>10 tasks</strong>{" "}
+                <strong style={{ color: "#54e6d4" }}>4 tasks</strong>{" "}
                 before the referral is counted.
               </div>
 
@@ -164,7 +164,7 @@ export default function Referrals() {
                   lineHeight: 1.5,
                 }}
               >
-                Example: 5 normal tasks + 5 ad completions = 10 tasks.
+                Example: 5 normal tasks + 5 ad completions = 4 tasks.
                 Repeating an allowed task also counts each successful completion.
               </div>
             </div>
