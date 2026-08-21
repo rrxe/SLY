@@ -164,7 +164,7 @@ export default function Referrals() {
                   lineHeight: 1.5,
                 }}
               >
-                Example: 5 normal tasks + 5 ad completions = 4 tasks.
+                Example: 3 normal tasks + 2 ad completions = 5 tasks.
                 Repeating an allowed task also counts each successful completion.
               </div>
             </div>
