@@ -23,7 +23,11 @@ type Props = {
 type AdsgramShowResult = {
   done: boolean;
   description: string;
-  state: "load" | "render" | "playing" | "destroy";
+  state:
+    | "load"
+    | "render"
+    | "playing"
+    | "destroy";
   error: boolean;
 };
 
@@ -64,8 +68,7 @@ function formatCountdown(ms: number) {
     (totalSeconds % 3600) / 60
   );
 
-  const seconds =
-    totalSeconds % 60;
+  const seconds = totalSeconds % 60;
 
   const pad = (n: number) =>
     String(n).padStart(2, "0");
@@ -232,7 +235,6 @@ export default function WithdrawalModal({
 
       await adsgramControllerRef.current.show();
 
-      // ننتظر قليلاً حتى يصل webhook من AdsGram
       await new Promise((resolve) =>
         setTimeout(
           resolve,
@@ -255,6 +257,7 @@ export default function WithdrawalModal({
       setError(
         `You can withdraw again in ${cooldownText}`
       );
+
       return;
     }
 
@@ -273,12 +276,13 @@ export default function WithdrawalModal({
       Number(amountText);
 
     if (
-      isNaN(amount) ||
+      !Number.isFinite(amount) ||
       amount <= 0
     ) {
       setError(
         "Please enter a valid amount."
       );
+
       return;
     }
 
@@ -288,6 +292,7 @@ export default function WithdrawalModal({
       setError(
         `Minimum withdrawal is ${MIN_WITHDRAW} USDT.`
       );
+
       return;
     }
 
@@ -297,6 +302,7 @@ export default function WithdrawalModal({
       setError(
         `Maximum withdrawal is ${MAX_WITHDRAW} USDT per withdrawal.`
       );
+
       return;
     }
 
@@ -306,6 +312,7 @@ export default function WithdrawalModal({
       setError(
         "Insufficient USDT balance."
       );
+
       return;
     }
 
@@ -319,6 +326,7 @@ export default function WithdrawalModal({
         setError(
           "Enter your Binance ID."
         );
+
         return;
       }
 
@@ -338,6 +346,7 @@ export default function WithdrawalModal({
       setError(
         "Connect a BNB wallet address from your Profile first."
       );
+
       return;
     }
 
@@ -418,7 +427,10 @@ export default function WithdrawalModal({
                     100,
                     (
                       withdrawalAdsWatched /
-                      withdrawalAdsRequired
+                      Math.max(
+                        1,
+                        withdrawalAdsRequired
+                      )
                     ) * 100
                   )}%`,
                 }}
