@@ -13,7 +13,11 @@ type Props = {
   nextWithdrawalAvailableAt: string | null;
   onWatchAd: () => Promise<void>;
   onClose: () => void;
-  onConfirm: (amount: number, method: WithdrawMethod, target: string) => void;
+  onConfirm: (
+    amount: number,
+    method: WithdrawMethod,
+    target: string
+  ) => void;
 };
 
 type AdsgramShowResult = {
@@ -30,7 +34,9 @@ type AdsgramController = {
 declare global {
   interface Window {
     Adsgram?: {
-      init: (opts: { blockId: string }) => AdsgramController;
+      init: (opts: {
+        blockId: string;
+      }) => AdsgramController;
     };
   }
 }
@@ -42,13 +48,28 @@ const ADSGRAM_REWARD_BLOCK_ID = "43643";
 const WEBHOOK_GRACE_MS = 2500;
 
 const MIN_WITHDRAW = 0.1;
+const MAX_WITHDRAW = 0.2;
 
 function formatCountdown(ms: number) {
-  const totalSeconds = Math.max(0, Math.floor(ms / 1000));
-  const hours = Math.floor(totalSeconds / 3600);
-  const minutes = Math.floor((totalSeconds % 3600) / 60);
-  const seconds = totalSeconds % 60;
-  const pad = (n: number) => String(n).padStart(2, "0");
+  const totalSeconds = Math.max(
+    0,
+    Math.floor(ms / 1000)
+  );
+
+  const hours = Math.floor(
+    totalSeconds / 3600
+  );
+
+  const minutes = Math.floor(
+    (totalSeconds % 3600) / 60
+  );
+
+  const seconds =
+    totalSeconds % 60;
+
+  const pad = (n: number) =>
+    String(n).padStart(2, "0");
+
   return `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
 }
 
@@ -63,13 +84,26 @@ export default function WithdrawalModal({
   onClose,
   onConfirm,
 }: Props) {
-  const [method, setMethod] = useState<WithdrawMethod>("binance");
-  const [amountText, setAmountText] = useState("");
-  const [binanceId, setBinanceId] = useState("");
-  const [error, setError] = useState("");
-  const [watchingAd, setWatchingAd] = useState(false);
-  const [cooldownText, setCooldownText] = useState("");
-  const adsgramControllerRef = useRef<AdsgramController | null>(null);
+  const [method, setMethod] =
+    useState<WithdrawMethod>("binance");
+
+  const [amountText, setAmountText] =
+    useState("");
+
+  const [binanceId, setBinanceId] =
+    useState("");
+
+  const [error, setError] =
+    useState("");
+
+  const [watchingAd, setWatchingAd] =
+    useState(false);
+
+  const [cooldownText, setCooldownText] =
+    useState("");
+
+  const adsgramControllerRef =
+    useRef<AdsgramController | null>(null);
 
   useEffect(() => {
     if (!open) {
@@ -81,50 +115,117 @@ export default function WithdrawalModal({
   }, [open]);
 
   useEffect(() => {
-    if (!open || !nextWithdrawalAvailableAt) {
+    if (
+      !open ||
+      !nextWithdrawalAvailableAt
+    ) {
       setCooldownText("");
       return;
     }
 
-    const target = new Date(nextWithdrawalAvailableAt).getTime();
+    const target =
+      new Date(
+        nextWithdrawalAvailableAt
+      ).getTime();
 
     const tick = () => {
-      const remaining = target - Date.now();
-      setCooldownText(remaining > 0 ? formatCountdown(remaining) : "");
+      const remaining =
+        target - Date.now();
+
+      setCooldownText(
+        remaining > 0
+          ? formatCountdown(remaining)
+          : ""
+      );
     };
 
     tick();
 
-    const interval = window.setInterval(tick, 1000);
+    const interval =
+      window.setInterval(
+        tick,
+        1000
+      );
 
-    return () => window.clearInterval(interval);
-  }, [open, nextWithdrawalAvailableAt]);
+    return () =>
+      window.clearInterval(
+        interval
+      );
+  }, [
+    open,
+    nextWithdrawalAvailableAt,
+  ]);
 
   if (!open) return null;
 
-  const adsComplete = withdrawalAdsWatched >= withdrawalAdsRequired;
-  const inCooldown = Boolean(cooldownText);
+  const adsComplete =
+    withdrawalAdsWatched >=
+    withdrawalAdsRequired;
+
+  const inCooldown =
+    Boolean(cooldownText);
 
   const handleMax = () => {
-    setAmountText(String(usdtBalance.toFixed(4)));
+    const maxAllowed = Math.min(
+      MAX_WITHDRAW,
+      Math.max(0, usdtBalance)
+    );
+
+    setAmountText(
+      maxAllowed.toFixed(4)
+    );
+
     setError("");
   };
 
+  const handleAmountChange = (
+    value: string
+  ) => {
+    setAmountText(value);
+    setError("");
+
+    const amount = Number(value);
+
+    if (
+      Number.isFinite(amount) &&
+      amount > MAX_WITHDRAW
+    ) {
+      setError(
+        `Maximum withdrawal is ${MAX_WITHDRAW} USDT per withdrawal.`
+      );
+    }
+  };
+
   const handleWatchAd = async () => {
-    if (watchingAd || adsComplete) return;
+    if (
+      watchingAd ||
+      adsComplete
+    ) {
+      return;
+    }
 
     setWatchingAd(true);
     setError("");
 
     try {
-      if (!adsgramControllerRef.current && window.Adsgram) {
-        adsgramControllerRef.current = window.Adsgram.init({
-          blockId: ADSGRAM_REWARD_BLOCK_ID,
-        });
+      if (
+        !adsgramControllerRef.current &&
+        window.Adsgram
+      ) {
+        adsgramControllerRef.current =
+          window.Adsgram.init({
+            blockId:
+              ADSGRAM_REWARD_BLOCK_ID,
+          });
       }
 
-      if (!adsgramControllerRef.current) {
-        setError("Ads are currently unavailable. Please try again.");
+      if (
+        !adsgramControllerRef.current
+      ) {
+        setError(
+          "Ads are currently unavailable. Please try again."
+        );
+
         setWatchingAd(false);
         return;
       }
@@ -133,12 +234,17 @@ export default function WithdrawalModal({
 
       // ننتظر قليلاً حتى يصل webhook من AdsGram
       await new Promise((resolve) =>
-        setTimeout(resolve, WEBHOOK_GRACE_MS)
+        setTimeout(
+          resolve,
+          WEBHOOK_GRACE_MS
+        )
       );
 
       await onWatchAd();
     } catch {
-      setError("The ad could not be completed. Please try again.");
+      setError(
+        "The ad could not be completed. Please try again."
+      );
     } finally {
       setWatchingAd(false);
     }
@@ -146,68 +252,123 @@ export default function WithdrawalModal({
 
   const handleWithdraw = () => {
     if (inCooldown) {
-      setError(`You can withdraw again in ${cooldownText}`);
+      setError(
+        `You can withdraw again in ${cooldownText}`
+      );
       return;
     }
 
     if (!adsComplete) {
       setError(
         `Watch ${
-          withdrawalAdsRequired - withdrawalAdsWatched
+          withdrawalAdsRequired -
+          withdrawalAdsWatched
         } more ad(s) to unlock withdrawal.`
+      );
+
+      return;
+    }
+
+    const amount =
+      Number(amountText);
+
+    if (
+      isNaN(amount) ||
+      amount <= 0
+    ) {
+      setError(
+        "Please enter a valid amount."
       );
       return;
     }
 
-    const amount = Number(amountText);
-
-    if (isNaN(amount) || amount <= 0) {
-      setError("Please enter a valid amount.");
+    if (
+      amount < MIN_WITHDRAW
+    ) {
+      setError(
+        `Minimum withdrawal is ${MIN_WITHDRAW} USDT.`
+      );
       return;
     }
 
-    if (amount > usdtBalance) {
-      setError("Insufficient USDT balance.");
+    if (
+      amount > MAX_WITHDRAW
+    ) {
+      setError(
+        `Maximum withdrawal is ${MAX_WITHDRAW} USDT per withdrawal.`
+      );
       return;
     }
 
-    if (amount < MIN_WITHDRAW) {
-      setError(`Minimum withdrawal is ${MIN_WITHDRAW} USDT.`);
+    if (
+      amount > usdtBalance
+    ) {
+      setError(
+        "Insufficient USDT balance."
+      );
       return;
     }
 
-    if (method === "binance") {
-      const trimmed = binanceId.trim();
+    if (
+      method === "binance"
+    ) {
+      const trimmed =
+        binanceId.trim();
 
       if (!trimmed) {
-        setError("Enter your Binance ID.");
+        setError(
+          "Enter your Binance ID."
+        );
         return;
       }
 
-      onConfirm(amount, "binance", trimmed);
+      onConfirm(
+        Number(
+          amount.toFixed(4)
+        ),
+        "binance",
+        trimmed
+      );
+
       onClose();
       return;
     }
 
     if (!walletAddress) {
-      setError("Connect a BNB wallet address from your Profile first.");
+      setError(
+        "Connect a BNB wallet address from your Profile first."
+      );
       return;
     }
 
-    onConfirm(amount, "bnb", walletAddress);
+    onConfirm(
+      Number(
+        amount.toFixed(4)
+      ),
+      "bnb",
+      walletAddress
+    );
+
     onClose();
   };
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
+    <div
+      className="modal-backdrop"
+      onClick={onClose}
+    >
       <div
         className="modal-card exchange-modal"
-        onClick={(e) => e.stopPropagation()}
+        onClick={(e) =>
+          e.stopPropagation()
+        }
       >
         <div className="modal-head">
           <div>
             <p>Withdraw</p>
-            <h2>Withdraw USDT</h2>
+            <h2>
+              Withdraw USDT
+            </h2>
           </div>
 
           <button
@@ -215,22 +376,38 @@ export default function WithdrawalModal({
             onClick={onClose}
             aria-label="Close modal"
           >
-            <UiIcons name="back" className="modal-close-icon" />
+            <UiIcons
+              name="back"
+              className="modal-close-icon"
+            />
           </button>
         </div>
 
         {inCooldown ? (
           <div className="withdraw-cooldown-note">
-            <span>Next withdrawal available in</span>
-            <strong>{cooldownText}</strong>
+            <span>
+              Next withdrawal available in
+            </span>
+
+            <strong>
+              {cooldownText}
+            </strong>
           </div>
         ) : (
           <div className="withdraw-ads-gate">
             <div className="withdraw-ads-gate-top">
-              <span>Watch ads to unlock withdrawal</span>
+              <span>
+                Watch ads to unlock withdrawal
+              </span>
 
               <strong>
-                {withdrawalAdsWatched}/{withdrawalAdsRequired}
+                {
+                  withdrawalAdsWatched
+                }
+                /
+                {
+                  withdrawalAdsRequired
+                }
               </strong>
             </div>
 
@@ -239,7 +416,10 @@ export default function WithdrawalModal({
                 style={{
                   width: `${Math.min(
                     100,
-                    (withdrawalAdsWatched / withdrawalAdsRequired) * 100
+                    (
+                      withdrawalAdsWatched /
+                      withdrawalAdsRequired
+                    ) * 100
                   )}%`,
                 }}
               />
@@ -248,8 +428,13 @@ export default function WithdrawalModal({
             <button
               type="button"
               className="withdraw-watch-ad-btn"
-              onClick={handleWatchAd}
-              disabled={watchingAd || adsComplete}
+              onClick={
+                handleWatchAd
+              }
+              disabled={
+                watchingAd ||
+                adsComplete
+              }
             >
               {adsComplete
                 ? "Unlocked ✓"
@@ -264,7 +449,9 @@ export default function WithdrawalModal({
           <button
             type="button"
             className={`withdraw-method-btn ${
-              method === "binance" ? "active" : ""
+              method === "binance"
+                ? "active"
+                : ""
             }`}
             onClick={() => {
               setMethod("binance");
@@ -277,7 +464,9 @@ export default function WithdrawalModal({
           <button
             type="button"
             className={`withdraw-method-btn ${
-              method === "bnb" ? "active" : ""
+              method === "bnb"
+                ? "active"
+                : ""
             }`}
             onClick={() => {
               setMethod("bnb");
@@ -288,16 +477,21 @@ export default function WithdrawalModal({
           </button>
         </div>
 
-        {method === "binance" ? (
+        {method ===
+        "binance" ? (
           <label className="exchange-field">
-            <span>Binance ID</span>
+            <span>
+              Binance ID
+            </span>
 
             <div className="exchange-input-row">
               <input
                 type="text"
                 value={binanceId}
                 onChange={(e) => {
-                  setBinanceId(e.target.value);
+                  setBinanceId(
+                    e.target.value
+                  );
                   setError("");
                 }}
                 placeholder="Your Binance User ID"
@@ -308,11 +502,19 @@ export default function WithdrawalModal({
           <div className="withdraw-bnb-note">
             {walletAddress ? (
               <>
-                <span>Payout to connected wallet</span>
+                <span>
+                  Payout to connected wallet
+                </span>
 
                 <strong>
-                  {walletAddress.slice(0, 6)}...
-                  {walletAddress.slice(-4)}
+                  {walletAddress.slice(
+                    0,
+                    6
+                  )}
+                  ...
+                  {walletAddress.slice(
+                    -4
+                  )}
                 </strong>
               </>
             ) : (
@@ -325,17 +527,23 @@ export default function WithdrawalModal({
         )}
 
         <label className="exchange-field">
-          <span>Amount (USDT)</span>
+          <span>
+            Amount (USDT)
+          </span>
 
           <div className="exchange-input-row">
             <input
               type="number"
+              min={MIN_WITHDRAW}
+              max={MAX_WITHDRAW}
+              step="0.01"
               value={amountText}
-              onChange={(e) => {
-                setAmountText(e.target.value);
-                setError("");
-              }}
-              placeholder={`Min ${MIN_WITHDRAW} USDT`}
+              onChange={(e) =>
+                handleAmountChange(
+                  e.target.value
+                )
+              }
+              placeholder={`Min ${MIN_WITHDRAW} / Max ${MAX_WITHDRAW} USDT`}
             />
 
             <button
@@ -350,15 +558,28 @@ export default function WithdrawalModal({
 
         <div className="exchange-preview">
           <div>
-            <span>Available Balance</span>
-            <strong>{usdtBalance.toFixed(4)} USDT</strong>
+            <span>
+              Available Balance
+            </span>
+
+            <strong>
+              {usdtBalance.toFixed(4)}
+              USDT
+            </strong>
           </div>
         </div>
 
         <div className="exchange-note">
           {error ? (
-            <p style={{ color: "#ff6b6b" }}>{error}</p>
-          ) : method === "binance" ? (
+            <p
+              style={{
+                color: "#ff6b6b",
+              }}
+            >
+              {error}
+            </p>
+          ) : method ===
+            "binance" ? (
             <p>
               Funds will be sent as USDT directly to your Binance account ID.
             </p>
@@ -366,6 +587,20 @@ export default function WithdrawalModal({
             <p>
               Funds will be sent as BNB (converted at live price) to your
               connected wallet — cheaper network fees outside Binance.
+            </p>
+          )}
+
+          {!error && (
+            <p
+              style={{
+                marginTop: 6,
+              }}
+            >
+              Minimum withdrawal:{" "}
+              {MIN_WITHDRAW} USDT
+              {" • "}
+              Maximum per withdrawal:{" "}
+              {MAX_WITHDRAW} USDT
             </p>
           )}
         </div>
@@ -383,7 +618,10 @@ export default function WithdrawalModal({
             className="modal-button primary"
             onClick={handleWithdraw}
             type="button"
-            disabled={inCooldown || !adsComplete}
+            disabled={
+              inCooldown ||
+              !adsComplete
+            }
           >
             Confirm Withdraw
           </button>
