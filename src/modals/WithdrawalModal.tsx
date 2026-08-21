@@ -165,8 +165,7 @@ export default function WithdrawalModal({
     withdrawalAdsWatched >=
     withdrawalAdsRequired;
 
-  const inCooldown =
-    Boolean(cooldownText);
+  const inCooldown = false;
 
   const handleMax = () => {
     const maxAllowed = Math.min(
@@ -253,14 +252,6 @@ export default function WithdrawalModal({
   };
 
   const handleWithdraw = () => {
-    if (inCooldown) {
-      setError(
-        `You can withdraw again in ${cooldownText}`
-      );
-
-      return;
-    }
-
     if (!adsComplete) {
       setError(
         `Watch ${
@@ -392,18 +383,7 @@ export default function WithdrawalModal({
           </button>
         </div>
 
-        {inCooldown ? (
-          <div className="withdraw-cooldown-note">
-            <span>
-              Next withdrawal available in
-            </span>
-
-            <strong>
-              {cooldownText}
-            </strong>
-          </div>
-        ) : (
-          <div className="withdraw-ads-gate">
+        <div className="withdraw-ads-gate">
             <div className="withdraw-ads-gate-top">
               <span>
                 Watch ads to unlock withdrawal
@@ -455,7 +435,6 @@ export default function WithdrawalModal({
                 : "Watch Ad"}
             </button>
           </div>
-        )}
 
         <div className="withdraw-method-row">
           <button
@@ -630,10 +609,7 @@ export default function WithdrawalModal({
             className="modal-button primary"
             onClick={handleWithdraw}
             type="button"
-            disabled={
-              inCooldown ||
-              !adsComplete
-            }
+            disabled={!adsComplete}
           >
             Confirm Withdraw
           </button>
