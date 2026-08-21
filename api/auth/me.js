@@ -4,7 +4,7 @@ import { authenticateRequest } from '../../lib/telegram-auth.js'
 const ENERGY_MAX = 5
 const ENERGY_REGEN_MS = 30 * 60 * 1000
 const REFERRAL_REWARD_USDT = 0.01
-const REFERRAL_REQUIRED_TASKS = 4
+const REFERRAL_REQUIRED_TASKS = 5
 const ONLINE_THRESHOLD_MINUTES = 2
 
 const BASE_WITHDRAW_ADS = 10
@@ -154,7 +154,7 @@ async function getOrCreatePlayer(auth, telegramId) {
     player = created
 
     // لا يتم منح مكافأة الإحالة عند التسجيل.
-    // تُمنح فقط بعد إكمال المُحال 4 Tasks.
+    // تُمنح فقط بعد إكمال المُحال 5 Tasks.
   } else if (
     auth.username &&
     auth.username !== player.username
@@ -177,7 +177,7 @@ async function getOrCreatePlayer(auth, telegramId) {
 }
 
 async function processQualifiedReferral(player) {
-  const REQUIRED_TASKS = 4
+  const REQUIRED_TASKS = 5
 
   if (
     !player?.referred_by ||

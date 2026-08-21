@@ -13,7 +13,7 @@ const ADS_GALAXY_TASK_WAIT_MS = 0
 const GIGA_PUB_TASK_WAIT_MS = 0
 const ADSGRAM_TASK_WAIT_MS = 0
 
-const REFERRAL_REQUIRED_TASKS = 4
+const REFERRAL_REQUIRED_TASKS = 5
 const REFERRAL_REWARD_USDT = 0.01
 
 function toPositiveInt(value) {
@@ -173,7 +173,7 @@ async function getReferralTaskCount(telegramId) {
  * إلى 10 إنجازات Tasks.
  */
 async function processReferralAfterTask(telegramId) {
-  const REQUIRED_TASKS = 4
+  const REQUIRED_TASKS = 5
   const REFERRAL_REWARD_USDT = 0.035
 
   const { data: player, error: playerError } = await supabase
