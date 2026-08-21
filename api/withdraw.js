@@ -3,7 +3,9 @@ import { authenticateRequest } from '../lib/telegram-auth.js'
 
 const MIN_WITHDRAW = 0.1
 const MAX_WITHDRAW = 0.2
-const REQUIRED_WITHDRAW_ADS = 10
+
+const BASE_WITHDRAW_ADS = 10
+const EXTRA_ADS_PER_WITHDRAW = 5
 
 // يجيب سعر BNB الحالي بالدولار من Binance (API عام، بدون مفتاح).
 // نستخدم AbortController كمهلة أمان (5 ثواني) حتى ما يعلّق الطلب لو
@@ -33,6 +35,18 @@ async function getBnbPriceUsd() {
   } finally {
     clearTimeout(timeout)
   }
+}
+
+function getUtcDateString(date = new Date()) {
+  return date.toISOString().slice(0, 10)
+}
+
+function getRequiredWithdrawalAds(withdrawalsToday) {
+  const count = Math.max(0, Math.trunc(Number(withdrawalsToday || 0)))
+
+  return BASE_WITHDRAW_ADS + (
+    count * EXTRA_ADS_PER_WITHDRAW
+  )
 }
 
 export default async function handler(req, res) {
@@ -77,7 +91,7 @@ export default async function handler(req, res) {
     const { data: player, error: fetchError } = await supabase
       .from('players')
       .select(
-        'usdt_balance, wallet_address, withdrawal_status, withdrawal_ads_watched'
+        'usdt_balance, wallet_address, withdrawal_status, withdrawal_ads_watched, withdrawals_today, withdrawal_count_date'
       )
       .eq('telegram_id', telegramId)
       .single()
@@ -88,16 +102,54 @@ export default async function handler(req, res) {
       })
     }
 
+    /*
+     * DAILY WITHDRAWAL COUNTER
+     *
+     * إذا دخل يوم جديد:
+     * withdrawals_today = 0
+     *
+     * وبالتالي أول سحبة في اليوم تحتاج:
+     * 10 إعلانات
+     *
+     * ثاني سحبة:
+     * 15 إعلان
+     *
+     * ثالث سحبة:
+     * 20 إعلان
+     */
+    const today = getUtcDateString()
+
+    let withdrawalsToday = Number(
+      player.withdrawals_today || 0
+    )
+
+    if (
+      !Number.isFinite(withdrawalsToday) ||
+      withdrawalsToday < 0
+    ) {
+      withdrawalsToday = 0
+    }
+
+    withdrawalsToday = Math.trunc(withdrawalsToday)
+
+    if (player.withdrawal_count_date !== today) {
+      withdrawalsToday = 0
+    }
+
+    const requiredWithdrawalAds =
+      getRequiredWithdrawalAds(withdrawalsToday)
+
     const withdrawalAdsWatched = Number(
       player.withdrawal_ads_watched || 0
     )
 
-    if (withdrawalAdsWatched < REQUIRED_WITHDRAW_ADS) {
+    if (withdrawalAdsWatched < requiredWithdrawalAds) {
       return res.status(400).json({
         error:
-          `Watch ${REQUIRED_WITHDRAW_ADS - withdrawalAdsWatched} more ad(s) to unlock withdrawal`,
+          `Watch ${requiredWithdrawalAds - withdrawalAdsWatched} more ad(s) to unlock withdrawal`,
         withdrawalAdsWatched,
-        withdrawalAdsRequired: REQUIRED_WITHDRAW_ADS,
+        withdrawalAdsRequired: requiredWithdrawalAds,
+        withdrawalsToday,
       })
     }
 
@@ -166,6 +218,20 @@ export default async function handler(req, res) {
       (player.usdt_balance - amt).toFixed(4)
     )
 
+    /*
+     * السحبة الحالية تنحسب بعد نجاح العملية.
+     *
+     * مثال:
+     * withdrawalsToday = 0
+     * السحبة الأولى تنجح
+     * يصبح withdrawalsToday = 1
+     *
+     * بعدها السحبة الثانية تحتاج:
+     * 10 + (1 × 5) = 15 إعلان
+     */
+    const newWithdrawalsToday =
+      withdrawalsToday + 1
+
     const { error: updateError } =
       await supabase
         .from('players')
@@ -189,6 +255,14 @@ export default async function handler(req, res) {
 
           // بعد تسجيل السحبة بنجاح يبدأ عداد إعلانات جديد.
           withdrawal_ads_watched: 0,
+
+          // عدد السحبات في اليوم الحالي.
+          withdrawals_today:
+            newWithdrawalsToday,
+
+          // اليوم الذي ينتمي إليه العداد.
+          withdrawal_count_date:
+            today,
         })
         .eq(
           'telegram_id',
@@ -198,6 +272,16 @@ export default async function handler(req, res) {
     if (updateError) {
       throw updateError
     }
+
+    const nextWithdrawalAds =
+      getRequiredWithdrawalAds(
+        newWithdrawalsToday
+      )
+
+    console.log(
+      `[Withdrawal] ${telegramId} withdrawal #${newWithdrawalsToday} today. ` +
+      `Next withdrawal requires ${nextWithdrawalAds} ads.`
+    )
 
     return res.status(200).json({
       success: true,
@@ -212,7 +296,10 @@ export default async function handler(req, res) {
       withdrawalAdsWatched: 0,
 
       withdrawalAdsRequired:
-        REQUIRED_WITHDRAW_ADS,
+        nextWithdrawalAds,
+
+      withdrawalsToday:
+        newWithdrawalsToday,
 
       minWithdraw:
         MIN_WITHDRAW,

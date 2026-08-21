@@ -54,28 +54,6 @@ const WEBHOOK_GRACE_MS = 2500;
 const MIN_WITHDRAW = 0.1;
 const MAX_WITHDRAW = 0.2;
 
-function formatCountdown(ms: number) {
-  const totalSeconds = Math.max(
-    0,
-    Math.floor(ms / 1000)
-  );
-
-  const hours = Math.floor(
-    totalSeconds / 3600
-  );
-
-  const minutes = Math.floor(
-    (totalSeconds % 3600) / 60
-  );
-
-  const seconds = totalSeconds % 60;
-
-  const pad = (n: number) =>
-    String(n).padStart(2, "0");
-
-  return `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
-}
-
 export default function WithdrawalModal({
   open,
   usdtBalance,
@@ -102,9 +80,6 @@ export default function WithdrawalModal({
   const [watchingAd, setWatchingAd] =
     useState(false);
 
-  const [cooldownText, setCooldownText] =
-    useState("");
-
   const adsgramControllerRef =
     useRef<AdsgramController | null>(null);
 
@@ -117,61 +92,36 @@ export default function WithdrawalModal({
     }
   }, [open]);
 
-  useEffect(() => {
-    if (
-      !open ||
-      !nextWithdrawalAvailableAt
-    ) {
-      setCooldownText("");
-      return;
-    }
-
-    const target =
-      new Date(
-        nextWithdrawalAvailableAt
-      ).getTime();
-
-    const tick = () => {
-      const remaining =
-        target - Date.now();
-
-      setCooldownText(
-        remaining > 0
-          ? formatCountdown(remaining)
-          : ""
-      );
-    };
-
-    tick();
-
-    const interval =
-      window.setInterval(
-        tick,
-        1000
-      );
-
-    return () =>
-      window.clearInterval(
-        interval
-      );
-  }, [
-    open,
-    nextWithdrawalAvailableAt,
-  ]);
-
   if (!open) return null;
 
-  const adsComplete =
-    withdrawalAdsWatched >=
-    withdrawalAdsRequired;
+  const requiredAds =
+    Math.max(
+      1,
+      Number(
+        withdrawalAdsRequired || 10
+      )
+    );
 
-  const inCooldown = false;
+  const watchedAds =
+    Math.max(
+      0,
+      Number(
+        withdrawalAdsWatched || 0
+      )
+    );
+
+  const adsComplete =
+    watchedAds >= requiredAds;
 
   const handleMax = () => {
-    const maxAllowed = Math.min(
-      MAX_WITHDRAW,
-      Math.max(0, usdtBalance)
-    );
+    const maxAllowed =
+      Math.min(
+        MAX_WITHDRAW,
+        Math.max(
+          0,
+          Number(usdtBalance || 0)
+        )
+      );
 
     setAmountText(
       maxAllowed.toFixed(4)
@@ -186,7 +136,8 @@ export default function WithdrawalModal({
     setAmountText(value);
     setError("");
 
-    const amount = Number(value);
+    const amount =
+      Number(value);
 
     if (
       Number.isFinite(amount) &&
@@ -234,6 +185,7 @@ export default function WithdrawalModal({
 
       await adsgramControllerRef.current.show();
 
+      // ننتظر قليلاً حتى يصل webhook من AdsGram
       await new Promise((resolve) =>
         setTimeout(
           resolve,
@@ -255,8 +207,7 @@ export default function WithdrawalModal({
     if (!adsComplete) {
       setError(
         `Watch ${
-          withdrawalAdsRequired -
-          withdrawalAdsWatched
+          requiredAds - watchedAds
         } more ad(s) to unlock withdrawal.`
       );
 
@@ -366,6 +317,7 @@ export default function WithdrawalModal({
         <div className="modal-head">
           <div>
             <p>Withdraw</p>
+
             <h2>
               Withdraw USDT
             </h2>
@@ -384,57 +336,47 @@ export default function WithdrawalModal({
         </div>
 
         <div className="withdraw-ads-gate">
-            <div className="withdraw-ads-gate-top">
-              <span>
-                Watch ads to unlock withdrawal
-              </span>
+          <div className="withdraw-ads-gate-top">
+            <span>
+              Watch ads to unlock withdrawal
+            </span>
 
-              <strong>
-                {
-                  withdrawalAdsWatched
-                }
-                /
-                {
-                  withdrawalAdsRequired
-                }
-              </strong>
-            </div>
-
-            <div className="withdraw-ads-progress">
-              <span
-                style={{
-                  width: `${Math.min(
-                    100,
-                    (
-                      withdrawalAdsWatched /
-                      Math.max(
-                        1,
-                        withdrawalAdsRequired
-                      )
-                    ) * 100
-                  )}%`,
-                }}
-              />
-            </div>
-
-            <button
-              type="button"
-              className="withdraw-watch-ad-btn"
-              onClick={
-                handleWatchAd
-              }
-              disabled={
-                watchingAd ||
-                adsComplete
-              }
-            >
-              {adsComplete
-                ? "Unlocked ✓"
-                : watchingAd
-                ? "Watching..."
-                : "Watch Ad"}
-            </button>
+            <strong>
+              {watchedAds}/{requiredAds}
+            </strong>
           </div>
+
+          <div className="withdraw-ads-progress">
+            <span
+              style={{
+                width: `${Math.min(
+                  100,
+                  (watchedAds /
+                    requiredAds) *
+                    100
+                )}%`,
+              }}
+            />
+          </div>
+
+          <button
+            type="button"
+            className="withdraw-watch-ad-btn"
+            onClick={
+              handleWatchAd
+            }
+            disabled={
+              watchingAd ||
+              adsComplete
+            }
+          >
+            {adsComplete
+              ? "Unlocked ✓"
+              : watchingAd
+              ? "Watching..."
+              : "Watch Ad"}
+          </button>
+        </div>
 
         <div className="withdraw-method-row">
           <button
@@ -569,15 +511,11 @@ export default function WithdrawalModal({
             >
               {error}
             </p>
-          ) : method ===
-            "binance" ? (
-            <p>
-              Funds will be sent as USDT directly to your Binance account ID.
-            </p>
           ) : (
             <p>
-              Funds will be sent as BNB (converted at live price) to your
-              connected wallet — cheaper network fees outside Binance.
+              {method === "binance"
+                ? "Funds will be sent as USDT directly to your Binance account ID."
+                : "Funds will be sent as BNB (converted at live price) to your connected wallet — cheaper network fees outside Binance."}
             </p>
           )}
 
