@@ -13,7 +13,7 @@ const ADS_GALAXY_TASK_WAIT_MS = 0
 const GIGA_PUB_TASK_WAIT_MS = 0
 const ADSGRAM_TASK_WAIT_MS = 0
 
-const REFERRAL_REQUIRED_TASKS = 10
+const REFERRAL_REQUIRED_TASKS = 4
 const REFERRAL_REWARD_USDT = 0.01
 
 function toPositiveInt(value) {
@@ -173,36 +173,50 @@ async function getReferralTaskCount(telegramId) {
  * إلى 10 إنجازات Tasks.
  */
 async function processReferralAfterTask(telegramId) {
+  const REQUIRED_TASKS = 4
+  const REFERRAL_REWARD_USDT = 0.035
+
   const { data: player, error: playerError } = await supabase
     .from('players')
-    .select(
-      'telegram_id, referred_by, referral_reward_claimed'
-    )
+    .select('telegram_id, referred_by, referral_reward_claimed')
     .eq('telegram_id', telegramId)
     .single()
 
-  if (playerError || !player) {
+  if (playerError || !player) return false
+
+  if (
+    !player.referred_by ||
+    player.referral_reward_claimed === true
+  ) {
     return false
   }
 
-  if (!player.referred_by) {
+  const { data: completions, error: completionsError } = await supabase
+    .from('task_completions')
+    .select('completion_count')
+    .eq('telegram_id', telegramId)
+
+  if (completionsError) {
+    throw completionsError
+  }
+
+  const completedTasks = (completions || []).reduce(
+    (sum, row) => {
+      const count = Number(row.completion_count || 0)
+
+      if (!Number.isFinite(count) || count <= 0) {
+        return sum
+      }
+
+      return sum + Math.trunc(count)
+    },
+    0
+  )
+
+  if (completedTasks < REQUIRED_TASKS) {
     return false
   }
 
-  if (player.referral_reward_claimed === true) {
-    return false
-  }
-
-  const completedTasks = await getReferralTaskCount(telegramId)
-
-  if (completedTasks < REFERRAL_REQUIRED_TASKS) {
-    return false
-  }
-
-  /**
-   * نضع referral_reward_claimed = true أولاً
-   * لمنع احتساب الإحالة مرتين.
-   */
   const { data: claimedRows, error: claimError } = await supabase
     .from('players')
     .update({
@@ -233,7 +247,6 @@ async function processReferralAfterTask(telegramId) {
     .single()
 
   if (referrerError || !referrer) {
-    // لو لم نجد صاحب الإحالة نرجع الحالة حتى لا تضيع المكافأة.
     await supabase
       .from('players')
       .update({
@@ -248,12 +261,11 @@ async function processReferralAfterTask(telegramId) {
     return false
   }
 
-  const currentBalance = Number(
-    referrer.usdt_balance || 0
-  )
-
   const newUsdtBalance = Number(
-    (currentBalance + REFERRAL_REWARD_USDT).toFixed(6)
+    (
+      Number(referrer.usdt_balance || 0) +
+      REFERRAL_REWARD_USDT
+    ).toFixed(6)
   )
 
   const { error: rewardError } = await supabase
@@ -264,7 +276,6 @@ async function processReferralAfterTask(telegramId) {
     .eq('telegram_id', referrer.telegram_id)
 
   if (rewardError) {
-    // لا نخسر الإحالة إذا فشل تحديث الرصيد.
     await supabase
       .from('players')
       .update({
@@ -276,7 +287,7 @@ async function processReferralAfterTask(telegramId) {
   }
 
   console.log(
-    `[Referral] Qualified: ${telegramId} completed ${completedTasks} tasks. ` +
+    `[Referral] ${telegramId} qualified with ${completedTasks} tasks. ` +
     `Referrer ${referrer.telegram_id} received ${REFERRAL_REWARD_USDT} USDT.`
   )
 

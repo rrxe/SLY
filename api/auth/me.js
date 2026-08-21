@@ -4,7 +4,7 @@ import { authenticateRequest } from '../../lib/telegram-auth.js'
 const ENERGY_MAX = 5
 const ENERGY_REGEN_MS = 30 * 60 * 1000
 const REFERRAL_REWARD_USDT = 0.035
-const REFERRAL_REQUIRED_TASKS = 10
+const REFERRAL_REQUIRED_TASKS = 4
 const ONLINE_THRESHOLD_MINUTES = 2
 const WITHDRAWAL_COOLDOWN_MS = 24 * 60 * 60 * 1000
 const REQUIRED_WITHDRAW_ADS = 10
@@ -76,6 +76,8 @@ async function getOrCreatePlayer(auth, telegramId) {
 }
 
 async function processQualifiedReferral(player) {
+  const REQUIRED_TASKS = 4
+
   if (
     !player?.referred_by ||
     player.referral_reward_claimed === true
@@ -92,17 +94,20 @@ async function processQualifiedReferral(player) {
     throw completionsError
   }
 
-  const completedTasks = (completions || []).reduce((sum, row) => {
-    const count = Number(row.completion_count || 0)
+  const completedTasks = (completions || []).reduce(
+    (sum, row) => {
+      const count = Number(row.completion_count || 0)
 
-    if (!Number.isFinite(count) || count <= 0) {
-      return sum
-    }
+      if (!Number.isFinite(count) || count <= 0) {
+        return sum
+      }
 
-    return sum + Math.trunc(count)
-  }, 0)
+      return sum + Math.trunc(count)
+    },
+    0
+  )
 
-  if (completedTasks < REFERRAL_REQUIRED_TASKS) {
+  if (completedTasks < REQUIRED_TASKS) {
     return false
   }
 
@@ -151,7 +156,10 @@ async function processQualifiedReferral(player) {
   }
 
   const newUsdtBalance = Number(
-    ((referrer.usdt_balance || 0) + REFERRAL_REWARD_USDT).toFixed(6)
+    (
+      Number(referrer.usdt_balance || 0) +
+      REFERRAL_REWARD_USDT
+    ).toFixed(6)
   )
 
   const { error: rewardError } = await supabase
@@ -173,8 +181,7 @@ async function processQualifiedReferral(player) {
   }
 
   console.log(
-    `[Referral] ${player.telegram_id} qualified after ${completedTasks} tasks. ` +
-    `Referrer ${referrer.telegram_id} received ${REFERRAL_REWARD_USDT} USDT.`
+    `[Referral] ${player.telegram_id} qualified with ${completedTasks} tasks`
   )
 
   return true
