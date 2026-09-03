@@ -1,0 +1,133 @@
+.topbar{
+  position:fixed;
+  top:0;
+  left:0;
+  right:0;
+  z-index:30;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:12px;
+  padding:10px 14px;
+  min-height:var(--header-h);
+  background:rgba(8,11,12,.97);
+  border-bottom:1px solid rgba(255,255,255,.05);
+  transform:translateZ(0);
+  will-change:transform;
+  backface-visibility:hidden;
+}
+
+.topbar-left{
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+  min-width:0;
+}
+
+.topbar-kicker{
+  margin:0;
+  color:var(--blue-1);
+  font-size:10px;
+  letter-spacing:3px;
+  font-weight:700;
+  text-transform:uppercase;
+}
+
+.topbar-row{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  flex-wrap:wrap;
+}
+
+.page-chip{
+  display:inline-flex;
+  align-items:center;
+  height:24px;
+  padding:0 10px;
+  border-radius:999px;
+  background:rgba(84,230,212,.10);
+  border:1px solid rgba(84,230,212,.18);
+  color:var(--blue-0);
+  font-size:10px;
+  font-weight:800;
+  letter-spacing:1.4px;
+  text-transform:uppercase;
+}
+
+.topbar-sub{
+  color:var(--muted);
+  font-size:11px;
+  line-height:1.3;
+}
+
+.topbar-stats{
+  display:flex;
+  gap:8px;
+  align-items:center;
+  flex-shrink:0;
+}
+
+.stat-pill{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  min-width:100px;
+  padding:7px 10px;
+  border-radius:var(--radius-sm);
+  background:var(--panel);
+  border:1px solid rgba(255,255,255,.06);
+}
+
+.stat-icon{
+  width:17px;
+  height:17px;
+  color:currentColor;
+  flex:0 0 auto;
+}
+
+.coins-icon{
+  color:var(--gold-1);
+}
+
+.usdt-icon{
+  color:var(--blue-2);
+}
+
+.energy-icon{
+  color:var(--blue-2);
+}
+
+.stat-pill small{
+  display:block;
+  color:var(--muted);
+  font-size:9px;
+  letter-spacing:.6px;
+  text-transform:uppercase;
+}
+
+.stat-pill strong{
+  display:block;
+  color:var(--text);
+  font-size:13.5px;
+  line-height:1.1;
+}
+
+@media (max-width:680px){
+  .topbar{
+    padding:9px 12px;
+  }
+
+  .topbar-stats{
+    gap:6px;
+  }
+
+  .stat-pill{
+    min-width:auto;
+    padding:6px 9px;
+  }
+
+  .topbar-sub{
+    display:none;
+  }
+}

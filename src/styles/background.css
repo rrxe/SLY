@@ -1,0 +1,99 @@
+.space{
+  position:fixed;
+  inset:0;
+  overflow:hidden;
+  z-index:0;
+  background:
+    radial-gradient(circle at 50% -10%, rgba(84,230,212,.03) 0%, #050708 40%, #000000 100%);
+  transform:translateZ(0);
+  will-change:transform;
+}
+
+.nebula{
+  position:absolute;
+  border-radius:50%;
+  filter:blur(90px);
+  mix-blend-mode:screen;
+  pointer-events:none;
+  opacity:.55;
+}
+
+.nebula1{
+  width:420px;
+  height:420px;
+  background:rgba(84,230,212,.06);
+  top:-160px;
+  left:50%;
+  transform:translateX(-50%);
+}
+
+.nebula2{
+  width:320px;
+  height:320px;
+  background:rgba(227,192,113,.03);
+  right:-100px;
+  bottom:-80px;
+}
+
+.nebula3{
+  width:240px;
+  height:240px;
+  background:rgba(84,230,212,.03);
+  left:-80px;
+  bottom:110px;
+}
+
+.grid{
+  position:absolute;
+  inset:-20%;
+  background-image:
+    linear-gradient(rgba(255,255,255,.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,.03) 1px, transparent 1px);
+  background-size:48px 48px;
+  opacity:.05;
+  transform:perspective(900px) rotateX(76deg);
+  transform-origin:center;
+  mask-image:linear-gradient(to bottom, transparent, black 18%, black 82%, transparent);
+  pointer-events:none;
+}
+
+.stars{
+  position:absolute;
+  inset:0;
+}
+
+.star{
+  position:absolute;
+  width:1.6px;
+  height:1.6px;
+  border-radius:50%;
+  background:#fff;
+  box-shadow:0 0 2px rgba(255,255,255,.45);
+  animation:twinkle infinite ease-in-out;
+  will-change:opacity, transform;
+}
+
+.noise{
+  position:absolute;
+  inset:0;
+  background-image:radial-gradient(rgba(255,255,255,.02) 1px, transparent 1px);
+  background-size:6px 6px;
+  opacity:.04;
+  mix-blend-mode:overlay;
+  pointer-events:none;
+}
+
+.space::after{
+  content:"";
+  position:absolute;
+  inset:0;
+  background:
+    radial-gradient(circle at center, transparent 45%, rgba(0,0,0,.55) 100%);
+  pointer-events:none;
+}
+
+@keyframes twinkle{
+  0%{opacity:.10; transform:translate(0,0) scale(.65)}
+  50%{opacity:.85; transform:translate(var(--dx,6px), var(--dy,6px)) scale(1.15)}
+  100%{opacity:.10; transform:translate(0,0) scale(.65)}
+}

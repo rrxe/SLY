@@ -1,0 +1,117 @@
+.bottom-nav{
+  position:fixed;
+  left:12px;
+  right:12px;
+  bottom:10px;
+  z-index:40;
+  display:grid;
+  grid-template-columns:repeat(5,1fr);
+  gap:6px;
+  padding:7px;
+  border-radius:18px;
+  background:transparent;
+  border:1px solid rgba(255,255,255,.06);
+  transform:translateZ(0);
+  will-change:transform;
+  backface-visibility:hidden;
+}
+
+.nav-item{
+  position:relative;
+  height:48px;
+  border:none;
+  background:transparent;
+  border-radius:var(--radius-sm);
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:3px;
+  color:var(--muted);
+  cursor:pointer;
+  transition:.2s ease;
+}
+
+.nav-icon{
+  width:18px;
+  height:18px;
+  color:currentColor;
+}
+
+.nav-item span{
+  font-size:10px;
+  font-weight:700;
+  letter-spacing:.1px;
+}
+
+.nav-item.active{
+  color:var(--blue-0);
+}
+
+.nav-item.stars{
+  color:#ffd76a;
+}
+
+.nav-item.stars .nav-icon{
+  filter:drop-shadow(0 0 6px rgba(255,207,77,.65));
+}
+
+.nav-item.stars span{
+  text-shadow:0 0 8px rgba(255,207,77,.4);
+}
+
+.nav-item.stars::after{
+  content:"";
+  position:absolute;
+  inset:2px;
+  border-radius:var(--radius-sm);
+  border:1px solid rgba(255,207,77,.35);
+  background:radial-gradient(circle at 50% 20%, rgba(255,207,77,.16), transparent 70%);
+  pointer-events:none;
+  animation:stars-nav-glow 2.4s ease-in-out infinite;
+}
+
+.nav-item.stars.active{
+  color:#ffe08a;
+}
+
+.nav-item.stars.active::before{
+  background:#ffd76a;
+  box-shadow:0 0 6px rgba(255,215,106,.8);
+}
+
+@keyframes stars-nav-glow{
+  0%, 100% { opacity:.55; }
+  50% { opacity:1; }
+}
+
+.nav-item.active::before{
+  content:"";
+  position:absolute;
+  top:2px;
+  left:50%;
+  transform:translateX(-50%);
+  width:5px;
+  height:5px;
+  border-radius:50%;
+  background:#54e6d4;
+  box-shadow:0 0 6px rgba(84,230,212,.7);
+}
+
+.nav-item:active{
+  transform:scale(.97);
+}
+
+@media (max-width: 420px){
+  .bottom-nav{
+    left:10px;
+    right:10px;
+    bottom:8px;
+    gap:5px;
+    padding:6px;
+  }
+
+  .nav-item{
+    height:44px;
+  }
+}
