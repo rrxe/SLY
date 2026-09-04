@@ -1253,7 +1253,6 @@ export default function App() {
         <div className="page-scroll" ref={scrollRef}>
           {page === "home" && (
             <Home
-              balanceCoins={wallet.coins}
               streak={streak}
               mining={mining}
               miningReady={miningReady}

@@ -16,7 +16,6 @@ type MiningState = {
 type RedeemResult = { success: boolean; message: string };
 
 type Props = {
-  balanceCoins: number;
   streak: number;
   mining: MiningState;
   miningReady: boolean;
@@ -64,7 +63,6 @@ function formatMiningStartedAt(value: string | null) {
 }
 
 export default function Home({
-  balanceCoins,
   streak,
   mining,
   miningReady,
