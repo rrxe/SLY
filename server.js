@@ -18,6 +18,16 @@ import adminWithdrawalsStatus from './api/admin/withdrawals/status.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
+// حماية من الكراش المفاجئ: بدون هذا، أي خطأ غير متوقع (تايم آوت من
+// Supabase، خطأ شبكة، إلخ) يقدر يوقف عملية Node كلها فيعيد Dokploy
+// تشغيل الحاوية من جديد => هذا يفسر "أحياناً يشتغل وينطفي"
+process.on('unhandledRejection', (err) => {
+  console.error('[unhandledRejection]', err)
+})
+process.on('uncaughtException', (err) => {
+  console.error('[uncaughtException]', err)
+})
+
 const app = express()
 app.use(compression())
 app.use(express.json())

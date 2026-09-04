@@ -942,26 +942,28 @@ async function recheckJoinChannelTasks(telegramId) {
   const taskById = {}
   for (const t of joinTasks) taskById[t.id] = t
 
-  const leftChannelTaskIds = []
+  const checks = await Promise.all(
+    completions.map(async (completion) => {
+      const task = taskById[completion.task_id]
+      if (!task) return null
 
-  for (const completion of completions) {
-    const task = taskById[completion.task_id]
-    if (!task) continue
+      const channelChatId = extractChannelChatId(task.url)
+      if (!channelChatId) return null
 
-    const channelChatId = extractChannelChatId(task.url)
-    if (!channelChatId) continue
+      const membership = await getChannelMembershipStatus(
+        botToken,
+        channelChatId,
+        telegramId
+      )
 
-    const membership = await getChannelMembershipStatus(
-      botToken,
-      channelChatId,
-      telegramId
-    )
+      if (!membership.ok) return null
+      if (!isConfirmedNotJoined(membership.status)) return null
 
-    if (!membership.ok) continue
-    if (!isConfirmedNotJoined(membership.status)) continue
+      return task.id
+    })
+  )
 
-    leftChannelTaskIds.push(task.id)
-  }
+  const leftChannelTaskIds = checks.filter((id) => id !== null)
 
   if (leftChannelTaskIds.length === 0) {
     return { leftChannelTaskIds: [] }
