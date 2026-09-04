@@ -255,7 +255,7 @@ export default function App() {
 
   const [starsAdBusy, setStarsAdBusy] = useState(false);
   const [starsAdBatchCount, setStarsAdBatchCount] = useState(0);
-  const [starsAdsRequired, setStarsAdsRequired] = useState(15);
+  const [starsAdsRequired, setStarsAdsRequired] = useState(12);
   const [starsCycleUnlocksAt, setStarsCycleUnlocksAt] = useState<string | null>(null);
   const [starsAdToast, setStarsAdToast] = useState("");
   const [duplicateNotice, setDuplicateNotice] = useState(false);

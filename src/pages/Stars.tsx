@@ -134,7 +134,7 @@ export default function Stars({
   telegramId = "",
   adBusy = false,
   adBatchCount = 0,
-  adsRequired = 15,
+  adsRequired = 12,
   cycleUnlocksAt = null,
   adToast = "",
   onWatchAd,
