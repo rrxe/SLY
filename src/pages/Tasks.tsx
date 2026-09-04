@@ -32,6 +32,7 @@ const ADSGRAM_CLAIM_DELAY_MS = 0;   // صفر لـ AdsGram أيضاً (إعلا�
 
 // بلوك AdsGram الخاص بمهام المشاهدة (نفس نوع البلوك المستخدم في بوابة السحب)
 const ADSGRAM_TASK_BLOCK_ID = "46086";
+const ADSGRAM_SCRIPT_SRC = "https://sad.adsgram.ai/js/sad.min.js";
 
 type AdsgramShowResult = {
   done: boolean;
@@ -51,6 +52,41 @@ declare global {
       init: (opts: { blockId: string }) => AdsgramController;
     };
   }
+}
+
+function waitForAdsgramScript(timeoutMs = 8000): Promise<boolean> {
+  if (typeof window === "undefined") return Promise.resolve(false);
+  if (window.Adsgram) return Promise.resolve(true);
+
+  return new Promise((resolve) => {
+    let settled = false;
+    const finish = (result: boolean) => {
+      if (settled) return;
+      settled = true;
+      resolve(result);
+    };
+
+    const existingScript = document.querySelector<HTMLScriptElement>(
+      `script[src="${ADSGRAM_SCRIPT_SRC}"]`
+    );
+
+    const onLoad = () => finish(!!window.Adsgram);
+    const onError = () => finish(false);
+
+    if (existingScript) {
+      existingScript.addEventListener("load", onLoad, { once: true });
+      existingScript.addEventListener("error", onError, { once: true });
+    } else {
+      const script = document.createElement("script");
+      script.src = ADSGRAM_SCRIPT_SRC;
+      script.async = true;
+      script.addEventListener("load", onLoad, { once: true });
+      script.addEventListener("error", onError, { once: true });
+      document.head.appendChild(script);
+    }
+
+    window.setTimeout(() => finish(!!window.Adsgram), timeoutMs);
+  });
 }
 
 function loadProgress(): ProgressMap {
@@ -276,8 +312,11 @@ export default function Tasks({ onRewardCoins }: Props) {
     try {
       // معالجة AdsGram
       if (isAdsGramTask(task)) {
-        if (!adsgramControllerRef.current && window.Adsgram) {
-          adsgramControllerRef.current = window.Adsgram.init({ blockId: ADSGRAM_TASK_BLOCK_ID });
+        if (!adsgramControllerRef.current) {
+          const loaded = window.Adsgram ? true : await waitForAdsgramScript();
+          if (loaded && window.Adsgram && !adsgramControllerRef.current) {
+            adsgramControllerRef.current = window.Adsgram.init({ blockId: ADSGRAM_TASK_BLOCK_ID });
+          }
         }
         if (!adsgramControllerRef.current) {
           setToast("AdsGram ad not ready yet. Try again.");

@@ -1,4 +1,5 @@
 import express from 'express'
+import compression from 'compression'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -18,6 +19,7 @@ import adminWithdrawalsStatus from './api/admin/withdrawals/status.js'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 const app = express()
+app.use(compression())
 app.use(express.json())
 
 const wrap = (handler) => (req, res) => {
@@ -41,7 +43,11 @@ app.all('/api/admin/withdrawals/status', wrap(adminWithdrawalsStatus))
 app.all('/api/admin/withdrawals', wrap(adminWithdrawals))
 
 const distDir = path.join(__dirname, 'dist')
-app.use(express.static(distDir))
+app.use(express.static(distDir, {
+  maxAge: '1y',
+  immutable: true,
+  index: false,
+}))
 
 app.get(/.*/, (req, res) => {
   if (req.path.startsWith('/api/')) {
