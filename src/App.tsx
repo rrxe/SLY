@@ -15,6 +15,7 @@ import { acquireGlobalAdLock, releaseGlobalAdLock } from "./lib/adLock";
 
 import ExchangeModal from "./modals/ExchangeModal";
 import WithdrawalModal from "./modals/WithdrawalModal";
+import GiftCodeModal from "./modals/GiftCodeModal";
 
 type Page = "home" | "tasks" | "referrals" | "stars" | "profile";
 type ActivityTone = "info" | "reward" | "exchange";
@@ -204,6 +205,7 @@ export default function App() {
   const [page, setPage] = useState<Page>("home");
   const [exchangeOpen, setExchangeOpen] = useState(false);
   const [withdrawOpen, setWithdrawOpen] = useState(false);
+  const [giftCodeOpen, setGiftCodeOpen] = useState(false);
 
   const [wallet, setWallet] = useState<WalletState>({
     coins: 0,
@@ -968,6 +970,32 @@ export default function App() {
     }
   };
 
+  const handleRedeemGiftCode = async (code: string) => {
+    try {
+      const data = await callApi("/api/gift-codes/redeem", {
+        method: "POST",
+        body: JSON.stringify({ code }),
+      });
+
+      setWallet((prev) => ({ ...prev, coins: data.coins }));
+
+      pushActivity(
+        "Gift code redeemed",
+        `+${Number(data.rewardCoins || 0).toLocaleString()} Coins`,
+        "reward"
+      );
+
+      loadPlayerData().catch(() => {});
+
+      return {
+        success: true,
+        message: `You received ${Number(data.rewardCoins || 0).toLocaleString()} coins!`,
+      };
+    } catch (err: any) {
+      return { success: false, message: err.message || "Failed to redeem code" };
+    }
+  };
+
   const handleWithdraw = async (
     amount: number,
     method: "binance" | "bnb",
@@ -1233,6 +1261,7 @@ export default function App() {
               miningReady={miningReady}
               miningAdBusy={miningAdBusy}
               onMining={handleMining}
+              onOpenGiftCode={() => setGiftCodeOpen(true)}
             />
           )}
 
@@ -1282,6 +1311,12 @@ export default function App() {
         coins={wallet.coins}
         onClose={() => setExchangeOpen(false)}
         onConfirm={handleExchange}
+      />
+
+      <GiftCodeModal
+        open={giftCodeOpen}
+        onClose={() => setGiftCodeOpen(false)}
+        onRedeem={handleRedeemGiftCode}
       />
 
       <WithdrawalModal

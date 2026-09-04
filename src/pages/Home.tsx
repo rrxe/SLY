@@ -20,6 +20,7 @@ type Props = {
   miningReady: boolean;
   miningAdBusy: boolean;
   onMining: () => void;
+  onOpenGiftCode: () => void;
 };
 
 type LeaderUser = {
@@ -67,6 +68,7 @@ export default function Home({
   miningReady,
   miningAdBusy,
   onMining,
+  onOpenGiftCode,
 }: Props) {
   const [leaderboard, setLeaderboard] = useState<LeaderUser[]>([]);
   const [now, setNow] = useState(() => Date.now());
@@ -289,6 +291,36 @@ export default function Home({
       </section>
 
       <section className="home-grid">
+        <article className="mini-card gift-code-card">
+          <div className="section-head compact">
+            <div>
+              <p>Redeem</p>
+              <h2>Gift Code</h2>
+            </div>
+            <svg
+              viewBox="0 0 24 24"
+              className="section-head-icon"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.6"
+            >
+              <rect x="3" y="9" width="18" height="11" rx="1.5" />
+              <path d="M3 13h18" />
+              <path d="M12 9v11" />
+              <path d="M12 9C9.5 9 8 7.6 8 6a2 2 0 0 1 4 0v3Z" />
+              <path d="M12 9c2.5 0 4-1.4 4-3a2 2 0 0 0-4 0v3Z" />
+            </svg>
+          </div>
+
+          <p className="gift-code-hint">
+            Have a promo or gift code? Redeem it here for bonus coins.
+          </p>
+
+          <button className="gift-code-open-btn" onClick={onOpenGiftCode} type="button">
+            Enter Gift Code
+          </button>
+        </article>
+
         <article className="mini-card">
           <div className="section-head compact">
             <div>

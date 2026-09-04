@@ -782,6 +782,51 @@
   </div>
 
   <div class="card">
+    <h3>🎁 أكواد الهدايا (Gift Codes)</h3>
+
+    <input type="text" id="giftCodeInput" placeholder="مثال: the-sly123" />
+
+    <div class="mini-grid">
+      <div>
+        <input
+          type="number"
+          id="giftCodeReward"
+          placeholder="مكافأة العملات"
+          min="0"
+          step="1"
+          value="0"
+        />
+      </div>
+
+      <div>
+        <input
+          type="number"
+          id="giftCodeMaxUses"
+          placeholder="عدد مرات الاستخدام"
+          min="1"
+          step="1"
+          value="200"
+        />
+      </div>
+    </div>
+
+    <div class="field-hint">
+      كل مستخدم يقدر يستخدم الكود مرة وحدة بس. الكود يتوقف تلقائياً بعد
+      ما يوصل لعدد الاستخدامات المحدد أعلاه.
+    </div>
+
+    <button onclick="addGiftCode()">إنشاء كود جديد</button>
+
+    <div id="giftCodesList" style="margin-top: 14px;">
+      <p class="loading">جاري تحميل الأكواد...</p>
+    </div>
+
+    <button class="refresh-btn" onclick="loadGiftCodes()">
+      تحديث الأكواد
+    </button>
+  </div>
+
+  <div class="card">
     <h3>طلبات السحب</h3>
 
     <div id="withdrawalsList" class="loading">
@@ -885,6 +930,7 @@
       loadSettings();
       loadMandatoryChannels();
       loadUsers();
+      loadGiftCodes();
     });
 
     function saveSecret(value) {
@@ -2459,6 +2505,146 @@
           err.message ||
           "تعذر الاتصال بالسيرفر."
         );
+      }
+    }
+
+    async function loadGiftCodes() {
+      const container = document.getElementById("giftCodesList");
+      container.innerHTML = '<p class="loading">جاري تحميل الأكواد...</p>';
+
+      try {
+        const data = await apiCall("/api/admin/gift-codes", "GET");
+
+        if (!data.success) {
+          container.innerHTML =
+            `<p class="error">${escapeHtml(data.error || "خطأ في الصلاحيات")}</p>`;
+          return;
+        }
+
+        const codes = Array.isArray(data.giftCodes) ? data.giftCodes : [];
+        renderGiftCodeRows(codes);
+      } catch (err) {
+        container.innerHTML =
+          `<p class="error">${escapeHtml(err.message || "خطأ في الاتصال بالسيرفر.")}</p>`;
+      }
+    }
+
+    function renderGiftCodeRows(codes) {
+      const container = document.getElementById("giftCodesList");
+      if (!container) return;
+
+      if (codes.length === 0) {
+        container.innerHTML = '<div class="empty">لا توجد أكواد حالياً.</div>';
+        return;
+      }
+
+      container.innerHTML = codes.map((gc) => {
+        const code = escapeHtml(gc.code || "");
+        const reward = Number(gc.reward_coins || 0);
+        const maxUses = Number(gc.max_uses || 0);
+        const currentUses = Number(gc.current_uses || 0);
+        const active = Boolean(gc.is_active);
+
+        return `
+          <div class="user-card">
+            <div class="user-info">
+              <strong>${code}</strong><br />
+              <span class="muted">مكافأة: ${reward.toLocaleString()} كوين</span><br />
+              <span class="muted">الاستخدام: ${currentUses} / ${maxUses}</span>
+              ${!active ? '<br /><span class="badge-banned">معطل</span>' : ""}
+            </div>
+            <div style="display:flex; flex-direction:column; gap:6px;">
+              <button
+                class="toggle"
+                style="width:auto; padding:6px 12px;"
+                onclick="toggleGiftCode('${gc.id}')"
+              >
+                ${active ? "تعطيل" : "تفعيل"}
+              </button>
+              <button
+                class="delete-btn"
+                style="width:auto; padding:6px 12px;"
+                onclick="deleteGiftCode('${gc.id}')"
+              >
+                حذف
+              </button>
+            </div>
+          </div>
+        `;
+      }).join("");
+    }
+
+    async function addGiftCode() {
+      const code = document.getElementById("giftCodeInput").value.trim();
+      const rewardCoins = Number(document.getElementById("giftCodeReward").value);
+      const maxUses = Number(document.getElementById("giftCodeMaxUses").value);
+
+      if (!code) {
+        alert("اكتب الكود أولاً.");
+        return;
+      }
+
+      if (!Number.isFinite(maxUses) || maxUses < 1) {
+        alert("عدد الاستخدامات لازم يكون 1 على الأقل.");
+        return;
+      }
+
+      try {
+        const result = await apiCall("/api/admin/gift-codes", "POST", {
+          action: "create",
+          code,
+          rewardCoins,
+          maxUses,
+        });
+
+        if (result.success) {
+          document.getElementById("giftCodeInput").value = "";
+          document.getElementById("giftCodeReward").value = "0";
+          document.getElementById("giftCodeMaxUses").value = "200";
+          await loadGiftCodes();
+        } else {
+          alert(result.error || "فشل إنشاء الكود.");
+        }
+      } catch (err) {
+        alert(err.message || "تعذر إنشاء الكود.");
+      }
+    }
+
+    async function toggleGiftCode(id) {
+      try {
+        const result = await apiCall("/api/admin/gift-codes", "POST", {
+          id,
+          action: "toggle",
+        });
+
+        if (result.success) {
+          await loadGiftCodes();
+        } else {
+          alert(result.error || "فشل تغيير حالة الكود.");
+        }
+      } catch (err) {
+        alert(err.message || "تعذر تغيير حالة الكود.");
+      }
+    }
+
+    async function deleteGiftCode(id) {
+      if (!confirm("⚠️ سيتم حذف الكود نهائياً من قاعدة البيانات.\nهل أنت متأكد؟")) {
+        return;
+      }
+
+      try {
+        const result = await apiCall("/api/admin/gift-codes", "POST", {
+          id,
+          action: "delete",
+        });
+
+        if (result.success) {
+          await loadGiftCodes();
+        } else {
+          alert(result.error || "فشل حذف الكود.");
+        }
+      } catch (err) {
+        alert(err.message || "تعذر حذف الكود.");
       }
     }
 
