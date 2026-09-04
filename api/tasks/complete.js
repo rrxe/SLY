@@ -256,25 +256,8 @@ async function processReferralAfterTask(telegramId) {
     throw completionsError
   }
 
-  const { data: joinBotTasks, error: joinBotTasksError } = await supabase
-    .from('tasks')
-    .select('id')
-    .eq('task_type', 'join_bot')
-
-  if (joinBotTasksError) {
-    throw joinBotTasksError
-  }
-
-  const joinBotTaskIds = new Set(
-    (joinBotTasks || []).map((t) => String(t.id))
-  )
-
   const completedTasks = (completions || []).reduce(
     (sum, row) => {
-      if (joinBotTaskIds.has(String(row.task_id))) {
-        return sum
-      }
-
       const count = Number(row.completion_count || 0)
 
       if (!Number.isFinite(count) || count <= 0) {
