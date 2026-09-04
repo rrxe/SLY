@@ -51,6 +51,44 @@
     button:active { transform: scale(0.98); }
     button:disabled { opacity: 0.5; cursor: not-allowed; }
     .refresh-btn { background: #273449; margin-top: 10px; }
+    .nav-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    .nav-btn {
+      width: auto;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 16px 10px;
+      background: #1a2333;
+      border: 1px solid #303b4d;
+      border-radius: 14px;
+      font-weight: 700;
+      font-size: 12.5px;
+      color: #d7e2f2;
+      text-align: center;
+    }
+    .nav-btn-icon { font-size: 22px; }
+    .nav-btn.active {
+      background: rgba(64, 167, 227, 0.16);
+      border-color: #40a7e3;
+      color: #ffffff;
+    }
+    .admin-section {
+      animation: sectionFadeIn 0.18s ease;
+    }
+    @keyframes sectionFadeIn {
+      from { opacity: 0; transform: translateY(4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @media (max-width: 380px) {
+      .nav-grid { grid-template-columns: 1fr 1fr; }
+      .nav-btn { padding: 14px 8px; font-size: 11.5px; }
+    }
     .approve { background: #4caf50; }
     .reject { background: #e53935; }
     .toggle { background: #273449; }
@@ -546,6 +584,52 @@
   </div>
 
   <div class="card">
+    <h3>الأقسام</h3>
+    <div class="nav-grid">
+      <button class="nav-btn" data-target="section-settings" onclick="showSection('section-settings')">
+        <span class="nav-btn-icon">⚙️</span>
+        <span>إعدادات النظام</span>
+      </button>
+      <button class="nav-btn" data-target="section-mandatory" onclick="showSection('section-mandatory')">
+        <span class="nav-btn-icon">🔒</span>
+        <span>الاشتراك الإجباري</span>
+      </button>
+      <button class="nav-btn" data-target="section-broadcast" onclick="showSection('section-broadcast')">
+        <span class="nav-btn-icon">📢</span>
+        <span>رسالة جماعية</span>
+      </button>
+      <button class="nav-btn" data-target="section-addtask" onclick="showSection('section-addtask')">
+        <span class="nav-btn-icon">➕</span>
+        <span>إضافة مهمة</span>
+      </button>
+      <button class="nav-btn" data-target="section-managetasks" onclick="showSection('section-managetasks')">
+        <span class="nav-btn-icon">📋</span>
+        <span>إدارة المهام</span>
+      </button>
+      <button class="nav-btn" data-target="section-giftcodes" onclick="showSection('section-giftcodes')">
+        <span class="nav-btn-icon">🎁</span>
+        <span>أكواد الهدايا</span>
+      </button>
+      <button class="nav-btn" data-target="section-withdrawals" onclick="showSection('section-withdrawals')">
+        <span class="nav-btn-icon">💸</span>
+        <span>طلبات السحب</span>
+      </button>
+      <button class="nav-btn" data-target="section-users" onclick="showSection('section-users')">
+        <span class="nav-btn-icon">🛡️</span>
+        <span>اللاعبين والحظر</span>
+      </button>
+      <button class="nav-btn" data-target="section-starstime" onclick="showSection('section-starstime')">
+        <span class="nav-btn-icon">🌟</span>
+        <span>نجوم الوقت</span>
+      </button>
+      <button class="nav-btn" data-target="section-duplicates" onclick="showSection('section-duplicates')">
+        <span class="nav-btn-icon">🧩</span>
+        <span>حسابات مكررة</span>
+      </button>
+    </div>
+  </div>
+
+  <div class="card admin-section" id="section-settings" style="display:none;">
     <h3>إعدادات النظام</h3>
 
     <div class="mini-grid">
@@ -610,7 +694,7 @@
     </div>
   </div>
 
-  <div class="card">
+  <div class="card admin-section" id="section-mandatory" style="display:none;">
     <h3>🔒 الاشتراك الإجباري</h3>
 
     <div class="field-hint">
@@ -651,7 +735,7 @@
     </button>
   </div>
 
-  <div class="card">
+  <div class="card admin-section" id="section-broadcast" style="display:none;">
     <h3>إرسال رسالة جماعية</h3>
 
     <textarea
@@ -688,7 +772,7 @@
     <button onclick="sendBroadcast()">إرسال للجميع</button>
   </div>
 
-  <div class="card">
+  <div class="card admin-section" id="section-addtask" style="display:none;">
     <h3>إضافة مهمة جديدة</h3>
 
     <input
@@ -755,7 +839,7 @@
     <button onclick="addTask()">إضافة المهمة</button>
   </div>
 
-  <div class="card">
+  <div class="card admin-section" id="section-managetasks" style="display:none;">
     <h3>إدارة المهام</h3>
 
     <div class="tasks-toolbar">
@@ -781,7 +865,7 @@
     </button>
   </div>
 
-  <div class="card">
+  <div class="card admin-section" id="section-giftcodes" style="display:none;">
     <h3>🎁 أكواد الهدايا (Gift Codes)</h3>
 
     <input type="text" id="giftCodeInput" placeholder="مثال: the-sly123" />
@@ -826,7 +910,7 @@
     </button>
   </div>
 
-  <div class="card">
+  <div class="card admin-section" id="section-withdrawals" style="display:none;">
     <h3>طلبات السحب</h3>
 
     <div id="withdrawalsList" class="loading">
@@ -841,7 +925,7 @@
     </button>
   </div>
 
-  <div class="card">
+  <div class="card admin-section" id="section-users" style="display:none;">
     <h3>🛡️ إدارة اللاعبين والحظر</h3>
 
     <input
@@ -863,7 +947,7 @@
     </button>
   </div>
 
-  <div class="card">
+  <div class="card admin-section" id="section-starstime" style="display:none;">
     <h3>🌟 نجوم الوقت الأسبوعية (Stars Time)</h3>
 
     <p class="muted" style="margin-bottom:10px;font-size:12px;line-height:1.6;">
@@ -889,7 +973,7 @@
     </button>
   </div>
 
-  <div class="card">
+  <div class="card admin-section" id="section-duplicates" style="display:none;">
     <h3>🧩 حسابات مكررة (نفس الجهاز/الشبكة)</h3>
 
     <div id="duplicatesList" class="loading">
@@ -932,6 +1016,28 @@
       loadUsers();
       loadGiftCodes();
     });
+
+    function showSection(id) {
+      const target = document.getElementById(id);
+      if (!target) return;
+
+      const isOpen = target.style.display !== "none";
+
+      document.querySelectorAll(".admin-section").forEach((el) => {
+        el.style.display = "none";
+      });
+      document.querySelectorAll(".nav-btn").forEach((btn) => {
+        btn.classList.remove("active");
+      });
+
+      if (isOpen) return;
+
+      target.style.display = "block";
+      const btn = document.querySelector('.nav-btn[data-target="' + id + '"]');
+      if (btn) btn.classList.add("active");
+
+      target.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
 
     function saveSecret(value) {
       localStorage.setItem(
