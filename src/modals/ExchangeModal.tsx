@@ -30,7 +30,7 @@ declare global {
 }
 
 // نفس بلوك المكافأة (reward) المستخدم في بوابة السحب — يتحقق من اكتمال مشاهدة الإعلان فعلياً
-const ADSGRAM_BLOCK_ID = "45914";
+const ADSGRAM_BLOCK_ID = "46086";
 
 const MIN_COINS = 1000;
 const RATE = 0.0000025;

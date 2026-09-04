@@ -50,7 +50,7 @@ declare global {
 }
 
 // AdsGram Reward Block ID
-const ADSGRAM_REWARD_BLOCK_ID = "45914";
+const ADSGRAM_REWARD_BLOCK_ID = "46086";
 
 // مهلة بسيطة بعد انتهاء الإعلان لإعطاء الـwebhook وقت يوصل
 const WEBHOOK_GRACE_MS = 2500;

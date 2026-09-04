@@ -76,9 +76,9 @@ type WithdrawalHistoryEntry = {
   createdAt: string;
 };
 
-const ADSGRAM_BLOCK_ID = "int-45822";
-const ADSGRAM_MINING_BLOCK_ID = "45914";
-const ADSGRAM_STARS_BLOCK_ID = "45914";
+const ADSGRAM_BLOCK_ID = "int-46084";
+const ADSGRAM_MINING_BLOCK_ID = "46086";
+const ADSGRAM_STARS_BLOCK_ID = "46086";
 const ADSGRAM_SCRIPT_SRC = "https://sad.adsgram.ai/js/sad.min.js";
 const MINING_AD_SHOW_TIMEOUT_MS = 45000;
 const MINING_CACHE_KEY = "sly.mining.cache.v1";
