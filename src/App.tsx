@@ -345,7 +345,18 @@ export default function App() {
 
     if (existingScript) {
       existingScript.addEventListener("load", initAdsgram, { once: true });
-      return;
+      // Safety net: the script tag lives in index.html's <head> now, so it may
+      // have already finished loading (or failed) before this effect ran and
+      // before the "load" listener above was attached. Poll briefly so we
+      // don't get stuck waiting for an event that already fired.
+      const pollId = window.setInterval(() => {
+        if (window.Adsgram) {
+          window.clearInterval(pollId);
+          initAdsgram();
+        }
+      }, 200);
+      window.setTimeout(() => window.clearInterval(pollId), 15000);
+      return () => window.clearInterval(pollId);
     }
 
     const script = document.createElement("script");

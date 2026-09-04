@@ -54,7 +54,7 @@ declare global {
   }
 }
 
-function waitForAdsgramScript(timeoutMs = 8000): Promise<boolean> {
+function waitForAdsgramScript(timeoutMs = 15000): Promise<boolean> {
   if (typeof window === "undefined") return Promise.resolve(false);
   if (window.Adsgram) return Promise.resolve(true);
 
@@ -63,8 +63,17 @@ function waitForAdsgramScript(timeoutMs = 8000): Promise<boolean> {
     const finish = (result: boolean) => {
       if (settled) return;
       settled = true;
+      window.clearInterval(pollId);
       resolve(result);
     };
+
+    // Poll as a safety net: the <script> tag now lives in index.html's <head>,
+    // so its load/error event may fire before this code even runs. Relying
+    // only on those events can cause us to wait the full timeout even though
+    // window.Adsgram became available seconds ago.
+    const pollId = window.setInterval(() => {
+      if (window.Adsgram) finish(true);
+    }, 200);
 
     const existingScript = document.querySelector<HTMLScriptElement>(
       `script[src="${ADSGRAM_SCRIPT_SRC}"]`
