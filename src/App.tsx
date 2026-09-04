@@ -15,7 +15,6 @@ import { acquireGlobalAdLock, releaseGlobalAdLock } from "./lib/adLock";
 
 import ExchangeModal from "./modals/ExchangeModal";
 import WithdrawalModal from "./modals/WithdrawalModal";
-import GiftCodeModal from "./modals/GiftCodeModal";
 
 type Page = "home" | "tasks" | "referrals" | "stars" | "profile";
 type ActivityTone = "info" | "reward" | "exchange";
@@ -205,7 +204,6 @@ export default function App() {
   const [page, setPage] = useState<Page>("home");
   const [exchangeOpen, setExchangeOpen] = useState(false);
   const [withdrawOpen, setWithdrawOpen] = useState(false);
-  const [giftCodeOpen, setGiftCodeOpen] = useState(false);
 
   const [wallet, setWallet] = useState<WalletState>({
     coins: 0,
@@ -1261,7 +1259,7 @@ export default function App() {
               miningReady={miningReady}
               miningAdBusy={miningAdBusy}
               onMining={handleMining}
-              onOpenGiftCode={() => setGiftCodeOpen(true)}
+              onRedeemGiftCode={handleRedeemGiftCode}
             />
           )}
 
@@ -1311,12 +1309,6 @@ export default function App() {
         coins={wallet.coins}
         onClose={() => setExchangeOpen(false)}
         onConfirm={handleExchange}
-      />
-
-      <GiftCodeModal
-        open={giftCodeOpen}
-        onClose={() => setGiftCodeOpen(false)}
-        onRedeem={handleRedeemGiftCode}
       />
 
       <WithdrawalModal

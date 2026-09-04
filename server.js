@@ -15,6 +15,8 @@ import leaderboard from './api/leaderboard.js'
 import adminBroadcast from './api/admin/broadcast.js'
 import adminWithdrawals from './api/admin/withdrawals.js'
 import adminWithdrawalsStatus from './api/admin/withdrawals/status.js'
+import adminGiftCodes from './api/admin/gift-codes.js'
+import giftCodesRedeem from './api/gift-codes/redeem.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -41,6 +43,8 @@ app.all('/api/leaderboard', wrap(leaderboard))
 app.all('/api/admin/broadcast', wrap(adminBroadcast))
 app.all('/api/admin/withdrawals/status', wrap(adminWithdrawalsStatus))
 app.all('/api/admin/withdrawals', wrap(adminWithdrawals))
+app.all('/api/admin/gift-codes', wrap(adminGiftCodes))
+app.all('/api/gift-codes/redeem', wrap(giftCodesRedeem))
 
 const distDir = path.join(__dirname, 'dist')
 app.use(express.static(distDir, {

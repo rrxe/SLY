@@ -13,6 +13,8 @@ type MiningState = {
   claimAdVerified: boolean;
 };
 
+type RedeemResult = { success: boolean; message: string };
+
 type Props = {
   balanceCoins: number;
   streak: number;
@@ -20,7 +22,7 @@ type Props = {
   miningReady: boolean;
   miningAdBusy: boolean;
   onMining: () => void;
-  onOpenGiftCode: () => void;
+  onRedeemGiftCode: (code: string) => Promise<RedeemResult>;
 };
 
 type LeaderUser = {
@@ -68,10 +70,35 @@ export default function Home({
   miningReady,
   miningAdBusy,
   onMining,
-  onOpenGiftCode,
+  onRedeemGiftCode,
 }: Props) {
   const [leaderboard, setLeaderboard] = useState<LeaderUser[]>([]);
   const [now, setNow] = useState(() => Date.now());
+
+  const [giftCode, setGiftCode] = useState("");
+  const [giftBusy, setGiftBusy] = useState(false);
+  const [giftStatus, setGiftStatus] = useState<"idle" | "success" | "error">(
+    "idle"
+  );
+  const [giftMessage, setGiftMessage] = useState("");
+
+  const handleRedeemGiftCode = async () => {
+    const trimmed = giftCode.trim();
+    if (!trimmed || giftBusy) return;
+
+    setGiftBusy(true);
+    setGiftMessage("");
+
+    const result = await onRedeemGiftCode(trimmed);
+
+    setGiftBusy(false);
+    setGiftStatus(result.success ? "success" : "error");
+    setGiftMessage(result.message);
+
+    if (result.success) {
+      setGiftCode("");
+    }
+  };
 
   // العداد المرئي بس - يحدّث كل ثانية طالما المستخدم على هاي الصفحة.
   // هذا لا علاقة له بحالة التعدين الفعلية (تلك محفوظة بمستوى App
@@ -204,41 +231,60 @@ export default function Home({
         ) : null}
       </section>
 
-      <section className="stats-bar">
-        <div className="stats-bar-item">
-          <span className="stats-bar-icon gold">
-            <UiIcons name="coins" className="stats-bar-svg" />
-          </span>
-          <div className="stats-bar-text">
-            <strong>{balanceCoins.toLocaleString()}</strong>
-            <small>Coins</small>
+      <article className="mini-card gift-code-card">
+        <div className="section-head compact">
+          <div>
+            <p>Redeem</p>
+            <h2>Gift Code</h2>
           </div>
+          <svg
+            viewBox="0 0 24 24"
+            className="section-head-icon"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.6"
+          >
+            <rect x="3" y="9" width="18" height="11" rx="1.5" />
+            <path d="M3 13h18" />
+            <path d="M12 9v11" />
+            <path d="M12 9C9.5 9 8 7.6 8 6a2 2 0 0 1 4 0v3Z" />
+            <path d="M12 9c2.5 0 4-1.4 4-3a2 2 0 0 0-4 0v3Z" />
+          </svg>
         </div>
 
-        <div className="stats-bar-divider" />
+        <p className="gift-code-hint">
+          Have a promo or gift code? Enter it below for bonus coins.
+        </p>
 
-        <div className="stats-bar-item">
-          <span className="stats-bar-icon teal">
-            <span className="stats-bar-dot" />
-          </span>
-          <div className="stats-bar-text">
-            <strong>{streak}d</strong>
-            <small>Streak</small>
-          </div>
+        <div className="gift-code-input-row">
+          <input
+            className="gift-code-input"
+            value={giftCode}
+            onChange={(e) => setGiftCode(e.target.value)}
+            placeholder="Enter your gift code"
+            autoCapitalize="characters"
+            disabled={giftBusy}
+          />
+
+          <button
+            className="gift-code-open-btn"
+            onClick={handleRedeemGiftCode}
+            type="button"
+            disabled={!giftCode.trim() || giftBusy}
+          >
+            {giftBusy ? "Redeeming..." : "Enter Gift Code"}
+          </button>
         </div>
 
-        <div className="stats-bar-divider" />
-
-        <div className="stats-bar-item">
-          <span className="stats-bar-icon gold">
-            <UiIcons name="coins" className="stats-bar-svg" />
-          </span>
-          <div className="stats-bar-text">
-            <strong>+2.5K</strong>
-            <small>Per Cycle</small>
-          </div>
-        </div>
-      </section>
+        {giftMessage ? (
+          <p
+            className="gift-code-message"
+            style={{ color: giftStatus === "success" ? "#81c784" : "#ff8a80" }}
+          >
+            {giftMessage}
+          </p>
+        ) : null}
+      </article>
 
       <section className="checkin-card">
         <div className="checkin-top">
@@ -291,36 +337,6 @@ export default function Home({
       </section>
 
       <section className="home-grid">
-        <article className="mini-card gift-code-card">
-          <div className="section-head compact">
-            <div>
-              <p>Redeem</p>
-              <h2>Gift Code</h2>
-            </div>
-            <svg
-              viewBox="0 0 24 24"
-              className="section-head-icon"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.6"
-            >
-              <rect x="3" y="9" width="18" height="11" rx="1.5" />
-              <path d="M3 13h18" />
-              <path d="M12 9v11" />
-              <path d="M12 9C9.5 9 8 7.6 8 6a2 2 0 0 1 4 0v3Z" />
-              <path d="M12 9c2.5 0 4-1.4 4-3a2 2 0 0 0-4 0v3Z" />
-            </svg>
-          </div>
-
-          <p className="gift-code-hint">
-            Have a promo or gift code? Redeem it here for bonus coins.
-          </p>
-
-          <button className="gift-code-open-btn" onClick={onOpenGiftCode} type="button">
-            Enter Gift Code
-          </button>
-        </article>
-
         <article className="mini-card">
           <div className="section-head compact">
             <div>

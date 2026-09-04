@@ -641,3 +641,55 @@
 .gift-code-open-btn:active {
   transform: scale(0.98);
 }
+
+.gift-code-open-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.gift-code-input-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.gift-code-input {
+  flex: 1;
+  height: 46px;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: #0d1213;
+  color: #fff;
+  padding: 0 14px;
+  font-size: 14px;
+  outline: none;
+  min-width: 0;
+}
+
+.gift-code-input::placeholder {
+  color: #5c6b69;
+}
+
+.gift-code-input-row .gift-code-open-btn {
+  width: auto;
+  white-space: nowrap;
+  padding: 0 16px;
+  height: 46px;
+}
+
+.gift-code-message {
+  margin: 10px 0 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+@media (max-width: 380px) {
+  .gift-code-input-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .gift-code-input-row .gift-code-open-btn {
+    width: 100%;
+  }
+}
