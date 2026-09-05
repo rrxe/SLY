@@ -31,7 +31,7 @@ const ADSGRAM_CLAIM_DELAY_MS = 0;   // صفر لـ AdsGram أيضاً (إعلا�
 
 
 // بلوك AdsGram الخاص بمهام المشاهدة (نفس نوع البلوك المستخدم في بوابة السحب)
-const ADSGRAM_TASK_BLOCK_ID = "46262";
+const ADSGRAM_TASK_BLOCK_ID = "46086";
 const ADSGRAM_SCRIPT_SRC = "https://sad.adsgram.ai/js/sad.min.js";
 
 type AdsgramShowResult = {
