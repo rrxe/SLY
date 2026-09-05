@@ -56,7 +56,7 @@ const ADSGRAM_REWARD_BLOCK_ID = "46263";
 // مهلة بسيطة بس قبل أول قراءة - الانتظار الحقيقي (لين ما يوصل
 // الـwebhook) صار داخل onWatchAd نفسها (App.tsx) اللي تنطر لين
 // العداد يزيد فعلاً بدل قراءة وحدة فورية.
-const WEBHOOK_GRACE_MS = 300;
+const WEBHOOK_GRACE_MS = 0;
 
 const MIN_WITHDRAW = 0.1;
 const MAX_WITHDRAW = 0.2;
@@ -393,7 +393,7 @@ export default function WithdrawalModal({
             {adsComplete
               ? "Unlocked ✓"
               : watchingAd
-              ? "Watching..."
+              ? "Confirming reward..."
               : "Watch Ad"}
           </button>
         </div>

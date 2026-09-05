@@ -83,10 +83,10 @@ const ADSGRAM_SCRIPT_SRC = "https://sad.adsgram.ai/js/sad.min.js";
 const MINING_AD_SHOW_TIMEOUT_MS = 45000;
 // AdsGram's server-side reward postback can arrive well after the ad
 // finishes playing, especially on slower mobile networks. We poll for
-// up to 3 minutes (was 60s) before giving up, and even then we do NOT
+// up to 3 minutes before giving up, and even then we do NOT
 // clear the pending intent — a late postback should still be credited.
-const AD_VERIFY_MAX_ATTEMPTS = 180;
-const AD_VERIFY_POLL_MS = 1000;
+const AD_VERIFY_MAX_ATTEMPTS = 900;
+const AD_VERIFY_POLL_MS = 200;
 const MINING_CACHE_KEY = "sly.mining.cache.v1";
 
 
@@ -461,10 +461,17 @@ export default function App() {
     for (let attempt = 0; attempt < AD_VERIFY_MAX_ATTEMPTS; attempt += 1) {
       try {
         const data = await callApi("/api/auth/me", { method: "GET" });
-        if (data?.starsAdVerified) return data;
+
+        // Backend is the only source of truth.
+        // Do not mark the ad as rewarded from the frontend.
+        if (data?.starsAdVerified) {
+          return data;
+        }
       } catch {}
 
-      await new Promise((resolve) => window.setTimeout(resolve, AD_VERIFY_POLL_MS));
+      await new Promise((resolve) =>
+        window.setTimeout(resolve, AD_VERIFY_POLL_MS)
+      );
     }
 
     return null;
@@ -499,9 +506,6 @@ export default function App() {
   // Must stay >= AD_VERIFY_MAX_ATTEMPTS * AD_VERIFY_POLL_MS, otherwise this
   // outer timeout cuts the verification poll short before it gets a chance
   // to see a late AdsGram postback.
-  const HANDLE_STARS_AD_HARD_TIMEOUT_MS =
-    AD_VERIFY_MAX_ATTEMPTS * AD_VERIFY_POLL_MS + 30000;
-
   const handleWatchStarsAd = async () => {
     if (starsAdBusy) return;
     if (!adsgramStarsControllerRef.current) {
@@ -511,13 +515,6 @@ export default function App() {
 
     setStarsAdBusy(true);
     setStarsAdToast("");
-
-    let hardTimeoutId: number | undefined;
-    const hardTimeout = new Promise<never>((_, reject) => {
-      hardTimeoutId = window.setTimeout(() => {
-        reject(new Error("Timed out. Please try again."));
-      }, HANDLE_STARS_AD_HARD_TIMEOUT_MS);
-    });
 
     const run = async () => {
       const prepare = await callApi("/api/auth/me", {
@@ -567,13 +564,12 @@ export default function App() {
     };
 
     try {
-      await Promise.race([run(), hardTimeout]);
+      await run();
     } catch (err: any) {
       await cancelStarsAd();
       releaseGlobalAdLock();
       setStarsAdToast(err?.message || "Failed to watch ad.");
     } finally {
-      if (hardTimeoutId !== undefined) window.clearTimeout(hardTimeoutId);
       setStarsAdBusy(false);
     }
   };
@@ -674,11 +670,20 @@ export default function App() {
     for (let attempt = 0; attempt < AD_VERIFY_MAX_ATTEMPTS; attempt += 1) {
       try {
         const state = await refreshMining();
-        if (stage === "start" && state?.startAdVerified) return true;
-        if (stage === "claim" && state?.claimAdVerified) return true;
+
+        // Only backend confirmation unlocks the next action.
+        if (stage === "start" && state?.startAdVerified) {
+          return true;
+        }
+
+        if (stage === "claim" && state?.claimAdVerified) {
+          return true;
+        }
       } catch {}
 
-      await new Promise((resolve) => window.setTimeout(resolve, AD_VERIFY_POLL_MS));
+      await new Promise((resolve) =>
+        window.setTimeout(resolve, AD_VERIFY_POLL_MS)
+      );
     }
 
     return false;
@@ -1069,9 +1074,13 @@ export default function App() {
     // نفس مشكلة mining/stars: الـwebhook ممكن يتأخر عن الشبكات
     // الخلوية، فبدل قراءة وحدة فورية، ننطر (poll) لين العداد يزيد
     // فعلاً أو تنتهي المهلة - بدون ما نلغي أي شي بالسيرفر.
+    // Keep Watch Ad locked until the backend counter changes.
+    // A frontend click/open alone is NOT considered a completed reward.
     const baseline = withdrawalAdsWatched;
 
-    for (let attempt = 0; attempt < AD_VERIFY_MAX_ATTEMPTS; attempt += 1) {
+    // يبقى الزر Loading/Confirming إلى أن يؤكد الـBackend المكافأة.
+    // العداد الحقيقي يأتي من السيرفر فقط.
+    while (true) {
       try {
         const data = await loadPlayerData();
         const watched = data.withdrawalAdsWatched ?? 0;
@@ -1087,10 +1096,10 @@ export default function App() {
         console.log("refresh after watch ad failed", err);
       }
 
-      await new Promise((resolve) => window.setTimeout(resolve, AD_VERIFY_POLL_MS));
+      await new Promise((resolve) =>
+        window.setTimeout(resolve, AD_VERIFY_POLL_MS)
+      );
     }
-    // إذا خلصت المحاولات بدون ما يزيد العداد، نخليه كما هو - أي
-    // webhook متأخر لسا يتحسب صح، وبس المستخدم يحدث الصفحة لاحقاً.
   };
 
   const handleWalletConnected = (address: string) => {
