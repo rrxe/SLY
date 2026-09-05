@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import UiIcons from "../components/UiIcons";
 import "../styles/modals.css";
+import { acquireGlobalAdLock, releaseGlobalAdLock } from "../lib/adLock";
 
 type WithdrawMethod = "binance" | "bnb";
 // ملاحظة: القيمة الداخلية "bnb" بقيت كما هي (تخزين قاعدة البيانات
@@ -175,6 +176,10 @@ export default function WithdrawalModal({
     setWatchingAd(true);
     setError("");
 
+    // نمنع أي إعلان ثاني يطلع فوق هاي حتى يخلص هذا (نفس القفل المستخدم
+    // بالمايننق والمهام بـ App.tsx / Tasks.tsx)
+    await acquireGlobalAdLock();
+
     try {
       if (
         !adsgramControllerRef.current &&
@@ -217,6 +222,7 @@ export default function WithdrawalModal({
       );
     } finally {
       setWatchingAd(false);
+      releaseGlobalAdLock();
     }
   };
 

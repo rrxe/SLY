@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import UiIcons from "../components/UiIcons";
 import "../styles/modals.css";
+import { acquireGlobalAdLock, releaseGlobalAdLock } from "../lib/adLock";
 
 type Props = {
   open: boolean;
@@ -87,6 +88,10 @@ export default function ExchangeModal({
     setStage("watching");
     setMessage("Watching ad...");
 
+    // نمنع أي إعلان ثاني يطلع فوق هاي حتى يخلص هذا (نفس القفل المستخدم
+    // بالمايننق والمهام بـ App.tsx / Tasks.tsx)
+    await acquireGlobalAdLock();
+
     try {
       if (!adsgramControllerRef.current && window.Adsgram) {
         adsgramControllerRef.current = window.Adsgram.init({ blockId: ADSGRAM_BLOCK_ID });
@@ -103,6 +108,8 @@ export default function ExchangeModal({
       setMessage("The ad could not be completed. Please try again.");
       setStage("edit");
       return;
+    } finally {
+      releaseGlobalAdLock();
     }
 
     onConfirm(amount);
