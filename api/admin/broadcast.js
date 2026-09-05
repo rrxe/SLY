@@ -23,10 +23,22 @@ import { supabase } from '../../lib/supabase.js'
 //    - الأدمن يضغط "إرسال للجميع" مرة وحدة بس
 //    - السيرفر يرد فوراً "بدأ الإرسال" ويكمل الإرسال بالخلفية
 //    - واجهة الأدمن تستعلم كل شوي عن حالة التقدم (progress) وتعرضها
+//
+// 4) (إصلاح إضافي) "فيه إرسال جماعي شغال حالياً" بدون أي إرسال فعلي:
+//    لو أي طلب شبكة وحد (لتيليجرام أو Supabase) تعلّق بدون ما يرجع
+//    رد ولا خطأ (تجمّد كامل، مو مجرد بطء)، الحلقة توقف بالنص للأبد
+//    وأبداً ما توصل لـ finally اللي يصفّر state.active. فيضل عالق
+//    true للأبد ويرفض أي محاولة إرسال جديدة بعدها. الحل:
+//    - كل طلب شبكة إله مهلة قصوى (AbortController) فيرجع فشل بدل
+//      ما يعلّق للأبد
+//    - شبكة أمان إضافية: لو ما فيه أي تقدم لمدة أطول من المعقول،
+//      نعتبر الحالة "عالقة" ونصفّرها تلقائياً بأول طلب جديد يجي
 // ============================================================
 
 const BATCH_SIZE = 25 // قريب من حد تيليجرام (~30 رسالة/ثانية لمستخدمين مختلفين)
 const BATCH_DELAY_MS = 1000 // نبقى تحت حد تيليجرام
+const REQUEST_TIMEOUT_MS = 10000 // أقصى وقت ننتظره لأي طلب شبكة وحد
+const STALL_RESET_MS = 90000 // لو مافيه أي تقدم لهالمدة، نعتبرها عالقة
 
 // حالة البرودكاست الحالية، محفوظة بالذاكرة طول ما السيرفر شغال
 // (يشتغل صح لأن هذا سيرفر Node دائم، مو دالة serverless تتصفر كل طلب)
@@ -40,6 +52,7 @@ const state = {
   error: null,
   startedAt: null,
   finishedAt: null,
+  lastProgressAt: null,
 }
 
 function publicState() {
@@ -54,19 +67,52 @@ function publicState() {
   }
 }
 
+// لو الحالة تقول "شغال" بس ما صار فيها أي تقدم لمدة أطول من المعقول،
+// أكيد فيه طلب شبكة تعلّق للأبد بمكان ما. نعتبرها عالقة ونصفّرها
+// عشان الأدمن يقدر يبدأ إرسال جديد بدل ما يضل محظور للأبد.
+function clearIfStalled() {
+  if (!state.active) return
+
+  const reference = state.lastProgressAt || state.startedAt || 0
+  if (Date.now() - reference > STALL_RESET_MS) {
+    state.active = false
+    state.done = true
+    state.error = 'توقف الإرسال بسبب تعليق بالشبكة (Timeout) وتم إعادة الضبط تلقائياً.'
+    state.finishedAt = Date.now()
+  }
+}
+
+// يضيف مهلة قصوى لأي فيتش عشان ما يعلّق للأبد لو الشبكة تجمّدت
+async function fetchWithTimeout(url, options = {}) {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
+
+  try {
+    return await fetch(url, { ...options, signal: controller.signal })
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
 // يجيب كل اللاعبين بدون أي حد أقصى، بصفحات من 1000 بالتتابع
-// (هذا هو الحل لمشكلة الـ 1000 صف)
+// (هذا هو الحل لمشكلة الـ 1000 صف)، مع مهلة قصوى على كل صفحة
 async function fetchAllTelegramIds() {
   const ids = []
   const PAGE_SIZE = 1000
   let from = 0
 
   while (true) {
-    const { data, error } = await supabase
+    const pageQuery = supabase
       .from('players')
       .select('telegram_id')
       .order('telegram_id', { ascending: true })
       .range(from, from + PAGE_SIZE - 1)
+
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('انتهت مهلة الاتصال بقاعدة البيانات')), REQUEST_TIMEOUT_MS)
+    })
+
+    const { data, error } = await Promise.race([pageQuery, timeoutPromise])
 
     if (error) throw error
     if (!data || data.length === 0) break
@@ -99,12 +145,12 @@ async function sendOne(telegramId, botToken, message, photoBuffer, photoMime) {
         'broadcast.jpg'
       )
 
-      response = await fetch(`https://api.telegram.org/bot${botToken}/sendPhoto`, {
+      response = await fetchWithTimeout(`https://api.telegram.org/bot${botToken}/sendPhoto`, {
         method: 'POST',
         body: form,
       })
     } else {
-      response = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+      response = await fetchWithTimeout(`https://api.telegram.org/bot${botToken}/sendMessage`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -118,7 +164,7 @@ async function sendOne(telegramId, botToken, message, photoBuffer, photoMime) {
     const result = await response.json()
     return !!result.ok
   } catch (e) {
-    // نتجاوز أي رسالة فشلت (مثلاً مستخدم حظر البوت) ونكمل الباقي
+    // نتجاوز أي رسالة فشلت (مثلاً مستخدم حظر البوت أو تجاوزت المهلة) ونكمل الباقي
     return false
   }
 }
@@ -129,6 +175,7 @@ async function runBroadcast(message, photoBuffer, photoMime) {
   try {
     const telegramIds = await fetchAllTelegramIds()
     state.totalPlayers = telegramIds.length
+    state.lastProgressAt = Date.now()
 
     for (let i = 0; i < telegramIds.length; i += BATCH_SIZE) {
       const batch = telegramIds.slice(i, i + BATCH_SIZE)
@@ -146,6 +193,7 @@ async function runBroadcast(message, photoBuffer, photoMime) {
       }
 
       state.processedSoFar += batch.length
+      state.lastProgressAt = Date.now()
 
       const isLastBatch = i + BATCH_SIZE >= telegramIds.length
       if (!isLastBatch) {
@@ -166,6 +214,10 @@ export default async function handler(req, res) {
     return res.status(401).json({ success: false, error: 'Unauthorized' })
   }
 
+  // قبل أي شي، نتأكد إن الحالة "شغال" مو مجرد بقايا عالقة من طلب
+  // شبكة تجمّد سابقاً
+  clearIfStalled()
+
   // استعلام عن حالة التقدم الحالية (تستخدمه واجهة الأدمن كل ثانية ونص
   // لتحديث الشريط لين ما يخلص الإرسال)
   if (req.method === 'GET') {
@@ -176,7 +228,9 @@ export default async function handler(req, res) {
     return res.status(405).json({ success: false, error: 'Method not allowed' })
   }
 
-  if (state.active) {
+  const forceReset = !!(req.body && req.body.forceReset)
+
+  if (state.active && !forceReset) {
     return res.status(409).json({
       success: false,
       error: 'فيه إرسال جماعي شغال حالياً، انتظر لين يخلص قبل ما تبدأ وحدة جديدة.',
@@ -210,6 +264,7 @@ export default async function handler(req, res) {
     state.error = null
     state.startedAt = Date.now()
     state.finishedAt = null
+    state.lastProgressAt = Date.now()
 
     runBroadcast(message, photoBuffer, photoMime)
 

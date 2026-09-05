@@ -3286,12 +3286,42 @@
           );
 
         if (!startResult.success) {
-          alert(
-            startResult.error ||
-            "فشل بدء الإرسال."
-          );
+          // لو فيه إرسال "شغال" عالق من محاولة سابقة تعلّقت بالشبكة،
+          // نعطي الأدمن خيار يلغيه يدوياً بدل ما ينتظر التصفير التلقائي
+          const isBusyError =
+            typeof startResult.error === "string" &&
+            startResult.error.includes("شغال حالياً");
 
-          return;
+          if (
+            isBusyError &&
+            confirm(
+              (startResult.error || "") +
+              "\n\nإذا متأكد إنه ما فيه إرسال حقيقي شغال (مثلاً علق بسبب مشكلة شبكة)، اضغط OK لإلغائه والبدء من جديد."
+            )
+          ) {
+            const forcedResult =
+              await apiCall(
+                "/api/admin/broadcast",
+                "POST",
+                { ...payload, forceReset: true }
+              );
+
+            if (!forcedResult.success) {
+              alert(
+                forcedResult.error ||
+                "فشل بدء الإرسال."
+              );
+
+              return;
+            }
+          } else {
+            alert(
+              startResult.error ||
+              "فشل بدء الإرسال."
+            );
+
+            return;
+          }
         }
 
         // السيرفر يرد فوراً ببدء الإرسال ويكمل بالخلفية، فنستعلم كل
