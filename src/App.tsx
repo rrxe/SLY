@@ -1028,6 +1028,13 @@ export default function App() {
     }
   };
 
+  const handleWithdrawAdPrepare = async () => {
+    await callApi("/api/auth/me", {
+      method: "POST",
+      body: JSON.stringify({ action: "withdrawal_prepare_ad" }),
+    }).catch(() => {});
+  };
+
   const handleWatchWithdrawAd = async () => {
     // العداد ما عاد يزيد من هنا مباشرة - AdsGram يستدعي webhook آمن
     // (adsgram_reward) بعد ما يتأكد المستخدم شاهد الإعلان فعلاً،
@@ -1317,6 +1324,7 @@ export default function App() {
         withdrawalAdsWatched={withdrawalAdsWatched}
         withdrawalAdsRequired={withdrawalAdsRequired}
         nextWithdrawalAvailableAt={nextWithdrawalAvailableAt}
+        onPrepareAd={handleWithdrawAdPrepare}
         onWatchAd={handleWatchWithdrawAd}
         onClose={() => setWithdrawOpen(false)}
         onConfirm={handleWithdraw}

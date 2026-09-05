@@ -1312,7 +1312,7 @@ export default async function handler(
       } = await supabase
         .from('players')
         .select(
-          'withdrawal_ads_watched, withdrawals_today, withdrawal_count_date, mining_active, mining_started_at, mining_ad_intent, mining_start_ad_verified, mining_claim_ad_verified, stars_ad_intent, stars_ad_batch_count, stars_cycle_started_at, stars_cycle_credited_seconds, withdrawal_ad_intent'
+          'withdrawal_ads_watched, withdrawals_today, withdrawal_count_date, mining_active, mining_started_at, mining_ad_intent, mining_start_ad_verified, mining_claim_ad_verified, stars_ad_intent, stars_ad_batch_count, stars_cycle_started_at, stars_cycle_credited_seconds'
         )
         .eq(
           'telegram_id',
@@ -1511,24 +1511,7 @@ export default async function handler(
        *
        * Mining ads are handled above and therefore
        * do not increase the withdrawal ad counter.
-       *
-       * NEW: withdrawal ads now require an explicit
-       * withdrawal_ad_intent flag set by the client right
-       * before showing the ad. Any reward postback that does
-       * not match mining/stars/withdrawal intent is ignored
-       * instead of silently falling through to the withdrawal
-       * counter (this previously caused Task/Exchange ad
-       * views to be miscredited as withdrawal ad views).
        */
-      if (
-        player.withdrawal_ad_intent !== true
-      ) {
-        return res.status(200).json({
-          success: true,
-          type: 'ignored',
-        })
-      }
-
       if (
         player.withdrawal_count_date !==
         today
@@ -1584,8 +1567,6 @@ export default async function handler(
             today,
           withdrawals_today:
             withdrawalsToday,
-          withdrawal_ad_intent:
-            false,
         })
         .eq(
           'telegram_id',
@@ -2065,31 +2046,6 @@ export default async function handler(
 
         if (cancelError) {
           throw cancelError
-        }
-
-        return res.status(200).json({
-          success: true,
-        })
-      }
-
-      if (
-        action === 'withdrawal_prepare_ad'
-      ) {
-        const {
-          error: prepareError,
-        } = await supabase
-          .from('players')
-          .update({
-            withdrawal_ad_intent:
-              true,
-          })
-          .eq(
-            'telegram_id',
-            telegramId
-          )
-
-        if (prepareError) {
-          throw prepareError
         }
 
         return res.status(200).json({

@@ -14,6 +14,7 @@ type Props = {
   withdrawalAdsWatched: number;
   withdrawalAdsRequired: number;
   nextWithdrawalAvailableAt: string | null;
+  onPrepareAd: () => Promise<void>;
   onWatchAd: () => Promise<void>;
   onClose: () => void;
   onConfirm: (
@@ -64,6 +65,7 @@ export default function WithdrawalModal({
   walletAddress,
   withdrawalAdsWatched,
   withdrawalAdsRequired,
+  onPrepareAd,
   onWatchAd,
   onClose,
   onConfirm,
@@ -193,6 +195,8 @@ export default function WithdrawalModal({
         setWatchingAd(false);
         return;
       }
+
+      await onPrepareAd();
 
       await adsgramControllerRef.current.show();
 
