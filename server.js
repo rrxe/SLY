@@ -22,7 +22,9 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 const app = express()
 app.use(compression())
-app.use(express.json())
+// الحد الافتراضي 100kb صغير جداً على صور البرودكاست (base64 يكبر الحجم
+// ~33%)، فيرفض أي صورة أكبر من هيك بصمت قبل ما توصل للـ route أصلاً
+app.use(express.json({ limit: '15mb' }))
 
 const wrap = (handler) => (req, res) => {
   Promise.resolve(handler(req, res)).catch((err) => {

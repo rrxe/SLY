@@ -3278,45 +3278,73 @@
             broadcastPhotoMime;
         }
 
-        let totalSent = 0;
-        let offset = 0;
-        let totalPlayers = 0;
+        const startResult =
+          await apiCall(
+            "/api/admin/broadcast",
+            "POST",
+            payload
+          );
+
+        if (!startResult.success) {
+          alert(
+            startResult.error ||
+            "فشل بدء الإرسال."
+          );
+
+          return;
+        }
+
+        // السيرفر يرد فوراً ببدء الإرسال ويكمل بالخلفية، فنستعلم كل
+        // ثانية ونص عن حالة التقدم لين يخلص - بدون ما نحتاج نضل
+        // مسؤولين إحنا عن تكرار الإرسال من المتصفح
         let done = false;
 
         while (!done) {
-          const result =
+          await new Promise((resolve) =>
+            setTimeout(resolve, 1500)
+          );
+
+          const status =
             await apiCall(
               "/api/admin/broadcast",
-              "POST",
-              { ...payload, offset }
+              "GET"
             );
 
-          if (!result.success) {
+          if (!status.success) {
             alert(
-              result.error ||
-              "فشل إرسال الرسالة."
+              status.error ||
+              "تعذر متابعة حالة الإرسال."
             );
 
             return;
           }
 
-          totalSent += result.sentCount || 0;
-          totalPlayers = result.totalPlayers || totalPlayers;
-          done = !!result.done;
-          offset = result.nextOffset ?? offset;
+          done = !!status.done;
 
           if (btn && !done) {
-            btn.textContent = `جاري الإرسال... ${totalSent}/${totalPlayers}`;
+            btn.textContent = `جاري الإرسال... ${status.sentCount}/${status.totalPlayers}`;
+          }
+
+          if (done) {
+            if (status.error) {
+              alert(
+                `توقف الإرسال بسبب خطأ: ${status.error}\nتم الإرسال لـ ${status.sentCount} من أصل ${status.totalPlayers}.`
+              );
+            } else {
+              const failedNote =
+                status.failedCount > 0
+                  ? ` (فشل ${status.failedCount} - غالباً مستخدمين حاظرين البوت)`
+                  : "";
+
+              alert(
+                `تم الإرسال بنجاح إلى ${status.sentCount} من أصل ${status.totalPlayers} مستخدم.${failedNote}`
+              );
+            }
+
+            textarea.value = "";
+            clearBroadcastPhoto();
           }
         }
-
-        alert(
-          `تم الإرسال بنجاح إلى ${totalSent} مستخدم.`
-        );
-
-        textarea.value = "";
-
-        clearBroadcastPhoto();
       } catch (err) {
         alert(
           err.message ||
