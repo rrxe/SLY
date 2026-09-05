@@ -1305,27 +1305,6 @@ export default async function handler(
       })
     }
 
-    // سجل كل نبضة (webhook) توصل من AdsGram بجدول خاص، بغض النظر
-    // شنو راح يصير بعدها. هذا يخلينا نتأكد بسهولة (عبر استعلام SQL
-    // بسيط بدل ما نحتاج لوگز Dokploy) هل AdsGram فعلاً أرسلت
-    // إشعار المكافأة لمستخدم معين أو لا.
-    try {
-      const safeQuery = { ...req.query }
-      delete safeQuery.secret
-
-      await supabase
-        .from('adsgram_reward_log')
-        .insert({
-          telegram_id: telegramId,
-          query: safeQuery,
-        })
-    } catch (logErr) {
-      console.error(
-        'adsgram_reward_log insert failed:',
-        logErr
-      )
-    }
-
     try {
       const {
         data: player,
