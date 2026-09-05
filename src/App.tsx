@@ -81,6 +81,12 @@ const ADSGRAM_MINING_BLOCK_ID = "46086";
 const ADSGRAM_STARS_BLOCK_ID = "46261";
 const ADSGRAM_SCRIPT_SRC = "https://sad.adsgram.ai/js/sad.min.js";
 const MINING_AD_SHOW_TIMEOUT_MS = 45000;
+// AdsGram's server-side reward postback can arrive well after the ad
+// finishes playing, especially on slower mobile networks. We poll for
+// up to 3 minutes (was 60s) before giving up, and even then we do NOT
+// clear the pending intent — a late postback should still be credited.
+const AD_VERIFY_MAX_ATTEMPTS = 180;
+const AD_VERIFY_POLL_MS = 1000;
 const MINING_CACHE_KEY = "sly.mining.cache.v1";
 
 
@@ -452,13 +458,13 @@ export default function App() {
   };
 
   const waitForStarsAdVerification = async () => {
-    for (let attempt = 0; attempt < 60; attempt += 1) {
+    for (let attempt = 0; attempt < AD_VERIFY_MAX_ATTEMPTS; attempt += 1) {
       try {
         const data = await callApi("/api/auth/me", { method: "GET" });
         if (data?.starsAdVerified) return data;
       } catch {}
 
-      await new Promise((resolve) => window.setTimeout(resolve, 1000));
+      await new Promise((resolve) => window.setTimeout(resolve, AD_VERIFY_POLL_MS));
     }
 
     return null;
@@ -490,7 +496,11 @@ export default function App() {
     }
   };
 
-  const HANDLE_STARS_AD_HARD_TIMEOUT_MS = 45000;
+  // Must stay >= AD_VERIFY_MAX_ATTEMPTS * AD_VERIFY_POLL_MS, otherwise this
+  // outer timeout cuts the verification poll short before it gets a chance
+  // to see a late AdsGram postback.
+  const HANDLE_STARS_AD_HARD_TIMEOUT_MS =
+    AD_VERIFY_MAX_ATTEMPTS * AD_VERIFY_POLL_MS + 30000;
 
   const handleWatchStarsAd = async () => {
     if (starsAdBusy) return;
@@ -530,8 +540,15 @@ export default function App() {
 
       const verified = await waitForStarsAdVerification();
       if (!verified) {
-        await cancelStarsAd();
-        throw new Error("The ad reward was not confirmed yet. Please try again.");
+        // Do NOT cancel the intent here — the ad genuinely played, and
+        // AdsGram's postback may still be in flight (common on slow mobile
+        // networks). Clearing the intent now would cause a late postback
+        // to be silently ignored and the reward lost for good. Leave the
+        // intent in place; a later refresh will pick up the credited
+        // reward once the postback arrives.
+        throw new Error(
+          "Still confirming your ad with AdsGram — this can take a minute on mobile networks. Your reward will apply automatically once confirmed, no need to retry."
+        );
       }
 
       await callApi("/api/auth/me", {
@@ -654,14 +671,14 @@ export default function App() {
   // يفحص فوراً (بدون انتظار ثانية أولاً) وبعدها كل ثانية - أسرع بالاستجابة
   // من فحص كل ثانية بعد انتظار أول ثانية
   const waitForMiningAdVerification = async (stage: "start" | "claim") => {
-    for (let attempt = 0; attempt < 60; attempt += 1) {
+    for (let attempt = 0; attempt < AD_VERIFY_MAX_ATTEMPTS; attempt += 1) {
       try {
         const state = await refreshMining();
         if (stage === "start" && state?.startAdVerified) return true;
         if (stage === "claim" && state?.claimAdVerified) return true;
       } catch {}
 
-      await new Promise((resolve) => window.setTimeout(resolve, 1000));
+      await new Promise((resolve) => window.setTimeout(resolve, AD_VERIFY_POLL_MS));
     }
 
     return false;
@@ -725,8 +742,11 @@ export default function App() {
 
           const verified = await waitForMiningAdVerification("start");
           if (!verified) {
-            await cancelMiningAd();
-            throw new Error("The mining ad reward was not confirmed yet. Please try again.");
+            // Don't cancel — the ad played, AdsGram's postback may just be
+            // slow. Leave the intent so a late postback still verifies it.
+            throw new Error(
+              "Still confirming your ad with AdsGram — this can take a minute on mobile networks. Try Start again shortly; no need to rewatch if it was already confirmed."
+            );
           }
         }
 
@@ -764,8 +784,13 @@ export default function App() {
 
         const verified = await waitForMiningAdVerification("claim");
         if (!verified) {
-          await cancelMiningAd();
-          throw new Error("The claim ad reward was not confirmed yet. Please try again.");
+          // Don't cancel — the ad played, AdsGram's postback may just be
+          // slow. Leave the intent so a late postback still verifies it,
+          // and a later Claim tap (mining_prepare_ad returns
+          // alreadyVerified) picks it up without rewatching an ad.
+          throw new Error(
+            "Still confirming your ad with AdsGram — this can take a minute on mobile networks. Try Claim again shortly; no need to rewatch if it was already confirmed."
+          );
         }
       }
 
@@ -1040,13 +1065,32 @@ export default function App() {
     // (adsgram_reward) بعد ما يتأكد المستخدم شاهد الإعلان فعلاً،
     // وهذا يحدث القيمة الحقيقية بقاعدة البيانات. هنا بس نحدث الحالة
     // المحلية من السيرفر (مصدر الحقيقة الوحيد).
-    try {
-      const data = await loadPlayerData();
-      setWithdrawalAdsWatched(data.withdrawalAdsWatched ?? 0);
-      setWithdrawalAdsRequired(data.withdrawalAdsRequired ?? 10);
-    } catch (err) {
-      console.log("refresh after watch ad failed", err);
+    //
+    // نفس مشكلة mining/stars: الـwebhook ممكن يتأخر عن الشبكات
+    // الخلوية، فبدل قراءة وحدة فورية، ننطر (poll) لين العداد يزيد
+    // فعلاً أو تنتهي المهلة - بدون ما نلغي أي شي بالسيرفر.
+    const baseline = withdrawalAdsWatched;
+
+    for (let attempt = 0; attempt < AD_VERIFY_MAX_ATTEMPTS; attempt += 1) {
+      try {
+        const data = await loadPlayerData();
+        const watched = data.withdrawalAdsWatched ?? 0;
+        const required = data.withdrawalAdsRequired ?? 10;
+
+        setWithdrawalAdsWatched(watched);
+        setWithdrawalAdsRequired(required);
+
+        if (watched > baseline || watched >= required) {
+          return;
+        }
+      } catch (err) {
+        console.log("refresh after watch ad failed", err);
+      }
+
+      await new Promise((resolve) => window.setTimeout(resolve, AD_VERIFY_POLL_MS));
     }
+    // إذا خلصت المحاولات بدون ما يزيد العداد، نخليه كما هو - أي
+    // webhook متأخر لسا يتحسب صح، وبس المستخدم يحدث الصفحة لاحقاً.
   };
 
   const handleWalletConnected = (address: string) => {

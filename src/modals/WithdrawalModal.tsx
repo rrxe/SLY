@@ -53,8 +53,10 @@ declare global {
 // AdsGram Reward Block ID
 const ADSGRAM_REWARD_BLOCK_ID = "46263";
 
-// مهلة بسيطة بعد انتهاء الإعلان لإعطاء الـwebhook وقت يوصل
-const WEBHOOK_GRACE_MS = 2500;
+// مهلة بسيطة بس قبل أول قراءة - الانتظار الحقيقي (لين ما يوصل
+// الـwebhook) صار داخل onWatchAd نفسها (App.tsx) اللي تنطر لين
+// العداد يزيد فعلاً بدل قراءة وحدة فورية.
+const WEBHOOK_GRACE_MS = 300;
 
 const MIN_WITHDRAW = 0.1;
 const MAX_WITHDRAW = 0.2;
