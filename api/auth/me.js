@@ -1637,11 +1637,70 @@ export default async function handler(
       }
 
       /*
-       * Stars ads (batch-of-20 → 2h cycle). Checked before the
-       * withdrawal fallback, same priority pattern as mining above.
+       * Stars ads (batch-of-20 → 2h cycle). Same reward-ad pattern as
+       * mining/games above: the client only sets stars_ad_intent, the
+       * real AdsGram reward webhook is what actually grants the batch
+       * credit - no client-side click/visibility heuristic needed or
+       * trusted anymore.
        */
-      // تم حذف فرع Stars من هذا الـ webhook: Interstitial ما يرسل reward postback،
-      // الاعتماد صار بالكامل على stars_ad_ack (تحقق وقت + كليك من عندنا).
+      if (player.stars_ad_intent === true) {
+        const cycleStartedAt = player.stars_cycle_started_at
+          ? new Date(player.stars_cycle_started_at)
+          : null
+
+        const isLocked =
+          cycleStartedAt &&
+          !Number.isNaN(cycleStartedAt.getTime()) &&
+          Date.now() - cycleStartedAt.getTime() < STARS_CYCLE_DURATION_MS
+
+        if (isLocked) {
+          await supabase
+            .from('players')
+            .update({ stars_ad_intent: false, stars_ad_started_at: null })
+            .eq('telegram_id', telegramId)
+
+          return res.status(200).json({
+            success: true,
+            type: 'stars_bonus',
+            starsCycleLocked: true,
+          })
+        }
+
+        const currentBatch = Number(player.stars_ad_batch_count || 0)
+        const nextBatch = currentBatch + 1
+
+        const starsUpdates = {
+          stars_ad_intent: false,
+          stars_ad_started_at: null,
+          stars_ad_verified: true,
+        }
+
+        const cycleStarted = nextBatch >= STARS_ADS_PER_CYCLE
+
+        if (cycleStarted) {
+          starsUpdates.stars_ad_batch_count = 0
+          starsUpdates.stars_cycle_started_at = new Date().toISOString()
+          starsUpdates.stars_cycle_credited_seconds = 0
+        } else {
+          starsUpdates.stars_ad_batch_count = nextBatch
+        }
+
+        const { error: starsUpdateError } = await supabase
+          .from('players')
+          .update(starsUpdates)
+          .eq('telegram_id', telegramId)
+
+        if (starsUpdateError) {
+          throw starsUpdateError
+        }
+
+        return res.status(200).json({
+          success: true,
+          type: 'stars_bonus',
+          starsAdBatchCount: starsUpdates.stars_ad_batch_count,
+          cycleStarted,
+        })
+      }
 
       /*
        * Existing withdrawal ad logic.
@@ -2443,70 +2502,10 @@ export default async function handler(
         return res.status(200).json({ success: true })
       }
 
-      if (
-        action === 'stars_ad_ack'
-      ) {
-        const { clicked } = req.body || {}
-        const MIN_STARS_AD_MS = 6000
-
-        if (player.stars_ad_intent !== true) {
-          return res.status(400).json({ error: 'No pending stars ad' })
-        }
-
-        const startedAt = player.stars_ad_started_at
-          ? new Date(player.stars_ad_started_at)
-          : null
-        const elapsedMs = startedAt ? Date.now() - startedAt.getTime() : 0
-
-        const rejectStarsAd = async (reason) => {
-          await supabase
-            .from('players')
-            .update({ stars_ad_intent: false, stars_ad_started_at: null })
-            .eq('telegram_id', telegramId)
-          return res.status(400).json({ error: reason })
-        }
-
-        if (!startedAt || elapsedMs < MIN_STARS_AD_MS) {
-          return await rejectStarsAd('Ad not watched long enough')
-        }
-        if (clicked !== true) {
-          return await rejectStarsAd('Ad click not detected')
-        }
-
-        const currentBatch = Number(player.stars_ad_batch_count || 0)
-        const nextBatch = currentBatch + 1
-
-        const starsUpdates = {
-          stars_ad_intent: false,
-          stars_ad_started_at: null,
-          stars_ad_verified: true,
-        }
-
-        const cycleStarted = nextBatch >= STARS_ADS_PER_CYCLE
-
-        if (cycleStarted) {
-          starsUpdates.stars_ad_batch_count = 0
-          starsUpdates.stars_cycle_started_at = new Date().toISOString()
-          starsUpdates.stars_cycle_credited_seconds = 0
-        } else {
-          starsUpdates.stars_ad_batch_count = nextBatch
-        }
-
-        const { error: ackError } = await supabase
-          .from('players')
-          .update(starsUpdates)
-          .eq('telegram_id', telegramId)
-
-        if (ackError) {
-          throw ackError
-        }
-
-        return res.status(200).json({
-          success: true,
-          starsAdBatchCount: starsUpdates.stars_ad_batch_count,
-          cycleStarted,
-        })
-      }
+      // تم حذف action=stars_ad_ack: كان تحقق ذاتي (مدة + كليك) من عند
+      // الكلاينت لوحدة Interstitial. الحين وحدة Stars صارت Reward
+      // (int-46522 → 46543)، فالتحقق الحقيقي الوحيد يصير عبر AdsGram
+      // reward webhook فوق (نفس أسلوب Mining/Games بالضبط).
 
       /*
        * GAMES: محاولات يومية محدودة + إعلان لمحاولة إضافية.
