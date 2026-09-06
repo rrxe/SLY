@@ -14,9 +14,9 @@ const items: {
 }[] = [
   { id: "home", label: "Home", icon: "home" },
   { id: "tasks", label: "Tasks", icon: "tasks" },
-  { id: "referrals", label: "Referrals", icon: "referrals" },
-  { id: "games", label: "Games", icon: "games" },
   { id: "stars", label: "Stars", icon: "star" },
+  { id: "games", label: "Games", icon: "games" },
+  { id: "referrals", label: "Referrals", icon: "referrals" },
   { id: "profile", label: "Profile", icon: "profile" },
 ];
 

@@ -42,9 +42,9 @@ export default function Games({
     <section className="games-page">
       <header className="games-header">
         <p className="games-eyebrow">GAMES</p>
-        <h2>العب واكسب أكثر</h2>
+        <h2>Play &amp; Earn More</h2>
         <span className="games-subtitle">
-          محاولات محدودة يومياً — اكسب محاولات إضافية بمشاهدة إعلان
+          Limited daily attempts — earn extra attempts by watching an ad
         </span>
       </header>
 
@@ -52,15 +52,15 @@ export default function Games({
         <div className="games-attempts-top">
           <div className="games-attempts-count">
             <strong>{attemptsRemaining}</strong>
-            <span>محاولة متبقية اليوم</span>
+            <span>attempts left today</span>
           </div>
           <AttemptDots remaining={attemptsRemaining} total={Math.max(totalToday, freeAttempts)} />
         </div>
 
         <div className="games-attempts-breakdown">
-          <span>{freeAttempts} مجانية</span>
+          <span>{freeAttempts} free</span>
           <span className="dot-sep">•</span>
-          <span>{bonusAttempts} من الإعلانات</span>
+          <span>{bonusAttempts} from ads</span>
         </div>
 
         <button
@@ -68,7 +68,7 @@ export default function Games({
           onClick={onWatchAd}
           disabled={adBusy}
         >
-          {adBusy ? "جاري تحميل الإعلان..." : "شاهد إعلان (+1 محاولة)"}
+          {adBusy ? "Loading ad..." : "Watch Ad (+1 attempt)"}
         </button>
 
         {adToast ? <div className="games-ad-toast">{adToast}</div> : null}
@@ -91,11 +91,11 @@ export default function Games({
 
           <div className="game-card-info">
             <h3>Laser Escape</h3>
-            <p>تفادى النيازك وأطلق الليزر عبر 5 موجات فضائية</p>
+            <p>Dodge meteors and fire your laser through 5 waves of space</p>
 
             <div className="game-card-meta">
-              <span className="game-card-chip gold">+100 عملة / موجة</span>
-              <span className="game-card-chip">5 أرواح</span>
+              <span className="game-card-chip gold">+100 coins / wave</span>
+              <span className="game-card-chip">5 lives</span>
             </div>
           </div>
 
@@ -104,13 +104,13 @@ export default function Games({
             onClick={onPlay}
             disabled={outOfAttempts || playBusy}
           >
-            {playBusy ? "..." : outOfAttempts ? "لا محاولات متبقية" : "العب الآن"}
+            {playBusy ? "..." : outOfAttempts ? "No attempts left" : "Play Now"}
           </button>
         </div>
 
         <div className="game-card game-card-soon">
-          <div className="game-card-soon-badge">قريباً</div>
-          <p>ألعاب فضائية جديدة تنضم للقسم قريباً</p>
+          <div className="game-card-soon-badge">Coming Soon</div>
+          <p>New space games joining this section soon</p>
         </div>
       </div>
     </section>

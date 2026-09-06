@@ -1446,7 +1446,7 @@ export default async function handler(
       } = await supabase
         .from('players')
         .select(
-          'withdrawal_ads_watched, withdrawals_today, withdrawal_count_date, mining_active, mining_started_at, mining_ad_intent, mining_start_ad_verified, mining_claim_ad_verified, stars_ad_intent, stars_ad_batch_count, stars_cycle_started_at, stars_cycle_credited_seconds, withdrawal_ad_intent'
+          'withdrawal_ads_watched, withdrawals_today, withdrawal_count_date, mining_active, mining_started_at, mining_ad_intent, mining_start_ad_verified, mining_claim_ad_verified, stars_ad_intent, stars_ad_batch_count, stars_cycle_started_at, stars_cycle_credited_seconds, withdrawal_ad_intent, game_ad_intent, game_ad_started_at, game_bonus_attempts, game_attempts_date'
         )
         .eq(
           'telegram_id',
@@ -1585,6 +1585,54 @@ export default async function handler(
           miningClaimAdVerified:
             true,
           mining: true,
+        })
+      }
+
+      /*
+       * Games ads (Laser Escape bonus attempts). Same reward-ad
+       * pattern as mining above: the client only sets game_ad_intent,
+       * only the real AdsGram webhook grants the bonus attempt - no
+       * client-side click/visibility heuristic needed or trusted.
+       */
+      if (player.game_ad_intent === true) {
+        const gamesState = await getGamesDailyState(player)
+
+        if (gamesState.bonusAttempts >= GAMES_MAX_BONUS_PER_DAY) {
+          await supabase
+            .from('players')
+            .update({
+              game_ad_intent: false,
+              game_ad_started_at: null,
+            })
+            .eq('telegram_id', telegramId)
+
+          return res.status(200).json({
+            success: true,
+            type: 'games_bonus',
+            gamesBonusLimitReached: true,
+          })
+        }
+
+        const nextGamesBonus = gamesState.bonusAttempts + 1
+
+        const { error: gamesUpdateError } = await supabase
+          .from('players')
+          .update({
+            game_ad_intent: false,
+            game_ad_started_at: null,
+            game_bonus_attempts: nextGamesBonus,
+            game_attempts_date: gamesState.attemptsDate,
+          })
+          .eq('telegram_id', telegramId)
+
+        if (gamesUpdateError) {
+          throw gamesUpdateError
+        }
+
+        return res.status(200).json({
+          success: true,
+          type: 'games_bonus',
+          gamesBonusAttempts: nextGamesBonus,
         })
       }
 
@@ -2462,8 +2510,9 @@ export default async function handler(
 
       /*
        * GAMES: محاولات يومية محدودة + إعلان لمحاولة إضافية.
-       * نفس أسلوب التحقق المستخدم مع Stars (prepare -> ack بحد
-       * أدنى للوقت + تأكيد ضغطة) لمنع احتساب إعلان لم يُشاهد فعلاً.
+       * نفس أسلوب Mining بالضبط - الكلاينت بس يحط النية (intent)،
+       * والتحقق الحقيقي يصير حصراً عبر AdsGram reward webhook فوق
+       * (مو أي إجراء POST يرسله الكلاينت نفسه).
        */
       if (
         action === 'games_ad_prepare'
@@ -2494,66 +2543,6 @@ export default async function handler(
         return res.status(200).json({ success: true })
       }
 
-      if (
-        action === 'games_ad_ack'
-      ) {
-        const { clicked } = req.body || {}
-
-        if (player.game_ad_intent !== true) {
-          return res.status(400).json({ error: 'No pending games ad' })
-        }
-
-        const startedAt = player.game_ad_started_at
-          ? new Date(player.game_ad_started_at)
-          : null
-        const elapsedMs = startedAt ? Date.now() - startedAt.getTime() : 0
-
-        const rejectGamesAd = async (reason) => {
-          await supabase
-            .from('players')
-            .update({ game_ad_intent: false, game_ad_started_at: null })
-            .eq('telegram_id', telegramId)
-          return res.status(400).json({ error: reason })
-        }
-
-        if (!startedAt || elapsedMs < MIN_GAMES_AD_MS) {
-          return await rejectGamesAd('Ad not watched long enough')
-        }
-        if (clicked !== true) {
-          return await rejectGamesAd('Ad click not detected')
-        }
-
-        const gamesState = await getGamesDailyState(player)
-
-        if (gamesState.bonusAttempts >= GAMES_MAX_BONUS_PER_DAY) {
-          return await rejectGamesAd('Daily bonus limit reached')
-        }
-
-        const nextBonus = gamesState.bonusAttempts + 1
-
-        const { error: ackError } = await supabase
-          .from('players')
-          .update({
-            game_ad_intent: false,
-            game_ad_started_at: null,
-            game_bonus_attempts: nextBonus,
-            game_attempts_date: gamesState.attemptsDate,
-          })
-          .eq('telegram_id', telegramId)
-
-        if (ackError) {
-          throw ackError
-        }
-
-        return res.status(200).json({
-          success: true,
-          gamesBonusAttempts: nextBonus,
-          gamesAttemptsRemaining: Math.max(
-            0,
-            GAMES_FREE_DAILY_ATTEMPTS + nextBonus - gamesState.attemptsUsed
-          ),
-        })
-      }
 
       if (
         action === 'games_start_attempt'

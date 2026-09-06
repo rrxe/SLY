@@ -87,7 +87,6 @@ const ADSGRAM_STARS_BLOCK_ID = "int-46338";
 // نفس وحدة Stars لحد ما تسوي وحدة مخصصة.
 const ADSGRAM_GAMES_BLOCK_ID = "46086";
 const MIN_STARS_AD_MS = 6000;
-const MIN_GAMES_AD_MS = 6000;
 // بعد ما ينحسب إعلان Stars بنجاح، نمنع تشغيل إعلان تاني قبل مرور هذي
 // المدة، عشان نمنع سبام الضغط على "Watch Ad".
 const STARS_AD_COOLDOWN_MS = 10000;
@@ -632,78 +631,93 @@ export default function App() {
     }).catch(() => {});
   };
 
+  const showGamesAd = async () => {
+    const controller = adsgramGamesControllerRef.current;
+    if (!controller) {
+      throw new Error("Ad is not ready yet. Try again in a moment.");
+    }
+
+    const acquired = await acquireGlobalAdLock();
+    if (!acquired) {
+      throw new Error("Another ad is currently showing. Please try again.");
+    }
+
+    let timeoutId: number | undefined;
+    const timeout = new Promise<never>((_, reject) => {
+      timeoutId = window.setTimeout(() => {
+        reject(new Error("Ad did not report completion in time. Please try again."));
+      }, MINING_AD_SHOW_TIMEOUT_MS);
+    });
+
+    try {
+      await Promise.race([controller.show(), timeout]);
+    } finally {
+      if (timeoutId !== undefined) window.clearTimeout(timeoutId);
+      releaseGlobalAdLock();
+    }
+  };
+
+  // نفس أسلوب waitForMiningAdVerification بالضبط: الكلاينت ما يقرر
+  // شي بنفسه، بس ينطر لين الـwebhook الحقيقي من AdsGram يرفع العداد
+  // فعلاً بقاعدة البيانات (أو تنتهي المهلة).
+  const waitForGamesAdVerification = async (bonusBefore: number) => {
+    for (let attempt = 0; attempt < AD_VERIFY_MAX_ATTEMPTS; attempt += 1) {
+      try {
+        const data = await loadPlayerData();
+        if (
+          typeof data?.gamesBonusAttempts === "number" &&
+          data.gamesBonusAttempts > bonusBefore
+        ) {
+          return true;
+        }
+      } catch {}
+
+      await new Promise((resolve) =>
+        window.setTimeout(resolve, AD_VERIFY_POLL_MS)
+      );
+    }
+
+    return false;
+  };
+
   const handleWatchGamesAd = async () => {
     if (gamesAdBusy) return;
     if (!adsgramGamesControllerRef.current) {
-      setGamesAdToast("الإعلانات لسا تحمّل، جرب بعد لحظة.");
+      setGamesAdToast("Ads are still loading, try again in a moment.");
       return;
     }
 
     setGamesAdBusy(true);
     setGamesAdToast("");
 
-    let clicked = false;
-    let hiddenAt: number | null = null;
+    try {
+      const bonusBefore = gamesBonusAttempts;
 
-    const onVisibility = () => {
-      if (document.visibilityState === "hidden") {
-        hiddenAt = Date.now();
-      } else if (document.visibilityState === "visible" && hiddenAt) {
-        if (Date.now() - hiddenAt > 800) clicked = true;
-        hiddenAt = null;
-      }
-    };
-
-    const run = async () => {
       await callApi("/api/auth/me", {
         method: "POST",
         body: JSON.stringify({ action: "games_ad_prepare" }),
       });
 
-      document.addEventListener("visibilitychange", onVisibility);
-      const startedAt = Date.now();
-
       try {
-        const acquired = await acquireGlobalAdLock();
-        if (!acquired) {
-          throw new Error("فيه إعلان ثاني شغال حالياً، جرب مرة ثانية.");
-        }
-
-        let result;
-        try {
-          result = await adsgramGamesControllerRef.current!.show();
-        } finally {
-          releaseGlobalAdLock();
-        }
-
-        const elapsedMs = Date.now() - startedAt;
-        const fullyWatched =
-          result?.done === true && !result?.error && elapsedMs >= MIN_GAMES_AD_MS;
-
-        if (!fullyWatched) {
-          throw new Error("يرجى مشاهدة الإعلان كاملاً قبل الإغلاق.");
-        }
-
-        const verified = await callApi("/api/auth/me", {
-          method: "POST",
-          body: JSON.stringify({ action: "games_ad_ack", clicked }),
-        });
-
-        setGamesBonusAttempts(verified.gamesBonusAttempts ?? gamesBonusAttempts);
-        setGamesAttemptsRemaining(
-          verified.gamesAttemptsRemaining ?? gamesAttemptsRemaining
-        );
-        setGamesAdToast("تمام! زادت لك محاولة وحدة 🎮");
-      } finally {
-        document.removeEventListener("visibilitychange", onVisibility);
+        await showGamesAd();
+      } catch (adErr) {
+        await cancelGamesAd();
+        throw adErr;
       }
-    };
 
-    try {
-      await run();
+      const verified = await waitForGamesAdVerification(bonusBefore);
+      if (!verified) {
+        // ما نلغي الـintent هنا - الإعلان انعرض فعلاً، وAdsGram ممكن
+        // بس يتأخر بإرسال الـwebhook على شبكات الموبايل. محاولة تانية
+        // لاحقاً تلتقط التأكيد المتأخر بدون إعادة مشاهدة الإعلان.
+        throw new Error(
+          "Still confirming your ad with AdsGram — this can take a minute on mobile networks. Try again shortly; no need to rewatch."
+        );
+      }
+
+      setGamesAdToast("Nice! You got +1 attempt 🎮");
     } catch (err: any) {
-      await cancelGamesAd();
-      setGamesAdToast(err?.message || "لازم تتفرج وتضغط على الإعلان حتى تنحسب.");
+      setGamesAdToast(err?.message || "Something went wrong. Please try again.");
     } finally {
       setGamesAdBusy(false);
     }
@@ -741,10 +755,10 @@ export default function App() {
         body: JSON.stringify({ taskType: "game_run", reward: coinsEarned }),
       })
         .then(() => {
-          handleTaskReward(coinsEarned, `Laser Escape +${coinsEarned}`, "مكافأة من اللعبة");
+          handleTaskReward(coinsEarned, `Laser Escape +${coinsEarned}`, "Game reward");
         })
         .catch(() => {
-          pushActivity("تعذر تسجيل المكافأة", "حاول تفتح التطبيق مرة ثانية", "info");
+          pushActivity("Couldn't record the reward", "Try reopening the app", "info");
         });
     }
   };
@@ -1118,8 +1132,8 @@ export default function App() {
         const msg = String(err.message || "");
         setBootError(
           msg.includes("authentication")
-            ? "افتح اللعبة من داخل تطبيق تيليجرام حتى يتم التعرف على حسابك."
-            : "تعذر الاتصال بالخادم، حاول إغلاق التطبيق وفتحه مرة أخرى."
+            ? "Open the game inside the Telegram app so your account can be recognized."
+            : "Couldn't reach the server. Try closing and reopening the app."
         );
       })
       .finally(() => {
