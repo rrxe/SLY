@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import UiIcons from "../components/UiIcons";
 import "../styles/modals.css";
-import { acquireGlobalAdLock, releaseGlobalAdLock } from "../lib/adLock";
+import { tryAcquireGlobalAdLock, releaseGlobalAdLock } from "../lib/adLock";
 
 type Props = {
   open: boolean;
@@ -90,7 +90,11 @@ export default function ExchangeModal({
 
     // نمنع أي إعلان ثاني يطلع فوق هاي حتى يخلص هذا (نفس القفل المستخدم
     // بالمايننق والمهام بـ App.tsx / Tasks.tsx)
-    await acquireGlobalAdLock();
+    if (!tryAcquireGlobalAdLock()) {
+      setMessage("Another ad is currently showing. Please try again in a few seconds.");
+      setStage("edit");
+      return;
+    }
 
     try {
       if (!adsgramControllerRef.current && window.Adsgram) {
