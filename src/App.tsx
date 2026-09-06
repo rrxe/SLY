@@ -297,6 +297,13 @@ export default function App() {
   );
   const [miningAdBusy, setMiningAdBusy] = useState(false);
   const miningAdBusyRef = useRef(false);
+  // يتذكر إذا انعرض إعلان المايننق فعلاً لنية start/claim الحالية،
+  // حتى لو المستخدم ضضط تاني (retry) بعد ما التأكيد تأخر، ما نعرض
+  // إعلان ثاني بلا داعي.
+  const miningAdShownForStageRef = useRef<{ start: boolean; claim: boolean }>({
+    start: false,
+    claim: false,
+  });
 
   useEffect(() => {
     miningAdBusyRef.current = miningAdBusy;
@@ -699,13 +706,16 @@ export default function App() {
     try {
       const bonusBefore = gamesBonusAttempts;
 
-      await callApi("/api/auth/me", {
+      // .show() لازم ينطلق بنفس لحظة الكلك بلا await قبله (نفس مشكلة
+      // Stars) — طلب الـprepare (نتيجته غير مستخدمة أصلاً هون) يصير
+      // بالتوازي معه مو قبله.
+      const preparePromise = callApi("/api/auth/me", {
         method: "POST",
         body: JSON.stringify({ action: "games_ad_prepare" }),
       });
 
       try {
-        await showGamesAd();
+        await Promise.all([showGamesAd(), preparePromise]);
       } catch (adErr) {
         await cancelGamesAd();
         throw adErr;
@@ -947,19 +957,36 @@ export default function App() {
 
     try {
       if (!mining.active) {
-        const prepare = await callApi("/api/auth/me", {
+        // .show() لازم ينطلق بنفس لحظة الكلك بلا await قبله. أول مرة
+        // (مو retry) نشغله بالتوازي مع mining_prepare_ad مو بعده. لو
+        // هذي محاولة إعادة بعد تأكيد متأخر، الإعلان انعرض أصلاً فما
+        // نكرره.
+        const alreadyShownStart = miningAdShownForStageRef.current.start;
+        const preparePromise = callApi("/api/auth/me", {
           method: "POST",
           body: JSON.stringify({ action: "mining_prepare_ad", stage: "start" }),
         });
+        const showPromise = alreadyShownStart
+          ? Promise.resolve(null)
+          : (async () => {
+              miningAdShownForStageRef.current.start = true;
+              try {
+                return await showMiningAd();
+              } catch (adErr) {
+                miningAdShownForStageRef.current.start = false;
+                throw adErr;
+              }
+            })();
+
+        let prepare;
+        try {
+          [prepare] = await Promise.all([preparePromise, showPromise]);
+        } catch (adErr) {
+          await cancelMiningAd();
+          throw adErr;
+        }
 
         if (!prepare.alreadyVerified) {
-          try {
-            await showMiningAd();
-          } catch (adErr) {
-            await cancelMiningAd();
-            throw adErr;
-          }
-
           const verified = await waitForMiningAdVerification("start");
           if (!verified) {
             // Don't cancel — the ad played, AdsGram's postback may just be
@@ -969,6 +996,8 @@ export default function App() {
             );
           }
         }
+
+        miningAdShownForStageRef.current.start = false;
 
         const started = await callApi("/api/auth/me", {
           method: "POST",
@@ -989,19 +1018,32 @@ export default function App() {
         throw new Error("Mining cycle is not ready yet.");
       }
 
-      const prepare = await callApi("/api/auth/me", {
+      const alreadyShownClaim = miningAdShownForStageRef.current.claim;
+      const preparePromiseClaim = callApi("/api/auth/me", {
         method: "POST",
         body: JSON.stringify({ action: "mining_prepare_ad", stage: "claim" }),
       });
+      const showPromiseClaim = alreadyShownClaim
+        ? Promise.resolve(null)
+        : (async () => {
+            miningAdShownForStageRef.current.claim = true;
+            try {
+              return await showMiningAd();
+            } catch (adErr) {
+              miningAdShownForStageRef.current.claim = false;
+              throw adErr;
+            }
+          })();
+
+      let prepare;
+      try {
+        [prepare] = await Promise.all([preparePromiseClaim, showPromiseClaim]);
+      } catch (adErr) {
+        await cancelMiningAd();
+        throw adErr;
+      }
 
       if (!prepare.alreadyVerified) {
-        try {
-          await showMiningAd();
-        } catch (adErr) {
-          await cancelMiningAd();
-          throw adErr;
-        }
-
         const verified = await waitForMiningAdVerification("claim");
         if (!verified) {
           // Don't cancel — the ad played, AdsGram's postback may just be
@@ -1013,6 +1055,8 @@ export default function App() {
           );
         }
       }
+
+      miningAdShownForStageRef.current.claim = false;
 
       const claimed = await callApi("/api/auth/me", {
         method: "POST",

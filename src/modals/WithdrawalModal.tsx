@@ -203,7 +203,9 @@ export default function WithdrawalModal({
         return;
       }
 
-      await onPrepareAd();
+      // .show() لازم ينطلق بنفس لحظة الكلك بلا await قبله. onPrepareAd
+      // نتيجته غير مستخدمة أصلاً، فنشغلها بالخلفية بدون ننتظرها.
+      onPrepareAd().catch(() => {});
 
       await adsgramControllerRef.current.show();
 
