@@ -88,8 +88,13 @@ const ADSGRAM_STARS_BLOCK_ID = "int-46522";
 const ADSGRAM_GAMES_BLOCK_ID = "46086";
 const MIN_STARS_AD_MS = 6000;
 // بعد ما ينحسب إعلان Stars بنجاح، نمنع تشغيل إعلان تاني قبل مرور هذي
-// المدة، عشان نمنع سبام الضغط على "Watch Ad".
-const STARS_AD_COOLDOWN_MS = 30000;
+// المدة، عشان نمنع سبام الضغط على "Watch Ad". نخليها عشوائية بين 15
+// و30 ثانية بكل مرة بدل رقم ثابت، عشان النمط ما يكون متوقع/ثابت.
+const STARS_AD_COOLDOWN_MIN_MS = 15000;
+const STARS_AD_COOLDOWN_MAX_MS = 30000;
+const getRandomStarsAdCooldownMs = () =>
+  STARS_AD_COOLDOWN_MIN_MS +
+  Math.floor(Math.random() * (STARS_AD_COOLDOWN_MAX_MS - STARS_AD_COOLDOWN_MIN_MS + 1));
 const ADSGRAM_SCRIPT_SRC = "https://sad.adsgram.ai/js/sad.min.js";
 const MINING_AD_SHOW_TIMEOUT_MS = 45000;
 // AdsGram's server-side reward postback can arrive well after the ad
@@ -643,7 +648,7 @@ export default function App() {
       });
 
       starsAdBatchCountUpdatedAtRef.current = Date.now();
-      starsAdCooldownUntilRef.current = Date.now() + STARS_AD_COOLDOWN_MS;
+      starsAdCooldownUntilRef.current = Date.now() + getRandomStarsAdCooldownMs();
       setStarsAdBatchCount(verified.starsAdBatchCount ?? 0);
       setStarsCycleUnlocksAt(verified.starsCycleUnlocksAt ?? null);
       setStarsAdToast(
