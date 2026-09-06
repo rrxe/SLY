@@ -566,67 +566,66 @@ export default function App() {
       }
     };
 
-    const run = async () => {
-      const prepare = await callApi("/api/auth/me", {
-        method: "POST",
-        body: JSON.stringify({ action: "stars_ad_prepare" }),
-      });
+    // مهم: لازم .show() ينطلق فوراً بنفس اللحظة اللي المستخدم ضغط فيها الزر،
+    // بلا أي await قبله (حتى ولا أبسط طلب API). أي تأخير بينهم يخلي Adsgram
+    // يشوف إنو العرض ما انطلق مباشرة من ضغطة المستخدم فيرفض يحسبه أو يعتبره
+    // غير موثوق. لهيك صار استدعاء show() أول شي، وطلب الـprepare يصير
+    // بالتوازي معه مو قبله.
+    document.addEventListener("visibilitychange", onVisibility);
+    const startedAt = Date.now();
+
+    const showPromise = (async () => {
+      const acquired = await acquireGlobalAdLock();
+      if (!acquired) {
+        throw new Error("Another ad is currently showing. Please try again.");
+      }
+      try {
+        return await adsgramStarsControllerRef.current!.show();
+      } finally {
+        releaseGlobalAdLock();
+      }
+    })();
+
+    const preparePromise = callApi("/api/auth/me", {
+      method: "POST",
+      body: JSON.stringify({ action: "stars_ad_prepare" }),
+    });
+
+    try {
+      const [result, prepare] = await Promise.all([showPromise, preparePromise]);
 
       if (prepare.locked) {
         setStarsCycleUnlocksAt(prepare.cycleUnlocksAt ?? null);
-        setStarsAdToast("Ads are locked while your 2-hour cycle is running.");
-        return;
+        throw new Error("Ads are locked while your 2-hour cycle is running.");
       }
 
-      document.addEventListener("visibilitychange", onVisibility);
-      const startedAt = Date.now();
+      const elapsedMs = Date.now() - startedAt;
+      const fullyWatched =
+        result?.done === true && !result?.error && elapsedMs >= MIN_STARS_AD_MS;
 
-      try {
-        const acquired = await acquireGlobalAdLock();
-        if (!acquired) {
-          throw new Error("Another ad is currently showing. Please try again.");
-        }
-
-        let result;
-        try {
-          result = await adsgramStarsControllerRef.current!.show();
-        } finally {
-          releaseGlobalAdLock();
-        }
-
-        const elapsedMs = Date.now() - startedAt;
-        const fullyWatched =
-          result?.done === true && !result?.error && elapsedMs >= MIN_STARS_AD_MS;
-
-        if (!fullyWatched) {
-          throw new Error("يرجى مشاهدة الإعلان كاملاً قبل الإغلاق.");
-        }
-
-        const verified = await callApi("/api/auth/me", {
-          method: "POST",
-          body: JSON.stringify({ action: "stars_ad_ack", clicked }),
-        });
-
-        starsAdBatchCountUpdatedAtRef.current = Date.now();
-        starsAdCooldownUntilRef.current = Date.now() + STARS_AD_COOLDOWN_MS;
-        setStarsAdBatchCount(verified.starsAdBatchCount ?? 0);
-        setStarsCycleUnlocksAt(verified.starsCycleUnlocksAt ?? null);
-        setStarsAdToast(
-          verified.cycleStarted
-            ? "Cycle started! Your time will climb for the next 2 hours."
-            : `Ad watched — ${verified.starsAdBatchCount}/${starsAdsRequired}`
-        );
-      } finally {
-        document.removeEventListener("visibilitychange", onVisibility);
+      if (!fullyWatched) {
+        throw new Error("يرجى مشاهدة الإعلان كاملاً قبل الإغلاق.");
       }
-    };
 
-    try {
-      await run();
+      const verified = await callApi("/api/auth/me", {
+        method: "POST",
+        body: JSON.stringify({ action: "stars_ad_ack", clicked }),
+      });
+
+      starsAdBatchCountUpdatedAtRef.current = Date.now();
+      starsAdCooldownUntilRef.current = Date.now() + STARS_AD_COOLDOWN_MS;
+      setStarsAdBatchCount(verified.starsAdBatchCount ?? 0);
+      setStarsCycleUnlocksAt(verified.starsCycleUnlocksAt ?? null);
+      setStarsAdToast(
+        verified.cycleStarted
+          ? "Cycle started! Your time will climb for the next 2 hours."
+          : `Ad watched — ${verified.starsAdBatchCount}/${starsAdsRequired}`
+      );
     } catch (err: any) {
       await cancelStarsAd();
       setStarsAdToast(err?.message || "لازم تتفرج وتضغط على الإعلان حتى تنحسب.");
     } finally {
+      document.removeEventListener("visibilitychange", onVisibility);
       setStarsAdBusy(false);
     }
   };
