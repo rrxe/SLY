@@ -13,19 +13,6 @@
     <!-- تحميل SDK الخاص بـ AdsGram أول شي، بالتوازي مع كل شي ثاني،
          بدل ما ننتظر React يشتغل ويحقن السكربت بجافاسكربت -->
     <script src="https://sad.adsgram.ai/js/sad.min.js"></script>
-
-    <!-- إعلانات Adexium (Push-like) - تظهر تلقائياً، غير مرتبطة
-         بأي محاولة أو مكافأة، تعمل بمجرد تحميل الصفحة -->
-    <script type="text/javascript" src="https://cdn.tgads.space/assets/js/adexium-widget.min.js"></script>
-    <script type="text/javascript">
-      document.addEventListener('DOMContentLoaded', () => {
-        const adexiumWidget = new AdexiumWidget({
-          wid: '618a89de-a029-4f6e-ae97-8f3c819fc18f',
-          adFormat: 'push-like',
-        });
-        adexiumWidget.autoMode();
-      });
-    </script>
   </head>
   <body>
     <div id="root"></div>
