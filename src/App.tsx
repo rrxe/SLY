@@ -275,6 +275,11 @@ export default function App() {
   const adsgramMiningControllerRef = useRef<AdsgramController | null>(null);
   const adsgramStarsControllerRef = useRef<AdsgramController | null>(null);
   const adsgramGamesControllerRef = useRef<AdsgramController | null>(null);
+  // true طول ما جولة Laser Escape شغالة. يمنع الإعلان التلقائي
+  // (showAdsgramAd، يشتغل بمؤقت دوري طول عمر التطبيق) من الظهور
+  // فجأة وسط اللعب - نستخدم ref مو state حتى القيمة توصل فورية
+  // لأي setTimeout شغال وقتها بدون ما تنتظر إعادة رندر.
+  const playingLaserEscapeRef = useRef(false);
 
   // حالة MINING تعيش هنا (بمستوى App) مو داخل صفحة Home، حتى ما تنقطع
   // عملية start/claim إذا المستخدم بدّل صفحة قبل ما توصل تأكيدة الإعلان
@@ -455,6 +460,8 @@ export default function App() {
 
   const showAdsgramAd = async () => {
     if (!adsgramControllerRef.current) return;
+    // ما نعرض إعلان تلقائي وسط جولة لعب شغالة - نستناها تخلص.
+    if (playingLaserEscapeRef.current) return;
 
     if (adShowInFlightRef.current) return;
 
@@ -739,6 +746,7 @@ export default function App() {
         data.gamesAttemptsRemaining ?? Math.max(0, gamesAttemptsRemaining - 1)
       );
       setPlayingLaserEscape(true);
+      playingLaserEscapeRef.current = true;
     } catch (err: any) {
       setGamesAdToast(err?.message || "ما قدرنا نبدأ الجولة، جرب مرة ثانية.");
     } finally {
@@ -748,6 +756,11 @@ export default function App() {
 
   const handleLaserEscapeExit = (coinsEarned = 0) => {
     setPlayingLaserEscape(false);
+    playingLaserEscapeRef.current = false;
+
+    // فور ما الجولة تخلص، نجرب نعرض إعلان تلقائي على طول بدل ما
+    // ننتظر دورة المؤقت العشوائية الجاية.
+    showAdsgramAd().catch(() => {});
 
     if (coinsEarned > 0) {
       callApi("/api/tasks/complete", {
