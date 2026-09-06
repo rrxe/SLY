@@ -14,7 +14,7 @@ import Games from "./pages/Games";
 import GameCanvas from "./components/GameCanvas";
 import MandatorySubscription from "./components/MandatorySubscription";
 import SplashScreen from "./components/SplashScreen";
-import { acquireGlobalAdLock, releaseGlobalAdLock } from "./lib/adLock";
+import { tryAcquireGlobalAdLock, releaseGlobalAdLock } from "./lib/adLock";
 
 import ExchangeModal from "./modals/ExchangeModal";
 import WithdrawalModal from "./modals/WithdrawalModal";
@@ -89,7 +89,7 @@ const ADSGRAM_GAMES_BLOCK_ID = "46086";
 const MIN_STARS_AD_MS = 6000;
 // بعد ما ينحسب إعلان Stars بنجاح، نمنع تشغيل إعلان تاني قبل مرور هذي
 // المدة، عشان نمنع سبام الضغط على "Watch Ad".
-const STARS_AD_COOLDOWN_MS = 25000;
+const STARS_AD_COOLDOWN_MS = 30000;
 const ADSGRAM_SCRIPT_SRC = "https://sad.adsgram.ai/js/sad.min.js";
 const MINING_AD_SHOW_TIMEOUT_MS = 45000;
 // AdsGram's server-side reward postback can arrive well after the ad
@@ -351,16 +351,20 @@ export default function App() {
   const [withdrawalHistory, setWithdrawalHistory] = useState<WithdrawalHistoryEntry[]>([]);
 
   const scrollRef = useRef<HTMLDivElement>(null);
-  const adSequenceIndexRef = useRef(0);
+  // إذا AdsGram رفع onNonStopShow (يعني لاحظ أكتر من إعلان ورا بعض)
+  // نوقف الإعلان التلقائي شوي أطول - هاي أهم خطوة لتحسين "جودة"
+  // الإعلانات بدون ما نقلل عددها بشكل كبير: نوقف بس وقت الشبكة نفسها
+  // تحذرنا إنه في سبام.
+  const adAutoBackoffUntilRef = useRef(0);
 
-  const getNextAdDelayMs = () => {
-    const index = adSequenceIndexRef.current;
-    adSequenceIndexRef.current += 1;
-
-    void index;
-    return 25000;
-  };
+  // الإعلان التلقائي: لو نجح (طلع فعلاً وخلص)، الإعلان الجاي بعد 40 ثانية.
+  // لو انلغى/فشل (ما طلع - مثلاً القفل مشغول، أو التطبيق مو ظاهر، أو
+  // AdsGram رفض/ماكو fill)، نحاول أسرع - بعد 20 ثانية بس - لين ينجح
+  // إعلان، وبعدها يرجع الفاصل لـ40 ثانية.
+  const AD_REPEAT_SUCCESS_MS = 40000;
+  const AD_REPEAT_RETRY_MS = 20000;
   const adShowInFlightRef = useRef(false);
+
 
 
 
@@ -372,49 +376,56 @@ export default function App() {
   useEffect(() => {
     if (typeof window === "undefined") return;
 
+    // نسجل onBannerNotFound / onError فعلياً بدل ما نتركهم فاضيين -
+    // هذا اللي يفرّق لنا لاحقاً (بفتح الـconsole) بين "ما اكو طلب يوصل
+    // للسيرفر أصلاً" و"الطلب يوصل بس AdsGram ما عنده إعلان يعرضه (no
+    // fill)" و"في مشكلة رندر/تشغيل فعلية". onNonStopShow تحديداً معناه
+    // AdsGram لاحظ إعلانات ورا بعض بسرعة (سبام) - أول ما يصير هذا نوقف
+    // الإعلان التلقائي بالخلفية دقيقة كاملة، عشان الجلسة "تهدى" وما
+    // يستمر AdsGram يعتبرها سبام وما يحسب الظهورات (Impressions) بشكل
+    // صحيح.
+    const attachDiagnostics = (
+      controller: AdsgramController,
+      label: string
+    ) => {
+      controller.addEventListener?.("onTooLongSession", () => {
+        window.location.reload();
+      });
+      controller.addEventListener?.("onBannerNotFound", () => {
+        console.warn(`[AdsGram:${label}] onBannerNotFound (no fill)`);
+      });
+      controller.addEventListener?.("onError", () => {
+        console.warn(`[AdsGram:${label}] onError (render/playback failure)`);
+      });
+      controller.addEventListener?.("onNonStopShow", () => {
+        console.warn(`[AdsGram:${label}] onNonStopShow - backing off auto ads`);
+        adAutoBackoffUntilRef.current = Date.now() + 60000;
+      });
+    };
+
     const initAdsgram = () => {
       if (!window.Adsgram) return;
       if (!adsgramControllerRef.current) {
         adsgramControllerRef.current = window.Adsgram.init({ blockId: ADSGRAM_BLOCK_ID });
-
-        adsgramControllerRef.current.addEventListener?.("onTooLongSession", () => {
-          window.location.reload();
-        });
-        adsgramControllerRef.current.addEventListener?.("onBannerNotFound", () => {});
-        adsgramControllerRef.current.addEventListener?.("onNonStopShow", () => {});
+        attachDiagnostics(adsgramControllerRef.current, "auto");
       }
       if (!adsgramMiningControllerRef.current) {
         adsgramMiningControllerRef.current = window.Adsgram.init({
           blockId: ADSGRAM_MINING_BLOCK_ID,
         });
-
-        adsgramMiningControllerRef.current.addEventListener?.("onTooLongSession", () => {
-          window.location.reload();
-        });
-        adsgramMiningControllerRef.current.addEventListener?.("onBannerNotFound", () => {});
-        adsgramMiningControllerRef.current.addEventListener?.("onNonStopShow", () => {});
+        attachDiagnostics(adsgramMiningControllerRef.current, "mining");
       }
       if (!adsgramStarsControllerRef.current) {
         adsgramStarsControllerRef.current = window.Adsgram.init({
           blockId: ADSGRAM_STARS_BLOCK_ID,
         });
-
-        adsgramStarsControllerRef.current.addEventListener?.("onTooLongSession", () => {
-          window.location.reload();
-        });
-        adsgramStarsControllerRef.current.addEventListener?.("onBannerNotFound", () => {});
-        adsgramStarsControllerRef.current.addEventListener?.("onNonStopShow", () => {});
+        attachDiagnostics(adsgramStarsControllerRef.current, "stars");
       }
       if (!adsgramGamesControllerRef.current) {
         adsgramGamesControllerRef.current = window.Adsgram.init({
           blockId: ADSGRAM_GAMES_BLOCK_ID,
         });
-
-        adsgramGamesControllerRef.current.addEventListener?.("onTooLongSession", () => {
-          window.location.reload();
-        });
-        adsgramGamesControllerRef.current.addEventListener?.("onBannerNotFound", () => {});
-        adsgramGamesControllerRef.current.addEventListener?.("onNonStopShow", () => {});
+        attachDiagnostics(adsgramGamesControllerRef.current, "games");
       }
       setAdsgramReady(true);
       setMiningReady(true);
@@ -465,29 +476,32 @@ export default function App() {
 
 
 
-  const showAdsgramAd = async () => {
-    if (!adsgramControllerRef.current) return;
+  const showAdsgramAd = async (): Promise<boolean> => {
+    if (!adsgramControllerRef.current) return false;
     // ما نعرض إعلان تلقائي وسط جولة لعب شغالة - نستناها تخلص.
-    if (playingLaserEscapeRef.current) return;
+    if (playingLaserEscapeRef.current) return false;
 
-    if (adShowInFlightRef.current) return;
-
-    if (typeof document !== "undefined" && document.visibilityState !== "visible") {
-      return;
-    }
-
-    await acquireGlobalAdLock();
+    if (adShowInFlightRef.current) return false;
 
     if (typeof document !== "undefined" && document.visibilityState !== "visible") {
-      releaseGlobalAdLock();
-      return;
+      return false;
     }
+
+    if (Date.now() < adAutoBackoffUntilRef.current) return false;
+
+    // بدون انتظار: إذا في إعلان ثاني (تلقائي أو ضغطة مستخدم) شغال هلق،
+    // نتخطى هذي الدورة بالكامل بدل ما ننتظر الدور. الانتظار هو اللي كان
+    // يخلي إعلانين يطلعون ورا بعض بلحظات - وهذا بالضبط اللي يخلي AdsGram
+    // يشوفها سبام (onNonStopShow) وما يحسبها Impressions صحيحة.
+    if (!tryAcquireGlobalAdLock()) return false;
 
     adShowInFlightRef.current = true;
     try {
       await adsgramControllerRef.current.show();
+      return true;
     } catch (err) {
       console.log("AdsGram ad skipped or unavailable", err);
+      return false;
     } finally {
       adShowInFlightRef.current = false;
       releaseGlobalAdLock();
@@ -502,13 +516,13 @@ export default function App() {
     let cancelled = false;
     let repeatTimer: number | null = null;
 
-    const scheduleNext = () => {
+    const scheduleNext = (succeeded: boolean) => {
       if (cancelled) return;
-      const delay = getNextAdDelayMs();
+      const delay = succeeded ? AD_REPEAT_SUCCESS_MS : AD_REPEAT_RETRY_MS;
       repeatTimer = window.setTimeout(async () => {
         if (cancelled) return;
-        await showAdsgramAd();
-        scheduleNext();
+        const ok = await showAdsgramAd();
+        scheduleNext(ok);
       }, delay);
     };
 
@@ -516,8 +530,8 @@ export default function App() {
 
     repeatTimer = window.setTimeout(async () => {
       if (cancelled) return;
-      await showAdsgramAd();
-      scheduleNext();
+      const ok = await showAdsgramAd();
+      scheduleNext(ok);
     }, FIRST_AD_DELAY_MS);
 
     return () => {
@@ -579,13 +593,22 @@ export default function App() {
     // غير موثوق. لهيك صار استدعاء show() أول شي، وطلب الـprepare يصير
     // بالتوازي معه مو قبله.
     document.addEventListener("visibilitychange", onVisibility);
+
+    // نمسك القفل هون بشكل متزامن (بدون await) قبل أي شي، حتى إذا كان
+    // مشغول (مثلاً الإعلان التلقائي بالخلفية شغال هلق) نفشل فوراً بدل ما
+    // ننتظره - الانتظار هو اللي كان يخلي .show() ينطلق بعد ضغطة المستخدم
+    // بثواني، فـAdsGram ما يربطها بضغطة حقيقية وما يحسبها Impression
+    // صحيحة حتى لو التطبيق عندنا اعتبرها "شوهدت".
+    if (!tryAcquireGlobalAdLock()) {
+      document.removeEventListener("visibilitychange", onVisibility);
+      setStarsAdBusy(false);
+      setStarsAdToast("Another ad is currently showing. Please try again in a few seconds.");
+      return;
+    }
+
     const startedAt = Date.now();
 
     const showPromise = (async () => {
-      const acquired = await acquireGlobalAdLock();
-      if (!acquired) {
-        throw new Error("Another ad is currently showing. Please try again.");
-      }
       try {
         return await adsgramStarsControllerRef.current!.show();
       } finally {
@@ -650,7 +673,7 @@ export default function App() {
       throw new Error("Ad is not ready yet. Try again in a moment.");
     }
 
-    const acquired = await acquireGlobalAdLock();
+    const acquired = tryAcquireGlobalAdLock();
     if (!acquired) {
       throw new Error("Another ad is currently showing. Please try again.");
     }
@@ -920,7 +943,7 @@ export default function App() {
       throw new Error("Mining ad is not ready yet. Try again in a moment.");
     }
 
-    const acquired = await acquireGlobalAdLock();
+    const acquired = tryAcquireGlobalAdLock();
     if (!acquired) {
       throw new Error("Another ad is currently showing. Please try again.");
     }

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import UiIcons from "../components/UiIcons";
 import "../styles/modals.css";
-import { acquireGlobalAdLock, releaseGlobalAdLock } from "../lib/adLock";
+import { tryAcquireGlobalAdLock, releaseGlobalAdLock } from "../lib/adLock";
 
 type WithdrawMethod = "binance" | "bnb";
 // ملاحظة: القيمة الداخلية "bnb" بقيت كما هي (تخزين قاعدة البيانات
@@ -177,8 +177,14 @@ export default function WithdrawalModal({
     setError("");
 
     // نمنع أي إعلان ثاني يطلع فوق هاي حتى يخلص هذا (نفس القفل المستخدم
-    // بالمايننق والمهام بـ App.tsx / Tasks.tsx)
-    await acquireGlobalAdLock();
+    // بالمايننق والمهام بـ App.tsx / Tasks.tsx). لازم يكون بدون انتظار
+    // (بدون await) قبل .show()، وإلا AdsGram ما يربط الظهور بضغطة
+    // المستخدم مباشرة وممكن ما يحسبه Impression صحيح.
+    if (!tryAcquireGlobalAdLock()) {
+      setError("Another ad is currently showing. Please try again in a few seconds.");
+      setWatchingAd(false);
+      return;
+    }
 
     try {
       if (

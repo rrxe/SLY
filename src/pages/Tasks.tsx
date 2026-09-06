@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { acquireGlobalAdLock, releaseGlobalAdLock } from "../lib/adLock";
+import { tryAcquireGlobalAdLock, releaseGlobalAdLock } from "../lib/adLock";
 import "../styles/tasks.css";
 
 type Props = {
@@ -329,7 +329,10 @@ export default function Tasks({ onRewardCoins }: Props) {
           setToast("AdsGram ad not ready yet. Try again.");
           return;
         }
-        await acquireGlobalAdLock();
+        if (!tryAcquireGlobalAdLock()) {
+          setToast("Another ad is currently showing. Please try again in a few seconds.");
+          return;
+        }
 
         try {
           await adsgramControllerRef.current.show();
