@@ -4,7 +4,7 @@
 // stops delivering/counting fresh impressions.
 
 let globalAdLock = false;
-
+let lastAdEndedAt = 0;
 let lockAcquiredAt = 0;
 
 // Minimum silence between the end of one ad (any block) and the start of
@@ -43,6 +43,7 @@ export function tryAcquireGlobalAdLock(): boolean {
 
 export function releaseGlobalAdLock(): void {
   globalAdLock = false;
+  lastAdEndedAt = Date.now();
 }
 
 /**
