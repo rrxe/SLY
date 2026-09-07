@@ -13,6 +13,13 @@
     <!-- تحميل SDK الخاص بـ AdsGram أول شي، بالتوازي مع كل شي ثاني،
          بدل ما ننتظر React يشتغل ويحقن السكربت بجافاسكربت -->
     <script src="https://sad.adsgram.ai/js/sad.min.js"></script>
+
+    <!-- تسريع الاتصال بسيرفرات GigaPub قبل ما نحتاجها فعلياً -->
+    <link rel="preconnect" href="https://ad.gigapub.tech" crossorigin>
+    <link rel="dns-prefetch" href="https://ad.gigapub.tech">
+
+    <!-- تحميل SDK الخاص بـ GigaPub -->
+    <script src="https://ad.gigapub.tech/script?id=8101"></script>
   </head>
   <body>
     <div id="root"></div>

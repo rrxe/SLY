@@ -28,6 +28,7 @@ type OpenedMap = Record<string, number>;
 const CLAIM_DELAY_MS = 5000;
 const SMART_AD_CLAIM_DELAY_MS = 5000;
 const ADSGRAM_CLAIM_DELAY_MS = 0;   // صفر لـ AdsGram أيضاً (إعلان لا يمكن تخطيه)
+const GIGA_PUB_CLAIM_DELAY_MS = 0; // صفر لـ GigaPub أيضاً (إعلان لا يمكن تخطيه)
 
 
 // بلوك AdsGram الخاص بمهام المشاهدة (نفس نوع البلوك المستخدم في بوابة السحب)
@@ -51,6 +52,7 @@ declare global {
     Adsgram?: {
       init: (opts: { blockId: string }) => AdsgramController;
     };
+    showGiga?: () => Promise<void>;
   }
 }
 
@@ -114,6 +116,10 @@ function isAdsGramTask(task: ServerTask) {
   return String(task.task_type || "").toLowerCase() === "adsgram";
 }
 
+function isGigaPubTask(task: ServerTask) {
+  return String(task.task_type || "").toLowerCase() === "giga_pub";
+}
+
 function isJoinBotTask(task: ServerTask) {
   return String(task.task_type || "").toLowerCase() === "join_bot";
 }
@@ -131,6 +137,7 @@ function getTaskCategory(task: ServerTask): TaskCategory {
 function getClaimDelayMs(task: ServerTask) {
   if (isSmartAdTask(task)) return SMART_AD_CLAIM_DELAY_MS;
   if (isAdsGramTask(task)) return ADSGRAM_CLAIM_DELAY_MS;
+  if (isGigaPubTask(task)) return GIGA_PUB_CLAIM_DELAY_MS;
   return CLAIM_DELAY_MS;
 }
 
@@ -352,6 +359,34 @@ export default function Tasks({ onRewardCoins }: Props) {
         return;
       }
 
+      // معالجة GigaPub
+      if (isGigaPubTask(task)) {
+        if (typeof window.showGiga !== "function") {
+          setToast("GigaPub ad not ready yet. Try again.");
+          return;
+        }
+        if (!tryAcquireGlobalAdLock()) {
+          setToast(`Please wait ${getAdLockWaitSeconds()}s to watch another ad.`);
+          return;
+        }
+
+        try {
+          await window.showGiga();
+        } catch (err: any) {
+          setToast(err?.message || "Ad failed to load.");
+          return;
+        } finally {
+          releaseGlobalAdLock();
+        }
+
+        await postTaskAction({ taskId: task.id, action: "open" });
+        const openedAt = Date.now();
+        setOpenedAtById((prev) => ({ ...prev, [id]: openedAt }));
+        scheduleAutoClaim(task, openedAt);
+        setToast("Ad watched. Claiming coins...");
+        return;
+      }
+
       // المهام العادية (مع رابط)
       const url = String(task.url || "").trim();
       if (!url) { setToast("Task has no URL."); return; }
@@ -409,6 +444,7 @@ export default function Tasks({ onRewardCoins }: Props) {
             const id = String(task.id);
             const isSmartAd = isSmartAdTask(task);
             const isAdsGram = isAdsGramTask(task);
+            const isGigaPub = isGigaPubTask(task);
             const claimDelayMs = getClaimDelayMs(task);
             const progress = progressById[id] || { completed: 0, max_completions: Math.max(1, Number(task.max_completions || 1)) };
             const openedAt = openedAtById[id];
@@ -424,6 +460,7 @@ export default function Tasks({ onRewardCoins }: Props) {
             let taskTypeLabel = task.task_type || "task";
             if (isSmartAd) taskTypeLabel = "smart ad";
             else if (isAdsGram) taskTypeLabel = "adsgram";
+            else if (isGigaPub) taskTypeLabel = "giga pub";
 
             return (
               <article key={id} className={`task-row ${claimedAll ? "done" : ""}`}>
@@ -440,7 +477,7 @@ export default function Tasks({ onRewardCoins }: Props) {
                     {claimedAll ? (
                       <span className="green">Completed</span>
                     ) : !opened ? (
-                      <span className="gray">{isAdsGram ? "Watch the ad to earn coins" : "Open link first"}</span>
+                      <span className="gray">{isAdsGram || isGigaPub ? "Watch the ad to earn coins" : "Open link first"}</span>
                     ) : !waitedEnough ? (
                       <span className="blue">Sending coins in {Math.ceil((claimDelayMs - (Date.now() - openedAt)) / 1000)} seconds</span>
                     ) : (
@@ -458,7 +495,9 @@ export default function Tasks({ onRewardCoins }: Props) {
                     <span style={{ color: "#fff" }}>{progress.completed}</span> <span style={{ opacity: 0.5 }}> / {progress.max_completions}</span>
                   </div>
                   <button type="button" className="task-btn join" onClick={() => handleOpenTask(task)} disabled={opening || claimedAll}>
-                    {opening ? (isAdsGram ? "Loading ad..." : "Opening...") : (isAdsGram ? "Watch Ad" : "Open")}
+                    {opening
+                      ? (isAdsGram || isGigaPub ? "Loading ad..." : "Opening...")
+                      : (isAdsGram || isGigaPub ? "Watch Ad" : "Open")}
                   </button>
                 </div>
               </article>
