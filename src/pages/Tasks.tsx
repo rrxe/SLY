@@ -56,10 +56,65 @@ declare global {
     Adsgram?: {
       init: (opts: { blockId: string }) => AdsgramController;
     };
-    // يتهيأ مرة وحدة بـ index.html مع pubId/appId الحقيقيين، هنا
-    // بس نستخدمه.
     TelegramAdsController?: RichAdsController;
   }
+}
+
+// نفس pubId/appId من لوحة RichAds - يتحمل السكربت ويتفعل بس لما
+// المستخدم يفتح صفحة Tasks (مو من أول ما يفتح التطبيق كله)، حتى
+// ما يشتغل الـ auto-click listener تبعه إلا وهو فعلاً بهذي الصفحة.
+const RICHADS_PUB_ID = "1021909";
+const RICHADS_APP_ID = "8770";
+const RICHADS_SCRIPT_SRC = "https://richinfo.co/richpartners/telegram/js/tg-ob.js";
+
+let richAdsLoadPromise: Promise<boolean> | null = null;
+
+function loadRichAdsScript(timeoutMs = 15000): Promise<boolean> {
+  if (typeof window === "undefined") return Promise.resolve(false);
+  if (window.TelegramAdsController) return Promise.resolve(true);
+
+  if (richAdsLoadPromise) return richAdsLoadPromise;
+
+  richAdsLoadPromise = new Promise((resolve) => {
+    const finish = (ok: boolean) => resolve(ok);
+
+    const existingScript = document.querySelector<HTMLScriptElement>(
+      `script[src="${RICHADS_SCRIPT_SRC}"]`
+    );
+
+    const initController = () => {
+      try {
+        const Ctrl = (window as any).TelegramAdsController;
+        if (Ctrl && typeof Ctrl === "function") {
+          window.TelegramAdsController = new Ctrl();
+          window.TelegramAdsController!.initialize({
+            pubId: RICHADS_PUB_ID,
+            appId: RICHADS_APP_ID,
+          });
+        }
+        finish(Boolean(window.TelegramAdsController));
+      } catch {
+        finish(false);
+      }
+    };
+
+    if (existingScript) {
+      if (window.TelegramAdsController) return finish(true);
+      existingScript.addEventListener("load", initController, { once: true });
+      existingScript.addEventListener("error", () => finish(false), { once: true });
+    } else {
+      const script = document.createElement("script");
+      script.src = RICHADS_SCRIPT_SRC;
+      script.async = true;
+      script.addEventListener("load", initController, { once: true });
+      script.addEventListener("error", () => finish(false), { once: true });
+      document.head.appendChild(script);
+    }
+
+    window.setTimeout(() => finish(Boolean(window.TelegramAdsController)), timeoutMs);
+  });
+
+  return richAdsLoadPromise;
 }
 
 function isRichAdsTask(task: ServerTask) {
@@ -367,8 +422,11 @@ export default function Tasks({ onRewardCoins }: Props) {
       // معالجة RichAds (TelegramAdsController)
       if (isRichAdsTask(task)) {
         if (!window.TelegramAdsController) {
-          setToast("RichAds not ready yet. Try again.");
-          return;
+          const loaded = await loadRichAdsScript();
+          if (!loaded || !window.TelegramAdsController) {
+            setToast("RichAds not ready yet. Try again.");
+            return;
+          }
         }
         if (!tryAcquireGlobalAdLock()) {
           setToast(`Please wait ${getAdLockWaitSeconds()}s to watch another ad.`);
