@@ -376,9 +376,26 @@ export default function Tasks({ onRewardCoins }: Props) {
         }
 
         try {
-          await window.TelegramAdsController.triggerInterstitialBanner();
+          // RichAds ممكن ما يرد إطلاقاً (لا نجاح ولا خطأ) لو ماكو
+          // إعلان يعرضه (no fill) أو الحساب لسا تحت المراجعة. بدون
+          // هالمهلة، الزر يضل "Loading ad..." للأبد.
+          await Promise.race([
+            window.TelegramAdsController.triggerInterstitialBanner(),
+            new Promise((_, reject) =>
+              window.setTimeout(
+                () => reject(new Error("No ad available right now. Try again shortly.")),
+                20000
+              )
+            ),
+          ]);
         } catch (err: any) {
-          setToast(err?.message || "Ad was not shown.");
+          console.warn("[RichAds] triggerInterstitialBanner rejected:", err);
+          const reason =
+            (typeof err === "string" && err) ||
+            err?.message ||
+            err?.description ||
+            "";
+          setToast(reason ? `RichAds: ${reason}` : "RichAds: no fill (ad not available).");
           return;
         } finally {
           releaseGlobalAdLock();
