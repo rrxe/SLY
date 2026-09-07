@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import UiIcons from "../components/UiIcons";
 import "../styles/modals.css";
-import { tryAcquireGlobalAdLock, releaseGlobalAdLock } from "../lib/adLock";
+import { tryAcquireGlobalAdLock, releaseGlobalAdLock, getAdLockWaitSeconds } from "../lib/adLock";
 
 type WithdrawMethod = "binance" | "bnb";
 // ملاحظة: القيمة الداخلية "bnb" بقيت كما هي (تخزين قاعدة البيانات
@@ -181,7 +181,7 @@ export default function WithdrawalModal({
     // (بدون await) قبل .show()، وإلا AdsGram ما يربط الظهور بضغطة
     // المستخدم مباشرة وممكن ما يحسبه Impression صحيح.
     if (!tryAcquireGlobalAdLock()) {
-      setError("Another ad is currently showing. Please try again in a few seconds.");
+      setError(`Please wait ${getAdLockWaitSeconds()}s to watch another ad.`);
       setWatchingAd(false);
       return;
     }

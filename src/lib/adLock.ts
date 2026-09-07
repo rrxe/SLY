@@ -5,12 +5,20 @@
 
 let globalAdLock = false;
 let lastAdEndedAt = 0;
+let lockAcquiredAt = 0;
 
 // Minimum silence between the end of one ad (any block) and the start of
 // the next one (any block). This is what actually fixes "spam" — it does
 // not reduce how many ads a user can watch per session, it just stops two
 // from firing in the same second.
 export const MIN_GAP_BETWEEN_ADS_MS = 12000;
+
+// We don't get a "this ad will end at X" callback from AdsGram while a
+// show() is in flight, so when the lock is currently held by an
+// in-progress ad we can only estimate how much longer it might run for
+// (used purely to show the user a "wait Ns" countdown, not for any real
+// timing logic).
+const ASSUMED_MAX_AD_DURATION_MS = 30000;
 
 /**
  * Non-blocking lock. Use this for anything triggered directly by a user
@@ -30,10 +38,31 @@ export function tryAcquireGlobalAdLock(): boolean {
   if (globalAdLock) return false;
   if (Date.now() - lastAdEndedAt < MIN_GAP_BETWEEN_ADS_MS) return false;
   globalAdLock = true;
+  lockAcquiredAt = Date.now();
   return true;
 }
 
 export function releaseGlobalAdLock(): void {
   globalAdLock = false;
   lastAdEndedAt = Date.now();
+}
+
+/**
+ * Estimated number of seconds the user should wait before
+ * tryAcquireGlobalAdLock() is likely to succeed again. Only meant for
+ * displaying a "please wait Ns" message — not exact, since we can't know
+ * precisely when an in-progress ad will finish.
+ */
+export function getAdLockWaitSeconds(): number {
+  const now = Date.now();
+  let waitMs = 0;
+
+  if (globalAdLock) {
+    const elapsedSinceLock = now - lockAcquiredAt;
+    waitMs = Math.max(waitMs, ASSUMED_MAX_AD_DURATION_MS - elapsedSinceLock);
+  }
+
+  waitMs = Math.max(waitMs, MIN_GAP_BETWEEN_ADS_MS - (now - lastAdEndedAt));
+
+  return Math.max(1, Math.ceil(waitMs / 1000));
 }

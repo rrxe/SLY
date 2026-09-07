@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { tryAcquireGlobalAdLock, releaseGlobalAdLock } from "../lib/adLock";
+import { tryAcquireGlobalAdLock, releaseGlobalAdLock, getAdLockWaitSeconds } from "../lib/adLock";
 import "../styles/tasks.css";
 
 type Props = {
@@ -330,7 +330,7 @@ export default function Tasks({ onRewardCoins }: Props) {
           return;
         }
         if (!tryAcquireGlobalAdLock()) {
-          setToast("Another ad is currently showing. Please try again in a few seconds.");
+          setToast(`Please wait ${getAdLockWaitSeconds()}s to watch another ad.`);
           return;
         }
 

@@ -14,7 +14,7 @@ import Games from "./pages/Games";
 import GameCanvas from "./components/GameCanvas";
 import MandatorySubscription from "./components/MandatorySubscription";
 import SplashScreen from "./components/SplashScreen";
-import { tryAcquireGlobalAdLock, releaseGlobalAdLock } from "./lib/adLock";
+import { tryAcquireGlobalAdLock, releaseGlobalAdLock, getAdLockWaitSeconds } from "./lib/adLock";
 
 import ExchangeModal from "./modals/ExchangeModal";
 import WithdrawalModal from "./modals/WithdrawalModal";
@@ -607,7 +607,7 @@ export default function App() {
     if (!tryAcquireGlobalAdLock()) {
       document.removeEventListener("visibilitychange", onVisibility);
       setStarsAdBusy(false);
-      setStarsAdToast("Another ad is currently showing. Please try again in a few seconds.");
+      setStarsAdToast(`Please wait ${getAdLockWaitSeconds()}s to watch another ad.`);
       return;
     }
 
@@ -680,7 +680,7 @@ export default function App() {
 
     const acquired = tryAcquireGlobalAdLock();
     if (!acquired) {
-      throw new Error("Another ad is currently showing. Please try again.");
+      throw new Error(`Please wait ${getAdLockWaitSeconds()}s to watch another ad.`);
     }
 
     let timeoutId: number | undefined;
@@ -950,7 +950,7 @@ export default function App() {
 
     const acquired = tryAcquireGlobalAdLock();
     if (!acquired) {
-      throw new Error("Another ad is currently showing. Please try again.");
+      throw new Error(`Please wait ${getAdLockWaitSeconds()}s to watch another ad.`);
     }
 
     let timeoutId: number | undefined;
