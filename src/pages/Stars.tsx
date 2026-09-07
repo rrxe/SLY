@@ -259,18 +259,32 @@ export default function Stars({
               <div className="stars-ad-progress-label">
                 {adBatchCount}/{adsRequired} watched
               </div>
-              <button className="stars-ad-btn" onClick={onWatchAd} disabled={adBusy}>
-                {adBusy ? "Loading…" : "Watch Ad"}
-              </button>
-              {onUseBalance && (
-                <button
-                  className="stars-ad-btn stars-use-balance-btn"
-                  onClick={onUseBalance}
-                  disabled={useBusy}
-                >
-                  {useBusy ? "Loading…" : "Use Balance"}
-                </button>
+
+              {onUseBalance && adBatchCount > 0 && (
+                <div className="stars-balance-info">
+                  Balance ready: <strong>{adBatchCount}</strong> ads ={" "}
+                  <strong>{formatCountdown(adBatchCount * 5 * 60 * 1000)}</strong>
+                </div>
               )}
+
+              <div className="stars-ad-actions">
+                <button className="stars-ad-btn" onClick={onWatchAd} disabled={adBusy}>
+                  {adBusy ? "Loading…" : "Watch Ad"}
+                </button>
+                {onUseBalance && (
+                  <button
+                    className="stars-ad-btn stars-ad-btn-outline"
+                    onClick={onUseBalance}
+                    disabled={useBusy || adBatchCount <= 0}
+                  >
+                    {useBusy
+                      ? "Loading…"
+                      : adBatchCount > 0
+                        ? `Use Balance (${adBatchCount})`
+                        : "Use Balance"}
+                  </button>
+                )}
+              </div>
               {adBusy && (
                 <div className="stars-ad-hint">
                   Taking a while? This will auto-reset in a few seconds.

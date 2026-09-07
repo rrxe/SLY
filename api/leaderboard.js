@@ -133,6 +133,28 @@ async function handleResetWeeklyTime(req, res) {
   return res.status(200).json({ success: true })
 }
 
+// تصفير رصيد إعلانات الـStars فقط (batch count + أي دورة شغالة) لكل
+// اللاعبين، بدون ما يلمس weekly_time_seconds أبداً. مستقل تماماً عن
+// تصفير الترتيب الأسبوعي — تستدعيه لحاله وقت ما تحب.
+async function handleResetStarsAds(req, res) {
+  const { error } = await supabase
+    .from('players')
+    .update({
+      stars_ad_batch_count: 0,
+      stars_ad_intent: false,
+      stars_ad_started_at: null,
+      stars_ad_verified: false,
+      stars_cycle_started_at: null,
+      stars_cycle_duration_seconds: 0,
+      stars_cycle_credited_seconds: 0,
+    })
+    .gte('telegram_id', 0)
+
+  if (error) throw error
+
+  return res.status(200).json({ success: true })
+}
+
 export default async function handler(req, res) {
   try {
     if (req.method === 'GET') {
@@ -159,6 +181,10 @@ export default async function handler(req, res) {
 
       if (action === 'reset_weekly_time') {
         return await handleResetWeeklyTime(req, res)
+      }
+
+      if (action === 'reset_stars_ads') {
+        return await handleResetStarsAds(req, res)
       }
 
       return res.status(400).json({ error: 'Unknown action' })

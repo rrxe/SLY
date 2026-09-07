@@ -1,5 +1,5 @@
 .stars-page {
-  padding: 6px 2px 18px;
+  padding: 6px 2px 100px;
   color: var(--text-primary);
   position: relative;
   overflow: hidden;
@@ -222,6 +222,33 @@
   cursor: default;
 }
 
+.stars-ad-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.stars-ad-actions .stars-ad-btn {
+  flex: 1;
+}
+
+.stars-ad-btn-outline {
+  background: transparent;
+  border: 1.5px solid rgba(255, 207, 77, 0.55);
+  color: #ffd76a;
+}
+
+.stars-balance-info {
+  margin-bottom: 8px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.stars-balance-info strong {
+  color: #ffd76a;
+}
+
 .stars-ad-toast {
   margin-top: 10px;
   font-size: 12px;
@@ -360,18 +387,18 @@
 }
 
 .podium-spot-1 .podium-pillar {
-  height: 78px;
+  height: 58px;
   background: linear-gradient(180deg, #ffe08a, #b8860b);
   box-shadow: 0 0 22px rgba(255, 207, 77, 0.35);
 }
 
 .podium-spot-2 .podium-pillar {
-  height: 56px;
+  height: 44px;
   background: linear-gradient(180deg, #e7edf3, #9aa7b5);
 }
 
 .podium-spot-3 .podium-pillar {
-  height: 40px;
+  height: 34px;
   background: linear-gradient(180deg, #f0b98a, #a86a3c);
 }
 
@@ -457,14 +484,14 @@
   }
 
   .podium-spot-1 .podium-pillar {
-    height: 66px;
-  }
-
-  .podium-spot-2 .podium-pillar {
     height: 48px;
   }
 
+  .podium-spot-2 .podium-pillar {
+    height: 36px;
+  }
+
   .podium-spot-3 .podium-pillar {
-    height: 34px;
+    height: 28px;
   }
 }
