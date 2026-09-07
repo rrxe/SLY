@@ -1652,89 +1652,11 @@ export default async function handler(
       }
 
       /*
-       * Stars AdsGram Reward verification.
-       *
-       * مهم:
-       * - Stars لا يعتمد على click.
-       * - Stars لا يعتمد على visibilitychange.
-       * - Stars لا يعتمد على مدة المشاهدة من الفرونت.
-       * - الفرونت فقط يضع stars_ad_intent = true.
-       * - AdsGram Reward URL هو المصدر الوحيد لتأكيد الإعلان.
-       *
-       * كل Reward حقيقي من AdsGram:
-       * stars_ad_batch_count + 1
+       * Stars ads (batch-of-20 → 2h cycle). Checked before the
+       * withdrawal fallback, same priority pattern as mining above.
        */
-
-      if (
-        player.stars_ad_intent === true
-      ) {
-        const currentBatch =
-          Number(
-            player.stars_ad_batch_count || 0
-          )
-
-        if (
-          currentBatch >=
-          STARS_MAX_ADS_PER_RUN
-        ) {
-          await supabase
-            .from('players')
-            .update({
-              stars_ad_intent: false,
-              stars_ad_started_at: null,
-              stars_ad_verified: false,
-            })
-            .eq(
-              'telegram_id',
-              telegramId
-            )
-
-          return res.status(200).json({
-            success: true,
-            type: 'stars',
-            starsAdVerified: false,
-            starsAdLimitReached: true,
-            starsAdBatchCount:
-              currentBatch,
-          })
-        }
-
-        const nextBatch =
-          Math.min(
-            currentBatch + 1,
-            STARS_MAX_ADS_PER_RUN
-          )
-
-        const {
-          error: starsUpdateError,
-        } = await supabase
-          .from('players')
-          .update({
-            stars_ad_intent: false,
-            stars_ad_started_at: null,
-            stars_ad_verified: true,
-            stars_ad_batch_count:
-              nextBatch,
-          })
-          .eq(
-            'telegram_id',
-            telegramId
-          )
-
-        if (starsUpdateError) {
-          throw starsUpdateError
-        }
-
-        return res.status(200).json({
-          success: true,
-          type: 'stars',
-          starsAdVerified: true,
-          starsAdBatchCount:
-            nextBatch,
-          starsAdCreditMinutes:
-            nextBatch * STARS_AD_MINUTES_PER_AD,
-        })
-      }
+      // تم حذف فرع Stars من هذا الـ webhook: Interstitial ما يرسل reward postback،
+      // الاعتماد صار بالكامل على stars_ad_ack (تحقق وقت + كليك من عندنا).
 
       /*
        * Existing withdrawal ad logic.
@@ -2514,7 +2436,6 @@ export default async function handler(
           .update({
             stars_ad_intent: true,
             stars_ad_started_at: new Date().toISOString(),
-            stars_ad_verified: false,
           })
           .eq('telegram_id', telegramId)
 
@@ -2535,15 +2456,68 @@ export default async function handler(
       ) {
         await supabase
           .from('players')
-          .update({
-            stars_ad_intent: false,
-            stars_ad_started_at: null,
-            stars_ad_verified: false,
-          })
+          .update({ stars_ad_intent: false })
           .eq('telegram_id', telegramId)
+
+        return res.status(200).json({ success: true })
+      }
+
+      if (
+        action === 'stars_ad_ack'
+      ) {
+        const { clicked } = req.body || {}
+        const MIN_STARS_AD_MS = 6000
+
+        if (player.stars_ad_intent !== true) {
+          return res.status(400).json({ error: 'No pending stars ad' })
+        }
+
+        const startedAt = player.stars_ad_started_at
+          ? new Date(player.stars_ad_started_at)
+          : null
+        const elapsedMs = startedAt ? Date.now() - startedAt.getTime() : 0
+
+        const rejectStarsAd = async (reason) => {
+          await supabase
+            .from('players')
+            .update({ stars_ad_intent: false, stars_ad_started_at: null })
+            .eq('telegram_id', telegramId)
+          return res.status(400).json({ error: reason })
+        }
+
+        if (!startedAt || elapsedMs < MIN_STARS_AD_MS) {
+          return await rejectStarsAd('Ad not watched long enough')
+        }
+        if (clicked !== true) {
+          return await rejectStarsAd('Ad click not detected')
+        }
+
+        // كل إعلان يزيد الرصيد بس (batch_count)، بلا أي تشغيل تلقائي
+        // للدورة. تشغيل الدورة صار حصراً عبر action = stars_ad_use_balance
+        // اللي المستخدم يضغطها بنفسه وقت ما يحب.
+        const currentBatch = Number(player.stars_ad_batch_count || 0)
+        const nextBatch = Math.min(currentBatch + 1, STARS_MAX_ADS_PER_RUN)
+
+        const starsUpdates = {
+          stars_ad_intent: false,
+          stars_ad_started_at: null,
+          stars_ad_verified: true,
+          stars_ad_batch_count: nextBatch,
+        }
+
+        const { error: ackError } = await supabase
+          .from('players')
+          .update(starsUpdates)
+          .eq('telegram_id', telegramId)
+
+        if (ackError) {
+          throw ackError
+        }
 
         return res.status(200).json({
           success: true,
+          starsAdBatchCount: nextBatch,
+          starsAdCreditMinutes: nextBatch * STARS_AD_MINUTES_PER_AD,
         })
       }
 

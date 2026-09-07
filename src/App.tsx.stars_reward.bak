@@ -81,12 +81,20 @@ type WithdrawalHistoryEntry = {
 
 const ADSGRAM_BLOCK_ID = "int-46084";
 const ADSGRAM_MINING_BLOCK_ID = "46086";
-const ADSGRAM_STARS_BLOCK_ID = "46643";
+const ADSGRAM_STARS_BLOCK_ID = "int-46522";
 // عدّل هذا لاحقاً برقم Block ID حقيقي من لوحة Adsgram (سوّي وحدة
 // إعلانية جديدة بالاسم اللي تحب، مثلاً "SLY Games"). مؤقتاً يستخدم
 // نفس وحدة Stars لحد ما تسوي وحدة مخصصة.
 const ADSGRAM_GAMES_BLOCK_ID = "46086";
-// Stars uses server-side AdsGram reward verification like Mining/Games.
+const MIN_STARS_AD_MS = 6000;
+// بعد ما ينحسب إعلان Stars بنجاح، نمنع تشغيل إعلان تاني قبل مرور هذي
+// المدة، عشان نمنع سبام الضغط على "Watch Ad". نخليها عشوائية بين 15
+// و30 ثانية بكل مرة بدل رقم ثابت، عشان النمط ما يكون متوقع/ثابت.
+const STARS_AD_COOLDOWN_MIN_MS = 15000;
+const STARS_AD_COOLDOWN_MAX_MS = 30000;
+const getRandomStarsAdCooldownMs = () =>
+  STARS_AD_COOLDOWN_MIN_MS +
+  Math.floor(Math.random() * (STARS_AD_COOLDOWN_MAX_MS - STARS_AD_COOLDOWN_MIN_MS + 1));
 const ADSGRAM_SCRIPT_SRC = "https://sad.adsgram.ai/js/sad.min.js";
 const MINING_AD_SHOW_TIMEOUT_MS = 45000;
 // AdsGram's server-side reward postback can arrive well after the ad
@@ -311,13 +319,14 @@ export default function App() {
   const [starsAdBusy, setStarsAdBusy] = useState(false);
   const [starsUseBusy, setStarsUseBusy] = useState(false);
   const [starsAdBatchCount, setStarsAdBatchCount] = useState(0);
-  // آخر تحديث مؤكد لعداد Stars من السيرفر.
-  // يمنع رد GET قديم من الكتابة فوق قيمة أحدث أثناء انتظار webhook.
+  // آخر وقت انحدّث فيه العداد من مصدر أكيد (تأكيد مشاهدة إعلان،
+  // stars_ad_ack). أي رد لطلب GET /api/auth/me انطلب قبل هذا الوقت
+  // نتجاهله - لأنه أكيد قرا القيمة قبل ما الإعلان ينحسب بالسيرفر،
+  // وبيرجع يفضّي (overwrite) العداد الصحيح بقيمة قديمة لو وصل متأخر.
   const starsAdBatchCountUpdatedAtRef = useRef(0);
-
-  // إذا تم تشغيل الإعلان فعلاً ثم تأخر AdsGram webhook،
-  // لا نعرض إعلاناً ثانياً عند إعادة المحاولة.
-  const starsAdShownRef = useRef(false);
+  // إذا Date.now() أصغر من هذي القيمة، يعني لسا بفترة الكولداون
+  // ومنمنع تشغيل إعلان Stars جديد.
+  const starsAdCooldownUntilRef = useRef(0);
   const [starsAdsRequired, setStarsAdsRequired] = useState(50);
   const [starsCycleUnlocksAt, setStarsCycleUnlocksAt] = useState<string | null>(null);
   const [starsAdToast, setStarsAdToast] = useState("");
@@ -546,178 +555,116 @@ export default function App() {
   const cancelStarsAd = async () => {
     await callApi("/api/auth/me", {
       method: "POST",
-      body: JSON.stringify({
-        action: "stars_ad_cancel",
-      }),
+      body: JSON.stringify({ action: "stars_ad_cancel" }),
     }).catch(() => {});
   };
 
-  // نفس Mining/Games:
-  // الكلاينت لا يقرر أن الإعلان اكتمل.
-  // ننتظر زيادة starsAdBatchCount بعد وصول AdsGram reward webhook.
-  const waitForStarsAdVerification = async (
-    batchBefore: number
-  ) => {
-    for (
-      let attempt = 0;
-      attempt < AD_VERIFY_MAX_ATTEMPTS;
-      attempt += 1
-    ) {
-      try {
-        const data = await loadPlayerData();
-
-        if (
-          typeof data?.starsAdBatchCount === "number" &&
-          data.starsAdBatchCount > batchBefore
-        ) {
-          return true;
-        }
-      } catch {}
-
-      await new Promise((resolve) =>
-        window.setTimeout(
-          resolve,
-          AD_VERIFY_POLL_MS
-        )
-      );
-    }
-
-    return false;
-  };
-
+  // Must stay >= AD_VERIFY_MAX_ATTEMPTS * AD_VERIFY_POLL_MS, otherwise this
+  // outer timeout cuts the verification poll short before it gets a chance
+  // to see a late AdsGram postback.
   const handleWatchStarsAd = async () => {
-    if (starsAdBusy) return
+    if (starsAdBusy) return;
+
+    const cooldownRemainingMs = starsAdCooldownUntilRef.current - Date.now();
+    if (cooldownRemainingMs > 0) {
+      setStarsAdToast(
+        `Please wait ${Math.ceil(cooldownRemainingMs / 1000)}s before watching another ad.`
+      );
+      return;
+    }
 
     if (!adsgramStarsControllerRef.current) {
-      setStarsAdToast(
-        "Ads are still loading, try again in a moment."
-      )
-      return
+      setStarsAdToast("Ads are still loading, try again in a moment.");
+      return;
     }
 
-    const batchBefore =
-      starsAdBatchCount
+    setStarsAdBusy(true);
+    setStarsAdToast("");
 
-    setStarsAdBusy(true)
-    setStarsAdToast("")
+    let clicked = false;
+    let hiddenAt: number | null = null;
 
+    const onVisibility = () => {
+      if (document.visibilityState === "hidden") {
+        hiddenAt = Date.now();
+      } else if (document.visibilityState === "visible" && hiddenAt) {
+        if (Date.now() - hiddenAt > 800) clicked = true;
+        hiddenAt = null;
+      }
+    };
+
+    // مهم: لازم .show() ينطلق فوراً بنفس اللحظة اللي المستخدم ضغط فيها الزر،
+    // بلا أي await قبله (حتى ولا أبسط طلب API). أي تأخير بينهم يخلي Adsgram
+    // يشوف إنو العرض ما انطلق مباشرة من ضغطة المستخدم فيرفض يحسبه أو يعتبره
+    // غير موثوق. لهيك صار استدعاء show() أول شي، وطلب الـprepare يصير
+    // بالتوازي معه مو قبله.
+    document.addEventListener("visibilitychange", onVisibility);
+
+    // نمسك القفل هون بشكل متزامن (بدون await) قبل أي شي، حتى إذا كان
+    // مشغول (مثلاً الإعلان التلقائي بالخلفية شغال هلق) نفشل فوراً بدل ما
+    // ننتظره - الانتظار هو اللي كان يخلي .show() ينطلق بعد ضغطة المستخدم
+    // بثواني، فـAdsGram ما يربطها بضغطة حقيقية وما يحسبها Impression
+    // صحيحة حتى لو التطبيق عندنا اعتبرها "شوهدت".
     if (!tryAcquireGlobalAdLock()) {
-      setStarsAdBusy(false)
-      setStarsAdToast(
-        `Please wait ${getAdLockWaitSeconds()}s to watch another ad.`
-      )
-      return
+      document.removeEventListener("visibilitychange", onVisibility);
+      setStarsAdBusy(false);
+      setStarsAdToast(`Please wait ${getAdLockWaitSeconds()}s to watch another ad.`);
+      return;
     }
+
+    const startedAt = Date.now();
+
+    const showPromise = (async () => {
+      try {
+        return await adsgramStarsControllerRef.current!.show();
+      } finally {
+        releaseGlobalAdLock();
+      }
+    })();
+
+    const preparePromise = callApi("/api/auth/me", {
+      method: "POST",
+      body: JSON.stringify({ action: "stars_ad_prepare" }),
+    });
 
     try {
-      /*
-       * Same pattern as Mining/Games:
-       *
-       * show() starts immediately from the user click.
-       * prepare runs in parallel.
-       */
-      const preparePromise =
-        callApi("/api/auth/me", {
-          method: "POST",
-          body: JSON.stringify({
-            action: "stars_ad_prepare",
-          }),
-        })
-
-      let showResult
-
-      try {
-        showResult =
-          await adsgramStarsControllerRef
-            .current!
-            .show()
-      } finally {
-        releaseGlobalAdLock()
-      }
-
-      const prepare =
-        await preparePromise
+      const [result, prepare] = await Promise.all([showPromise, preparePromise]);
 
       if (prepare.locked) {
-        setStarsCycleUnlocksAt(
-          prepare.cycleUnlocksAt ??
-            null
-        )
-
-        throw new Error(
-          "Ads are locked while your 2-hour cycle is running."
-        )
+        setStarsCycleUnlocksAt(prepare.cycleUnlocksAt ?? null);
+        throw new Error("Ads are locked while your 2-hour cycle is running.");
       }
 
-      if (
-        showResult?.error
-      ) {
-        throw new Error(
-          "Ad failed to load or complete."
-        )
+      const elapsedMs = Date.now() - startedAt;
+      const fullyWatched =
+        result?.done === true && !result?.error && elapsedMs >= MIN_STARS_AD_MS;
+
+      if (!fullyWatched) {
+        throw new Error("يرجى مشاهدة الإعلان كاملاً قبل الإغلاق.");
       }
 
-      /*
-       * مهم جداً:
-       * لا نسوي ACK من الكلاينت.
-       *
-       * ننتظر AdsGram Reward webhook
-       * حتى يزيد stars_ad_batch_count.
-       */
-      const verified =
-        await waitForStarsAdVerification(
-          batchBefore
-        )
+      const verified = await callApi("/api/auth/me", {
+        method: "POST",
+        body: JSON.stringify({ action: "stars_ad_ack", clicked }),
+      });
 
-      if (!verified) {
-        /*
-         * لا نلغي stars_ad_intent هنا.
-         *
-         * إذا AdsGram تأخر بالـwebhook،
-         * سيبقى الإعلان معلق حتى يصل التأكيد.
-         */
-        throw new Error(
-          "Still confirming your ad with AdsGram — this can take a minute on mobile networks. Try again shortly; no need to rewatch."
-        )
-      }
-
-      /*
-       * جلب آخر قيمة بعد التأكيد.
-       */
-      const latest =
-        await callApi(
-          "/api/auth/me",
-          {
-            method: "GET",
-          }
-        )
-
-      setStarsAdBatchCount(
-        latest?.starsAdBatchCount ??
-          batchBefore + 1
-      )
-
-      setStarsCycleUnlocksAt(
-        latest?.starsCycleUnlocksAt ??
-          null
-      )
-
+      starsAdBatchCountUpdatedAtRef.current = Date.now();
+      starsAdCooldownUntilRef.current = Date.now() + getRandomStarsAdCooldownMs();
+      setStarsAdBatchCount(verified.starsAdBatchCount ?? 0);
+      setStarsCycleUnlocksAt(verified.starsCycleUnlocksAt ?? null);
       setStarsAdToast(
-        `Ad verified by AdsGram — ${
-          latest?.starsAdBatchCount ??
-          batchBefore + 1
-        }/${starsAdsRequired}`
-      )
-
+        verified.cycleStarted
+          ? "Cycle started! Your time will climb for the next 2 hours."
+          : `Ad watched — ${verified.starsAdBatchCount}/${starsAdsRequired}`
+      );
     } catch (err: any) {
-      setStarsAdToast(
-        err?.message ||
-        "Something went wrong. Please try again."
-      )
+      await cancelStarsAd();
+      setStarsAdToast(err?.message || "لازم تتفرج وتضغط على الإعلان حتى تنحسب.");
     } finally {
-      setStarsAdBusy(false)
+      document.removeEventListener("visibilitychange", onVisibility);
+      setStarsAdBusy(false);
     }
-  }
+  };
 
   // يفعّل رصيد الإعلانات المتجمّع (كل إعلان = 5 دقائق) ويشغّل دورة
   // احتساب الوقت لمدتها، بنفس نظام الاحتساب الموجود أصلاً (فرق وقت
@@ -1324,12 +1271,15 @@ export default function App() {
         refreshPlayerData();
       }
     };
-window.addEventListener("focus", refreshPlayerData);
+
+    document.addEventListener("visibilitychange", handleFocus);
+    window.addEventListener("focus", refreshPlayerData);
 
     return () => {
       cancelled = true;
       window.clearInterval(intervalId);
-window.removeEventListener("focus", refreshPlayerData);
+      document.removeEventListener("visibilitychange", handleFocus);
+      window.removeEventListener("focus", refreshPlayerData);
     };
   }, []);
 
