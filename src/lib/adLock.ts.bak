@@ -11,7 +11,7 @@ let lockAcquiredAt = 0;
 // the next one (any block). This is what actually fixes "spam" — it does
 // not reduce how many ads a user can watch per session, it just stops two
 // from firing in the same second.
-export const MIN_GAP_BETWEEN_ADS_MS = 5000;
+export const MIN_GAP_BETWEEN_ADS_MS = 12000;
 
 // We don't get a "this ad will end at X" callback from AdsGram while a
 // show() is in flight, so when the lock is currently held by an
