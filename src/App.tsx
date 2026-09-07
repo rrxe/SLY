@@ -88,7 +88,19 @@ const ADSGRAM_STARS_BLOCK_ID = "46086";
 const ADSGRAM_GAMES_BLOCK_ID = "46086";
 // Stars uses server-side AdsGram reward verification like Mining/Games.
 const ADSGRAM_SCRIPT_SRC = "https://sad.adsgram.ai/js/sad.min.js";
-const MINING_AD_SHOW_TIMEOUT_MS = 45000;
+// كانت 45 ثانية بس هذا قصير: لو المتصفح/تيليگرام WebView حط تبويبنا
+// بالخلفية وقت عرض الإعلان (شي عادي على موبايل)، المؤقتات تتجمّد
+// وترجع تشتغل دفعة وحدة بعدين، فـ.show() يتأخر يرجع والمهلة تكون
+// خلصت أصلاً - فنعتبرها "فشلت" رغم إن المستخدم اتفرّج على الإعلان
+// فعلاً. رفعناها لـ90 ثانية لهامش أكبر.
+const MINING_AD_SHOW_TIMEOUT_MS = 90000;
+// نص ثابت نستخدمه بمهلة .show() نفسها، نقارن عليه بالـcatch عشان
+// نميّز "فشل المهلة" (ممكن الإعلان يكون انعرض فعلاً) عن فشل حقيقي
+// آخر (مثلاً الإعلان مو جاهز أو القفل مشغول). بالحالة الأولى ما
+// نلغي الـintent، لأن webhook AdsGram الحقيقي ممكن يوصل متأخر
+// ويأكد إنو فعلاً اتفرّج عليه.
+const AD_SHOW_TIMEOUT_MESSAGE =
+  "Ad did not report completion in time. Please try again.";
 // AdsGram's server-side reward postback can arrive well after the ad
 // finishes playing, especially on slower mobile networks. We poll for
 // up to 3 minutes before giving up, and even then we do NOT
@@ -760,7 +772,7 @@ const [starsAdsRequired, setStarsAdsRequired] = useState(50);
     let timeoutId: number | undefined;
     const timeout = new Promise<never>((_, reject) => {
       timeoutId = window.setTimeout(() => {
-        reject(new Error("Ad did not report completion in time. Please try again."));
+        reject(new Error(AD_SHOW_TIMEOUT_MESSAGE));
       }, MINING_AD_SHOW_TIMEOUT_MS);
     });
 
@@ -818,8 +830,12 @@ const [starsAdsRequired, setStarsAdsRequired] = useState(50);
 
       try {
         await Promise.all([showGamesAd(), preparePromise]);
-      } catch (adErr) {
-        await cancelGamesAd();
+      } catch (adErr: any) {
+        // مهلة .show() بس - نسيب الـintent حي عشان webhook AdsGram
+        // المتأخر يقدر يأكدها بدون إعادة مشاهدة.
+        if (adErr?.message !== AD_SHOW_TIMEOUT_MESSAGE) {
+          await cancelGamesAd();
+        }
         throw adErr;
       }
 
@@ -1030,7 +1046,7 @@ const [starsAdsRequired, setStarsAdsRequired] = useState(50);
     let timeoutId: number | undefined;
     const timeout = new Promise<never>((_, reject) => {
       timeoutId = window.setTimeout(() => {
-        reject(new Error("Ad did not report completion in time. Please try again."));
+        reject(new Error(AD_SHOW_TIMEOUT_MESSAGE));
       }, MINING_AD_SHOW_TIMEOUT_MS);
     });
 
@@ -1074,8 +1090,13 @@ const [starsAdsRequired, setStarsAdsRequired] = useState(50);
               miningAdShownForStageRef.current.start = true;
               try {
                 return await showMiningAd();
-              } catch (adErr) {
-                miningAdShownForStageRef.current.start = false;
+              } catch (adErr: any) {
+                // مهلة .show() بس لا تعني فشل حقيقي - ممكن الإعلان يكون
+                // انعرض فعلاً والمتصفح تجمّد بالخلفية. نخلي العلم true
+                // عشان ما نعرضه مرة ثانية بلا داعي.
+                if (adErr?.message !== AD_SHOW_TIMEOUT_MESSAGE) {
+                  miningAdShownForStageRef.current.start = false;
+                }
                 throw adErr;
               }
             })();
@@ -1083,8 +1104,12 @@ const [starsAdsRequired, setStarsAdsRequired] = useState(50);
         let prepare;
         try {
           [prepare] = await Promise.all([preparePromise, showPromise]);
-        } catch (adErr) {
-          await cancelMiningAd();
+        } catch (adErr: any) {
+          // نفس المبدأ: لو السبب مهلة .show()، ما نلغي الـintent لأن
+          // webhook AdsGram الحقيقي ممكن يوصل متأخر ويأكدها.
+          if (adErr?.message !== AD_SHOW_TIMEOUT_MESSAGE) {
+            await cancelMiningAd();
+          }
           throw adErr;
         }
 
@@ -1131,8 +1156,10 @@ const [starsAdsRequired, setStarsAdsRequired] = useState(50);
             miningAdShownForStageRef.current.claim = true;
             try {
               return await showMiningAd();
-            } catch (adErr) {
-              miningAdShownForStageRef.current.claim = false;
+            } catch (adErr: any) {
+              if (adErr?.message !== AD_SHOW_TIMEOUT_MESSAGE) {
+                miningAdShownForStageRef.current.claim = false;
+              }
               throw adErr;
             }
           })();
@@ -1140,8 +1167,10 @@ const [starsAdsRequired, setStarsAdsRequired] = useState(50);
       let prepare;
       try {
         [prepare] = await Promise.all([preparePromiseClaim, showPromiseClaim]);
-      } catch (adErr) {
-        await cancelMiningAd();
+      } catch (adErr: any) {
+        if (adErr?.message !== AD_SHOW_TIMEOUT_MESSAGE) {
+          await cancelMiningAd();
+        }
         throw adErr;
       }
 
