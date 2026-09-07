@@ -317,8 +317,7 @@ export default function App() {
 
   // إذا تم تشغيل الإعلان فعلاً ثم تأخر AdsGram webhook،
   // لا نعرض إعلاناً ثانياً عند إعادة المحاولة.
-  const starsAdShownRef = useRef(false);
-  const [starsAdsRequired, setStarsAdsRequired] = useState(50);
+const [starsAdsRequired, setStarsAdsRequired] = useState(50);
   const [starsCycleUnlocksAt, setStarsCycleUnlocksAt] = useState<string | null>(null);
   const [starsAdToast, setStarsAdToast] = useState("");
 
@@ -542,17 +541,7 @@ export default function App() {
     const timer = window.setTimeout(() => setStarsAdToast(""), 2600);
     return () => window.clearTimeout(timer);
   }, [starsAdToast]);
-
-  const cancelStarsAd = async () => {
-    await callApi("/api/auth/me", {
-      method: "POST",
-      body: JSON.stringify({
-        action: "stars_ad_cancel",
-      }),
-    }).catch(() => {});
-  };
-
-  // نفس Mining/Games:
+// نفس Mining/Games:
   // الكلاينت لا يقرر أن الإعلان اكتمل.
   // ننتظر زيادة starsAdBatchCount بعد وصول AdsGram reward webhook.
   const waitForStarsAdVerification = async (
@@ -1318,12 +1307,6 @@ export default function App() {
     };
 
     const intervalId = window.setInterval(refreshPlayerData, 15 * 1000);
-
-    const handleFocus = () => {
-      if (document.visibilityState === "visible") {
-        refreshPlayerData();
-      }
-    };
 window.addEventListener("focus", refreshPlayerData);
 
     return () => {
