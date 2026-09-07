@@ -133,19 +133,23 @@ function PodiumSpot({ player, place }: { player: StarPlayer; place: 1 | 2 | 3 })
 export default function Stars({
   telegramId = "",
   adBusy = false,
+  useBusy = false,
   adBatchCount = 0,
   adsRequired = 20,
   cycleUnlocksAt = null,
   adToast = "",
   onWatchAd,
+  onUseBalance,
 }: {
   telegramId?: string;
   adBusy?: boolean;
+  useBusy?: boolean;
   adBatchCount?: number;
   adsRequired?: number;
   cycleUnlocksAt?: string | null;
   adToast?: string;
   onWatchAd?: () => void;
+  onUseBalance?: () => void;
 }) {
   const [nowTick, setNowTick] = useState(Date.now());
 
@@ -258,6 +262,15 @@ export default function Stars({
               <button className="stars-ad-btn" onClick={onWatchAd} disabled={adBusy}>
                 {adBusy ? "Loading…" : "Watch Ad"}
               </button>
+              {onUseBalance && (
+                <button
+                  className="stars-ad-btn stars-use-balance-btn"
+                  onClick={onUseBalance}
+                  disabled={useBusy}
+                >
+                  {useBusy ? "Loading…" : "Use Balance"}
+                </button>
+              )}
               {adBusy && (
                 <div className="stars-ad-hint">
                   Taking a while? This will auto-reset in a few seconds.
