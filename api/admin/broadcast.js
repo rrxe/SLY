@@ -128,7 +128,7 @@ async function fetchAllTelegramIds() {
   return ids
 }
 
-async function sendOne(telegramId, botToken, message, photoBuffer, photoMime) {
+async function sendOne(telegramId, botToken, message, photoBuffer, photoMime, replyMarkup) {
   try {
     let response
 
@@ -138,6 +138,9 @@ async function sendOne(telegramId, botToken, message, photoBuffer, photoMime) {
       if (message) {
         form.append('caption', message)
         form.append('parse_mode', 'HTML')
+      }
+      if (replyMarkup) {
+        form.append('reply_markup', JSON.stringify(replyMarkup))
       }
       form.append(
         'photo',
@@ -157,6 +160,7 @@ async function sendOne(telegramId, botToken, message, photoBuffer, photoMime) {
           chat_id: telegramId,
           text: message,
           parse_mode: 'HTML',
+          ...(replyMarkup ? { reply_markup: replyMarkup } : {}),
         }),
       })
     }
@@ -169,8 +173,11 @@ async function sendOne(telegramId, botToken, message, photoBuffer, photoMime) {
   }
 }
 
-async function runBroadcast(message, photoBuffer, photoMime) {
+async function runBroadcast(message, photoBuffer, photoMime, linkUrl, linkText) {
   const botToken = process.env.TELEGRAM_BOT_TOKEN
+  const replyMarkup = linkUrl
+    ? { inline_keyboard: [[{ text: linkText || 'فتح الرابط', url: linkUrl }]] }
+    : null
 
   try {
     const telegramIds = await fetchAllTelegramIds()
@@ -182,7 +189,7 @@ async function runBroadcast(message, photoBuffer, photoMime) {
       const batchStartedAt = Date.now()
 
       const results = await Promise.allSettled(
-        batch.map((id) => sendOne(id, botToken, message, photoBuffer, photoMime))
+        batch.map((id) => sendOne(id, botToken, message, photoBuffer, photoMime, replyMarkup))
       )
 
       for (const r of results) {
@@ -247,7 +254,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { message, photoBase64, photoMime } = req.body || {}
+    const { message, photoBase64, photoMime, linkUrl, linkText } = req.body || {}
 
     if (!message && !photoBase64) {
       return res.status(400).json({ success: false, error: 'Message or photo is required' })
@@ -275,7 +282,7 @@ export default async function handler(req, res) {
     state.finishedAt = null
     state.lastProgressAt = Date.now()
 
-    runBroadcast(message, photoBuffer, photoMime)
+    runBroadcast(message, photoBuffer, photoMime, linkUrl, linkText)
 
     return res.status(200).json({ success: true, started: true, ...publicState() })
   } catch (err) {

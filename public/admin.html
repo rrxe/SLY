@@ -769,6 +769,22 @@
       </button>
     </div>
 
+    <div class="field-hint" style="margin-top:12px;">
+      رابط اختياري يترسل كزر تحت الرسالة (مثلاً رابط القناة أو البوت).
+    </div>
+
+    <input
+      type="url"
+      id="broadcastLinkUrl"
+      placeholder="https://t.me/..."
+    />
+
+    <input
+      type="text"
+      id="broadcastLinkText"
+      placeholder="نص الزر (مثلاً: افتح القناة)"
+    />
+
     <button onclick="sendBroadcast()">إرسال للجميع</button>
   </div>
 
@@ -3280,6 +3296,19 @@
             broadcastPhotoMime;
         }
 
+        const linkUrl = document
+          .getElementById("broadcastLinkUrl")
+          .value.trim();
+
+        const linkText = document
+          .getElementById("broadcastLinkText")
+          .value.trim();
+
+        if (linkUrl) {
+          payload.linkUrl = linkUrl;
+          payload.linkText = linkText || "فتح الرابط";
+        }
+
         const startResult =
           await apiCall(
             "/api/admin/broadcast",
@@ -3375,6 +3404,8 @@
 
             textarea.value = "";
             clearBroadcastPhoto();
+            document.getElementById("broadcastLinkUrl").value = "";
+            document.getElementById("broadcastLinkText").value = "";
           }
         }
       } catch (err) {
