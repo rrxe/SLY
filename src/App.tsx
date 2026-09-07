@@ -81,7 +81,7 @@ type WithdrawalHistoryEntry = {
 
 const ADSGRAM_BLOCK_ID = "int-46084";
 const ADSGRAM_MINING_BLOCK_ID = "46086";
-const ADSGRAM_STARS_BLOCK_ID = "46643";
+const ADSGRAM_STARS_BLOCK_ID = "46086";
 // عدّل هذا لاحقاً برقم Block ID حقيقي من لوحة Adsgram (سوّي وحدة
 // إعلانية جديدة بالاسم اللي تحب، مثلاً "SLY Games"). مؤقتاً يستخدم
 // نفس وحدة Stars لحد ما تسوي وحدة مخصصة.
