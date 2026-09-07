@@ -1,67 +1,99 @@
-export const MIN_GAP_BETWEEN_ADS_MS = 12000;
-
-// Coordinates access to the single AdsGram ad "surface" so we never try
-// to show two ads at once, and so ads never fire so close together that
-// AdsGram flags the session as spam (its onNonStopShow event) and quietly
-// stops delivering/counting fresh impressions.
+// Global AdsGram lock.
+//
+// يمنع تشغيل إعلانين بنفس الوقت، ويضمن وجود فاصل
+// 12 ثانية بين نهاية إعلان وبداية الإعلان التالي.
 
 let globalAdLock = false;
-
+let lastAdEndedAt = 0;
 let lockAcquiredAt = 0;
 
-// Minimum silence between the end of one ad (any block) and the start of
-// the next one (any block). This is what actually fixes "spam" — it does
-// not reduce how many ads a user can watch per session, it just stops two
-// from firing in the same second.
+export const MIN_GAP_BETWEEN_ADS_MS = 12000;
 
-// We don't get a "this ad will end at X" callback from AdsGram while a
-// show() is in flight, so when the lock is currently held by an
-// in-progress ad we can only estimate how much longer it might run for
-// (used purely to show the user a "wait Ns" countdown, not for any real
-// timing logic).
+// تقدير فقط لعرض رسالة الانتظار أثناء كون إعلان آخر يعمل.
 const ASSUMED_MAX_AD_DURATION_MS = 30000;
 
 /**
- * Non-blocking lock. Use this for anything triggered directly by a user
- * tap (Watch Ad buttons, task ads, withdrawal ads, mining ads).
+ * محاولة حجز مساحة الإعلان بدون انتظار.
  *
- * AdsGram only reliably attributes .show() to the user's tap when it is
- * called in the very same tick as the click. The old version of this
- * lock (`await acquireGlobalAdLock()`) could sit and wait — sometimes
- * several seconds — if another ad happened to be showing, which meant
- * .show() fired well after the click. AdsGram no longer sees that as a
- * genuine user-triggered show, so the ad can play but not get counted as
- * a real Impression on their side, even though our own server still
- * thought the ad completed. Failing fast instead of waiting avoids that
- * mismatch entirely.
+ * مهم:
+ * هذه الدالة لا تنتظر.
+ * إذا كان هناك إعلان يعمل أو لم ينتهِ فاصل الـ12 ثانية
+ * ترجع false مباشرة.
  */
 export function tryAcquireGlobalAdLock(): boolean {
-  if (globalAdLock) return false;
+  const now = Date.now();
+
+  // إعلان آخر يعمل حالياً
+  if (globalAdLock) {
+    return false;
+  }
+
+  // فاصل 12 ثانية بعد آخر إعلان
+  const elapsedSinceLastAd =
+    now - lastAdEndedAt;
+
+  if (
+    lastAdEndedAt > 0 &&
+    elapsedSinceLastAd < MIN_GAP_BETWEEN_ADS_MS
+  ) {
+    return false;
+  }
 
   globalAdLock = true;
-  lockAcquiredAt = Date.now();
+  lockAcquiredAt = now;
+
   return true;
 }
 
+/**
+ * تحرير قفل الإعلان عند انتهاء show().
+ *
+ * من هذه اللحظة يبدأ حساب الـ12 ثانية.
+ */
 export function releaseGlobalAdLock(): void {
   globalAdLock = false;
+  lastAdEndedAt = Date.now();
+  lockAcquiredAt = 0;
 }
 
 /**
- * Estimated number of seconds the user should wait before
- * tryAcquireGlobalAdLock() is likely to succeed again. Only meant for
- * displaying a "please wait Ns" message — not exact, since we can't know
- * precisely when an in-progress ad will finish.
+ * عدد الثواني التقريبي المتبقية قبل السماح
+ * بإعلان جديد.
  */
 export function getAdLockWaitSeconds(): number {
   const now = Date.now();
-  let waitMs = 0;
 
+  // إذا كان إعلان آخر يعمل
   if (globalAdLock) {
-    const elapsedSinceLock = now - lockAcquiredAt;
-    waitMs = Math.max(waitMs, ASSUMED_MAX_AD_DURATION_MS - elapsedSinceLock);
+    const elapsed =
+      now - lockAcquiredAt;
+
+    const remaining =
+      ASSUMED_MAX_AD_DURATION_MS - elapsed;
+
+    if (remaining > 0) {
+      return Math.max(
+        1,
+        Math.ceil(remaining / 1000)
+      );
+    }
   }
 
+  // فاصل الـ12 ثانية بعد آخر إعلان
+  if (lastAdEndedAt > 0) {
+    const elapsed =
+      now - lastAdEndedAt;
 
-  return Math.max(1, Math.ceil(waitMs / 1000));
+    const remaining =
+      MIN_GAP_BETWEEN_ADS_MS - elapsed;
+
+    if (remaining > 0) {
+      return Math.max(
+        1,
+        Math.ceil(remaining / 1000)
+      );
+    }
+  }
+
+  return 0;
 }
