@@ -79,7 +79,7 @@ type WithdrawalHistoryEntry = {
   createdAt: string;
 };
 
-const ADSGRAM_BLOCK_ID = "int-46522";
+const ADSGRAM_BLOCK_ID = "int-46084";
 const ADSGRAM_MINING_BLOCK_ID = "46086";
 const ADSGRAM_STARS_BLOCK_ID = "int-46084";
 // عدّل هذا لاحقاً برقم Block ID حقيقي من لوحة Adsgram (سوّي وحدة
