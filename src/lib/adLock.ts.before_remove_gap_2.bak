@@ -11,6 +11,7 @@ let lockAcquiredAt = 0;
 // the next one (any block). This is what actually fixes "spam" — it does
 // not reduce how many ads a user can watch per session, it just stops two
 // from firing in the same second.
+export const MIN_GAP_BETWEEN_ADS_MS = 5000;
 
 // We don't get a "this ad will end at X" callback from AdsGram while a
 // show() is in flight, so when the lock is currently held by an
@@ -35,7 +36,7 @@ const ASSUMED_MAX_AD_DURATION_MS = 30000;
  */
 export function tryAcquireGlobalAdLock(): boolean {
   if (globalAdLock) return false;
-
+  if (Date.now() - lastAdEndedAt < MIN_GAP_BETWEEN_ADS_MS) return false;
   globalAdLock = true;
   lockAcquiredAt = Date.now();
   return true;
@@ -61,6 +62,7 @@ export function getAdLockWaitSeconds(): number {
     waitMs = Math.max(waitMs, ASSUMED_MAX_AD_DURATION_MS - elapsedSinceLock);
   }
 
+  waitMs = Math.max(waitMs, MIN_GAP_BETWEEN_ADS_MS - (now - lastAdEndedAt));
 
   return Math.max(1, Math.ceil(waitMs / 1000));
 }
