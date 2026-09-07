@@ -20,6 +20,7 @@ function normalizeTaskType(value) {
     'custom',
     'giga_pub',
     'adsgram',
+    'richads',
     'join_bot',
   ]
 
@@ -198,6 +199,7 @@ function isAdTask(taskType) {
     'ads_galaxy',
     'giga_pub',
     'adsgram',
+    'richads',
   ].includes(type)
 }
 

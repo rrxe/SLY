@@ -64,6 +64,10 @@ function getRequiredWaitMs(taskType) {
     return ADSGRAM_TASK_WAIT_MS
   }
 
+  if (type === 'richads') {
+    return ADSGRAM_TASK_WAIT_MS
+  }
+
   return NORMAL_TASK_WAIT_MS
 }
 

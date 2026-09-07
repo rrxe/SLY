@@ -46,12 +46,24 @@ type AdsgramController = {
   addEventListener?: (event: string, callback: () => void) => void;
 };
 
+type RichAdsController = {
+  initialize: (opts: { pubId: string; appId: string; debug?: boolean }) => void;
+  triggerInterstitialBanner: (skipCreative?: boolean) => Promise<unknown>;
+};
+
 declare global {
   interface Window {
     Adsgram?: {
       init: (opts: { blockId: string }) => AdsgramController;
     };
+    // يتهيأ مرة وحدة بـ index.html مع pubId/appId الحقيقيين، هنا
+    // بس نستخدمه.
+    TelegramAdsController?: RichAdsController;
   }
+}
+
+function isRichAdsTask(task: ServerTask) {
+  return String(task.task_type || "").toLowerCase() === "richads";
 }
 
 function waitForAdsgramScript(timeoutMs = 15000): Promise<boolean> {
@@ -123,13 +135,14 @@ function getTaskCategory(task: ServerTask): TaskCategory {
   const type = String(task.task_type || "").toLowerCase();
   if (type === "join_channel") return "join_channel";
   if (type === "join_bot") return "bots";
-  if (["adsgram", "smart_ad", "ads_galaxy", "giga_pub", "watch_ad"].includes(type)) return "ads";
+  if (["adsgram", "richads", "smart_ad", "ads_galaxy", "giga_pub", "watch_ad"].includes(type)) return "ads";
   return "other";
 }
 
 function getClaimDelayMs(task: ServerTask) {
   if (isSmartAdTask(task)) return SMART_AD_CLAIM_DELAY_MS;
   if (isAdsGramTask(task)) return ADSGRAM_CLAIM_DELAY_MS;
+  if (isRichAdsTask(task)) return ADSGRAM_CLAIM_DELAY_MS;
   return CLAIM_DELAY_MS;
 }
 
@@ -308,7 +321,7 @@ export default function Tasks({ onRewardCoins }: Props) {
     if (progress.completed >= progress.max_completions) { setToast("Task limit reached."); return; }
 
     const taskType = String(task.task_type || "").toLowerCase();
-    const allowedTypes = ["normal", "smart_ad", "ads_galaxy", "join_channel", "custom", "giga_pub", "adsgram"];
+    const allowedTypes = ["normal", "smart_ad", "ads_galaxy", "join_channel", "custom", "giga_pub", "adsgram", "richads"];
     if (!allowedTypes.includes(taskType)) {
       setToast("Invalid task type.");
       return;
@@ -338,6 +351,34 @@ export default function Tasks({ onRewardCoins }: Props) {
           await adsgramControllerRef.current.show();
         } catch (err: any) {
           setToast(err?.message || "Ad failed to load.");
+          return;
+        } finally {
+          releaseGlobalAdLock();
+        }
+
+        await postTaskAction({ taskId: task.id, action: "open" });
+        const openedAt = Date.now();
+        setOpenedAtById((prev) => ({ ...prev, [id]: openedAt }));
+        scheduleAutoClaim(task, openedAt);
+        setToast("Ad watched. Claiming coins...");
+        return;
+      }
+
+      // معالجة RichAds (TelegramAdsController)
+      if (isRichAdsTask(task)) {
+        if (!window.TelegramAdsController) {
+          setToast("RichAds not ready yet. Try again.");
+          return;
+        }
+        if (!tryAcquireGlobalAdLock()) {
+          setToast(`Please wait ${getAdLockWaitSeconds()}s to watch another ad.`);
+          return;
+        }
+
+        try {
+          await window.TelegramAdsController.triggerInterstitialBanner();
+        } catch (err: any) {
+          setToast(err?.message || "Ad was not shown.");
           return;
         } finally {
           releaseGlobalAdLock();
@@ -408,6 +449,8 @@ export default function Tasks({ onRewardCoins }: Props) {
             const id = String(task.id);
             const isSmartAd = isSmartAdTask(task);
             const isAdsGram = isAdsGramTask(task);
+            const isRichAds = isRichAdsTask(task);
+            const isWatchAdStyle = isAdsGram || isRichAds;
             const claimDelayMs = getClaimDelayMs(task);
             const progress = progressById[id] || { completed: 0, max_completions: Math.max(1, Number(task.max_completions || 1)) };
             const openedAt = openedAtById[id];
@@ -423,6 +466,7 @@ export default function Tasks({ onRewardCoins }: Props) {
             let taskTypeLabel = task.task_type || "task";
             if (isSmartAd) taskTypeLabel = "smart ad";
             else if (isAdsGram) taskTypeLabel = "adsgram";
+            else if (isRichAds) taskTypeLabel = "richads";
 
             return (
               <article key={id} className={`task-row ${claimedAll ? "done" : ""}`}>
@@ -439,7 +483,7 @@ export default function Tasks({ onRewardCoins }: Props) {
                     {claimedAll ? (
                       <span className="green">Completed</span>
                     ) : !opened ? (
-                      <span className="gray">{isAdsGram ? "Watch the ad to earn coins" : "Open link first"}</span>
+                      <span className="gray">{isWatchAdStyle ? "Watch the ad to earn coins" : "Open link first"}</span>
                     ) : !waitedEnough ? (
                       <span className="blue">Sending coins in {Math.ceil((claimDelayMs - (Date.now() - openedAt)) / 1000)} seconds</span>
                     ) : (
@@ -457,7 +501,7 @@ export default function Tasks({ onRewardCoins }: Props) {
                     <span style={{ color: "#fff" }}>{progress.completed}</span> <span style={{ opacity: 0.5 }}> / {progress.max_completions}</span>
                   </div>
                   <button type="button" className="task-btn join" onClick={() => handleOpenTask(task)} disabled={opening || claimedAll}>
-                    {opening ? (isAdsGram ? "Loading ad..." : "Opening...") : (isAdsGram ? "Watch Ad" : "Open")}
+                    {opening ? (isWatchAdStyle ? "Loading ad..." : "Opening...") : (isWatchAdStyle ? "Watch Ad" : "Open")}
                   </button>
                 </div>
               </article>
