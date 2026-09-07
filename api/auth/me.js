@@ -1106,8 +1106,13 @@ async function recheckJoinChannelTasks(telegramId) {
   return { leftChannelTaskIds, newCoins }
 }
 
-const STARS_CYCLE_DURATION_MS = 2 * 60 * 60 * 1000
-const STARS_ADS_PER_CYCLE = 20
+// كل إعلان = 5 دقائق تُضاف لرصيد اللاعب. الحد الأقصى للإعلانات
+// اللي ممكن يتفرج عليها ضمن "تشغيلة" وحدة قبل ما يستخدم رصيده هو 50
+// إعلان (يعني رصيد أقصى 250 دقيقة/تشغيلة). مدة الدورة (cycle) صارت
+// متغيرة حسب الرصيد اللي المستخدم يختار يستخدمه، مو ثابتة 2 ساعة.
+const STARS_AD_MINUTES_PER_AD = 5
+const STARS_AD_SECONDS_PER_AD = STARS_AD_MINUTES_PER_AD * 60
+const STARS_MAX_ADS_PER_RUN = 50
 
 async function applyStarsCycleCredit(player, telegramId) {
   const cycleStartedAt =
@@ -1119,16 +1124,24 @@ async function applyStarsCycleCredit(player, telegramId) {
     return
   }
 
+  // مدة الدورة الحالية محفوظة بالداتابيس (تنحسب وقت المستخدم يضغط
+  // "استخدم الرصيد" = عدد الإعلانات المتفرج عليها × 5 دقائق).
+  const cycleDurationMs =
+    Math.max(0, Number(player.stars_cycle_duration_seconds) || 0) * 1000
+
+  if (cycleDurationMs <= 0) {
+    return
+  }
+
   const elapsedMs = Date.now() - cycleStartedAt.getTime()
 
   const cappedElapsedSeconds = Math.min(
     Math.floor(Math.max(0, elapsedMs) / 1000),
-    STARS_CYCLE_DURATION_MS / 1000
+    cycleDurationMs / 1000
   )
-
-  const alreadyCredited = player.stars_cycle_credited_seconds || 0
+const alreadyCredited = player.stars_cycle_credited_seconds || 0
   const delta = cappedElapsedSeconds - alreadyCredited
-  const cycleFinished = elapsedMs >= STARS_CYCLE_DURATION_MS
+  const cycleFinished = elapsedMs >= cycleDurationMs
 
   if (delta <= 0 && !cycleFinished) {
     return
@@ -1142,6 +1155,7 @@ async function applyStarsCycleCredit(player, telegramId) {
 
   if (cycleFinished) {
     updates.stars_cycle_started_at = null
+    updates.stars_cycle_duration_seconds = 0
     updates.stars_ad_batch_count = 0
     updates.stars_cycle_credited_seconds = 0
   }
@@ -1151,7 +1165,7 @@ async function applyStarsCycleCredit(player, telegramId) {
     .update(updates)
     .eq('telegram_id', telegramId)
     .select(
-      'weekly_time_seconds, stars_cycle_started_at, stars_ad_batch_count, stars_cycle_credited_seconds'
+      'weekly_time_seconds, stars_cycle_started_at, stars_cycle_duration_seconds, stars_ad_batch_count, stars_cycle_credited_seconds'
     )
     .single()
 
@@ -1163,6 +1177,7 @@ async function applyStarsCycleCredit(player, telegramId) {
   if (updatedRow) {
     player.weekly_time_seconds = updatedRow.weekly_time_seconds
     player.stars_cycle_started_at = updatedRow.stars_cycle_started_at
+    player.stars_cycle_duration_seconds = updatedRow.stars_cycle_duration_seconds
     player.stars_ad_batch_count = updatedRow.stars_ad_batch_count
     player.stars_cycle_credited_seconds = updatedRow.stars_cycle_credited_seconds
   }
@@ -2387,28 +2402,32 @@ export default async function handler(
             ? new Date(player.stars_cycle_started_at)
             : null
 
+        const cycleDurationMs =
+          Math.max(0, Number(player.stars_cycle_duration_seconds) || 0) * 1000
+
         const isLocked =
           cycleStartedAt &&
           !Number.isNaN(cycleStartedAt.getTime()) &&
-          Date.now() - cycleStartedAt.getTime() < STARS_CYCLE_DURATION_MS
+          cycleDurationMs > 0 &&
+          Date.now() - cycleStartedAt.getTime() < cycleDurationMs
 
         if (isLocked) {
           return res.status(200).json({
             success: true,
             locked: true,
             batchCount: player.stars_ad_batch_count || 0,
-            adsRequired: STARS_ADS_PER_CYCLE,
+            adsRequired: STARS_MAX_ADS_PER_RUN,
             cycleUnlocksAt: new Date(
-              cycleStartedAt.getTime() + STARS_CYCLE_DURATION_MS
+              cycleStartedAt.getTime() + cycleDurationMs
             ).toISOString(),
           })
         }
 
         const currentBatch = player.stars_ad_batch_count || 0
 
-        if (currentBatch >= STARS_ADS_PER_CYCLE) {
+        if (currentBatch >= STARS_MAX_ADS_PER_RUN) {
           return res.status(400).json({
-            error: 'Batch already complete',
+            error: 'Ad limit reached — use your balance to start a run',
           })
         }
 
@@ -2428,7 +2447,7 @@ export default async function handler(
           success: true,
           locked: false,
           batchCount: currentBatch,
-          adsRequired: STARS_ADS_PER_CYCLE,
+          adsRequired: STARS_MAX_ADS_PER_RUN,
         })
       }
 
@@ -2473,23 +2492,17 @@ export default async function handler(
           return await rejectStarsAd('Ad click not detected')
         }
 
+        // كل إعلان يزيد الرصيد بس (batch_count)، بلا أي تشغيل تلقائي
+        // للدورة. تشغيل الدورة صار حصراً عبر action = stars_ad_use_balance
+        // اللي المستخدم يضغطها بنفسه وقت ما يحب.
         const currentBatch = Number(player.stars_ad_batch_count || 0)
-        const nextBatch = currentBatch + 1
+        const nextBatch = Math.min(currentBatch + 1, STARS_MAX_ADS_PER_RUN)
 
         const starsUpdates = {
           stars_ad_intent: false,
           stars_ad_started_at: null,
           stars_ad_verified: true,
-        }
-
-        const cycleStarted = nextBatch >= STARS_ADS_PER_CYCLE
-
-        if (cycleStarted) {
-          starsUpdates.stars_ad_batch_count = 0
-          starsUpdates.stars_cycle_started_at = new Date().toISOString()
-          starsUpdates.stars_cycle_credited_seconds = 0
-        } else {
-          starsUpdates.stars_ad_batch_count = nextBatch
+          stars_ad_batch_count: nextBatch,
         }
 
         const { error: ackError } = await supabase
@@ -2503,8 +2516,70 @@ export default async function handler(
 
         return res.status(200).json({
           success: true,
-          starsAdBatchCount: starsUpdates.stars_ad_batch_count,
-          cycleStarted,
+          starsAdBatchCount: nextBatch,
+          starsAdCreditMinutes: nextBatch * STARS_AD_MINUTES_PER_AD,
+        })
+      }
+
+      if (
+        action === 'stars_ad_use_balance'
+      ) {
+        // يفعّل رصيد الإعلانات المتجمّع: يشغّل دورة (نفس نظام الاحتساب
+        // الوقتي الموجود أصلاً) مدتها = عدد الإعلانات المتفرج عليها ×
+        // 5 دقائق. بعد الضغط، عداد الإعلانات (الرصيد) يرجع صفر مباشرة،
+        // ولحد ما تخلص الدورة ما فيه مجال يتفرج على إعلانات جديدة.
+        const cycleStartedAt =
+          player.stars_cycle_started_at
+            ? new Date(player.stars_cycle_started_at)
+            : null
+
+        const existingDurationMs =
+          Math.max(0, Number(player.stars_cycle_duration_seconds) || 0) * 1000
+
+        const alreadyRunning =
+          cycleStartedAt &&
+          !Number.isNaN(cycleStartedAt.getTime()) &&
+          existingDurationMs > 0 &&
+          Date.now() - cycleStartedAt.getTime() < existingDurationMs
+
+        if (alreadyRunning) {
+          return res.status(400).json({
+            error: 'A run is already in progress',
+            cycleUnlocksAt: new Date(
+              cycleStartedAt.getTime() + existingDurationMs
+            ).toISOString(),
+          })
+        }
+
+        const currentBatch = Number(player.stars_ad_batch_count || 0)
+
+        if (currentBatch <= 0) {
+          return res.status(400).json({ error: 'No balance to use' })
+        }
+
+        const durationSeconds = currentBatch * STARS_AD_SECONDS_PER_AD
+        const startedAtIso = new Date().toISOString()
+
+        const { error: useError } = await supabase
+          .from('players')
+          .update({
+            stars_cycle_started_at: startedAtIso,
+            stars_cycle_duration_seconds: durationSeconds,
+            stars_cycle_credited_seconds: 0,
+            stars_ad_batch_count: 0,
+          })
+          .eq('telegram_id', telegramId)
+
+        if (useError) {
+          throw useError
+        }
+
+        return res.status(200).json({
+          success: true,
+          starsAdBatchCount: 0,
+          starsCycleUnlocksAt: new Date(
+            Date.now() + durationSeconds * 1000
+          ).toISOString(),
         })
       }
 
@@ -2851,13 +2926,17 @@ export default async function handler(
       starsAdBatchCount:
         player.stars_ad_batch_count || 0,
 
-      starsAdsRequired: 20,
+      starsAdsRequired: STARS_MAX_ADS_PER_RUN,
+
+      starsAdCreditMinutes:
+        (player.stars_ad_batch_count || 0) * STARS_AD_MINUTES_PER_AD,
 
       starsCycleUnlocksAt:
-        player.stars_cycle_started_at
+        player.stars_cycle_started_at &&
+        Number(player.stars_cycle_duration_seconds) > 0
           ? new Date(
               new Date(player.stars_cycle_started_at).getTime() +
-                2 * 60 * 60 * 1000
+                Number(player.stars_cycle_duration_seconds) * 1000
             ).toISOString()
           : null,
 

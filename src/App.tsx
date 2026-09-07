@@ -317,6 +317,7 @@ export default function App() {
   const [miningToast, setMiningToast] = useState("");
 
   const [starsAdBusy, setStarsAdBusy] = useState(false);
+  const [starsUseBusy, setStarsUseBusy] = useState(false);
   const [starsAdBatchCount, setStarsAdBatchCount] = useState(0);
   // آخر وقت انحدّث فيه العداد من مصدر أكيد (تأكيد مشاهدة إعلان،
   // stars_ad_ack). أي رد لطلب GET /api/auth/me انطلب قبل هذا الوقت
@@ -326,7 +327,7 @@ export default function App() {
   // إذا Date.now() أصغر من هذي القيمة، يعني لسا بفترة الكولداون
   // ومنمنع تشغيل إعلان Stars جديد.
   const starsAdCooldownUntilRef = useRef(0);
-  const [starsAdsRequired, setStarsAdsRequired] = useState(20);
+  const [starsAdsRequired, setStarsAdsRequired] = useState(50);
   const [starsCycleUnlocksAt, setStarsCycleUnlocksAt] = useState<string | null>(null);
   const [starsAdToast, setStarsAdToast] = useState("");
 
@@ -662,6 +663,37 @@ export default function App() {
     } finally {
       document.removeEventListener("visibilitychange", onVisibility);
       setStarsAdBusy(false);
+    }
+  };
+
+  // يفعّل رصيد الإعلانات المتجمّع (كل إعلان = 5 دقائق) ويشغّل دورة
+  // احتساب الوقت لمدتها، بنفس نظام الاحتساب الموجود أصلاً (فرق وقت
+  // مستمر يُحتسب مع كل ping، مو تايمر بالواجهة).
+  const handleUseStarsBalance = async () => {
+    if (starsUseBusy || starsAdBusy) return;
+
+    if (starsAdBatchCount <= 0) {
+      setStarsAdToast("شاهد إعلان واحد على الأقل قبل استخدام الرصيد.");
+      return;
+    }
+
+    setStarsUseBusy(true);
+    setStarsAdToast("");
+
+    try {
+      const result = await callApi("/api/auth/me", {
+        method: "POST",
+        body: JSON.stringify({ action: "stars_ad_use_balance" }),
+      });
+
+      starsAdBatchCountUpdatedAtRef.current = Date.now();
+      setStarsAdBatchCount(result.starsAdBatchCount ?? 0);
+      setStarsCycleUnlocksAt(result.starsCycleUnlocksAt ?? null);
+      setStarsAdToast("تم تفعيل الرصيد — وقتك يرتفع تلقائياً الآن.");
+    } catch (err: any) {
+      setStarsAdToast(err?.message || "تعذر استخدام الرصيد، حاول مرة أخرى.");
+    } finally {
+      setStarsUseBusy(false);
     }
   };
 
@@ -1581,11 +1613,13 @@ export default function App() {
             <Stars
               telegramId={telegramId}
               adBusy={starsAdBusy}
+              useBusy={starsUseBusy}
               adBatchCount={starsAdBatchCount}
               adsRequired={starsAdsRequired}
               cycleUnlocksAt={starsCycleUnlocksAt}
               adToast={starsAdToast}
               onWatchAd={handleWatchStarsAd}
+              onUseBalance={handleUseStarsBalance}
             />
           )}
 
