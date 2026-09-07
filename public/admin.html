@@ -790,7 +790,7 @@
       onchange="document.getElementById('joinBotHint').style.display = this.value === 'join_bot' ? 'block' : 'none';"
     >
       <option value="adsgram">إعلان AdsGram</option>
-      <option value="richads">إعلان RichAds</option>
+      
       <option value="join_channel">الانضمام إلى قناة</option>
       <option value="join_bot">الانضمام إلى بوت</option>
     </select>
@@ -832,7 +832,7 @@
       <strong style="color:#b9dfff;">
         المهام التي لا تحتاج رابط:
       </strong>
-      Smart Ad / AdsGalaxy / GigaPub / AdsGram / RichAds.
+      Smart Ad / AdsGalaxy / GigaPub / AdsGram.
       <br />
       اترك الرابط فارغاً عند إضافة أي من هذه الأنواع.
     </div>
@@ -1795,7 +1795,6 @@
     function taskTypeColor(type) {
       const palette = {
         adsgram: "#f5a623",
-        richads: "#ff5fa8",
         ads: "#f5a623",
         join_channel: "#40a7e3",
         join_bot: "#54e6d4",
@@ -2497,7 +2496,6 @@
         "ads_galaxy",
         "giga_pub",
         "adsgram",
-        "richads",
       ];
 
       const isAdType =
