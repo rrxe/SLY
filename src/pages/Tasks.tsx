@@ -207,6 +207,25 @@ export default function Tasks({ onRewardCoins }: Props) {
   // متفائل افتراضياً (true) - نخفيه بس إذا AdsGram قالت صراحة "ما
   // عندي عرض حالياً" (onBannerNotFound)، عشان ما تضل مساحة فاضية.
   const [nativeTaskAvailable, setNativeTaskAvailable] = useState(true);
+  // بوابة 10 ثواني: لازم المستخدم يضل بالرابط 10 ثواني قبل ما زر
+  // "استلم" يصير قابل للضغط فعلياً - نتحكم فيها إحنا مو AdsGram.
+  const NATIVE_TASK_WAIT_MS = 10000;
+  const [nativeTaskOpenedAt, setNativeTaskOpenedAt] = useState<number | null>(null);
+  const [nativeTaskWaitLeft, setNativeTaskWaitLeft] = useState(0);
+
+  useEffect(() => {
+    if (nativeTaskOpenedAt === null) return;
+    const tick = () => {
+      const left = Math.max(
+        0,
+        Math.ceil((nativeTaskOpenedAt + NATIVE_TASK_WAIT_MS - Date.now()) / 1000)
+      );
+      setNativeTaskWaitLeft(left);
+    };
+    tick();
+    const id = window.setInterval(tick, 1000);
+    return () => window.clearInterval(id);
+  }, [nativeTaskOpenedAt]);
 
   useEffect(() => { window.scrollTo({ top: 0, left: 0, behavior: "auto" }); }, []);
 
@@ -242,7 +261,10 @@ export default function Tasks({ onRewardCoins }: Props) {
   useEffect(() => {
     const el = nativeTaskElRef.current;
     if (!el) return;
-    const onReward = () => claimNativeTaskAd();
+    const onReward = () => {
+      setNativeTaskOpenedAt(null);
+      claimNativeTaskAd();
+    };
     // AdsGram ترسل هذا الحدث لما ما يكون عندها عرض/مهمة حالياً
     // لهذا البلوك (مو خطأ بالكود - عادي، خصوصاً بالبداية لين
     // يصير عندها fill). نخفي الصندوق بدل ما يضل فاضي.
@@ -525,8 +547,26 @@ export default function Tasks({ onRewardCoins }: Props) {
               className="native-task-widget"
             >
               <span slot="reward" className="task-reward native-task-reward">+550</span>
-              <div slot="button" className="task-btn join">{t("tasks.openAction")}</div>
-              <div slot="claim" className="task-btn native-claim-btn">{t("tasks.claimAction")}</div>
+              <div
+                slot="button"
+                className="task-btn join"
+                onClick={() => setNativeTaskOpenedAt(Date.now())}
+              >
+                {t("tasks.openAction")}
+              </div>
+              {nativeTaskOpenedAt !== null && nativeTaskWaitLeft > 0 ? (
+                <div className="task-btn native-claim-btn-locked" slot="claim" aria-disabled="true">
+                  {t("tasks.waitSecondsShort", { seconds: nativeTaskWaitLeft })}
+                </div>
+              ) : (
+                <div
+                  slot="claim"
+                  className="task-btn native-claim-btn"
+                  onClick={() => setNativeTaskOpenedAt(null)}
+                >
+                  {t("tasks.claimAction")}
+                </div>
+              )}
               <div slot="done" className="task-btn claim">{t("tasks.completed")}</div>
             </adsgram-task>
           </article>

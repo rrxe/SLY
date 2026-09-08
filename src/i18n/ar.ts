@@ -118,6 +118,7 @@ const ar: Dictionary = {
     watchAdAction: "مشاهدة إعلان",
     openAction: "فتح",
     claimAction: "استلم",
+    waitSecondsShort: "انتظر {{seconds}}ث",
     taskLimitReached: "تم الوصول للحد الأقصى لهذه المهمة.",
     invalidTaskType: "نوع مهمة غير صالح.",
     adsgramNotReady: "إعلان AdsGram غير جاهز بعد. حاول مرة أخرى.",
