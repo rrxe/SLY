@@ -489,6 +489,11 @@
   border: 1px solid rgba(255, 255, 255, 0.05);
 }
 
+.native-task-reward {
+  display: inline-block;
+  margin: 4px 0 0;
+}
+
 @media (max-width: 420px) {
   .tasks-page {
     padding: 14px 14px 100px;
