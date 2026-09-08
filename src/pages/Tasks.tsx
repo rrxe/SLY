@@ -590,7 +590,13 @@ export default function Tasks({ onRewardCoins }: Props) {
                   {t("tasks.claimAction")}
                 </div>
               )}
-              <div slot="done" className="task-btn claim">{t("tasks.completed")}</div>
+              {nativeTaskOpenedAt !== null && nativeTaskWaitLeft > 0 ? (
+                <div className="task-btn native-claim-btn-locked" slot="done" aria-disabled="true">
+                  {t("tasks.waitSecondsShort", { seconds: nativeTaskWaitLeft })}
+                </div>
+              ) : (
+                <div slot="done" className="task-btn claim">{t("tasks.completed")}</div>
+              )}
             </adsgram-task>
           </article>
         ) : null}

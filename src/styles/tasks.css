@@ -506,6 +506,17 @@
   opacity: 0.85;
 }
 
+.native-task-widget .task-btn.claim,
+.native-task-widget .native-claim-btn,
+.native-task-widget .native-claim-btn-locked {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  margin: 0;
+  vertical-align: middle;
+}
+
 .native-task-reward {
   display: inline-block;
   margin: 4px 0 0;
