@@ -114,6 +114,7 @@ const en = {
     loadingAdAction: "Loading ad...",
     watchAdAction: "Watch Ad",
     openAction: "Open",
+    claimAction: "Claim",
     taskLimitReached: "Task limit reached.",
     invalidTaskType: "Invalid task type.",
     adsgramNotReady: "AdsGram ad not ready yet. Try again.",
