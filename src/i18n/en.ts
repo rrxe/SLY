@@ -391,6 +391,15 @@ const en = {
   },
 } as const;
 
+type WidenDictionary<T> =
+  T extends string
+    ? string
+    : T extends readonly unknown[]
+      ? T
+      : T extends object
+        ? { [K in keyof T]: WidenDictionary<T[K]> }
+        : T;
+
 export default en;
-export type Dictionary = typeof en;
+export type Dictionary = WidenDictionary<typeof en>;
 
