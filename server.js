@@ -21,6 +21,7 @@ import giftCodesRedeem from './api/gift-codes/redeem.js'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 const app = express()
+app.set('trust proxy', true)
 app.use(compression())
 // الحد الافتراضي 100kb صغير جداً على صور البرودكاست (base64 يكبر الحجم
 // ~33%)، فيرفض أي صورة أكبر من هيك بصمت قبل ما توصل للـ route أصلاً

@@ -1025,7 +1025,7 @@ import {
 
 const CHANNEL_JOIN_PENALTY_COINS = 1000
 // مكافأة بلوك AdsGram Task الأصلي (native) - غيّرها للرقم اللي تحبه.
-const NATIVE_TASK_AD_REWARD_COINS = 5
+const NATIVE_TASK_AD_REWARD_COINS = 10
 
 async function recheckJoinChannelTasks(telegramId) {
   const botToken = process.env.TELEGRAM_BOT_TOKEN
@@ -2124,10 +2124,23 @@ export default async function handler(
     const settings =
       await getAppSettings()
 
-    const mandatorySubscription =
-      await getMandatorySubscriptionStatus(
-        telegramId
+    let mandatorySubscription = {
+      required: false,
+      verified: true,
+      channels: [],
+      missing: [],
+    }
+    try {
+      mandatorySubscription =
+        await getMandatorySubscriptionStatus(
+          telegramId
+        )
+    } catch (e) {
+      console.error(
+        '[MandatorySub] Fallback:',
+        e
       )
+    }
 
     await processQualifiedReferral(
       player
