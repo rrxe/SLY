@@ -17,26 +17,33 @@ const ASSUMED_MAX_AD_DURATION_MS = 30000;
  *
  * مهم:
  * هذه الدالة لا تنتظر.
- * إذا كان هناك إعلان يعمل أو لم ينتهِ فاصل الـ12 ثانية
- * ترجع false مباشرة.
+ * إذا كان هناك إعلان يعمل ترجع false مباشرة (هذا الشرط ينطبق
+ * على كل الإعلانات، تلقائية أو يدوية، حتى ما يطلع إعلانين
+ * بنفس اللحظة).
+ *
+ * أما فاصل الـ12 ثانية فينطبق فقط على الإعلانات اليدوية
+ * (isAuto = false). الإعلانات التلقائية (isAuto = true) ما
+ * تتقيد فيه وتقدر تشتغل حتى لو لسا داخل نافذة الـ12 ثانية.
  */
-export function tryAcquireGlobalAdLock(): boolean {
+export function tryAcquireGlobalAdLock(isAuto: boolean = false): boolean {
   const now = Date.now();
 
-  // إعلان آخر يعمل حالياً
+  // إعلان آخر يعمل حالياً (ينطبق على الكل بلا استثناء)
   if (globalAdLock) {
     return false;
   }
 
-  // فاصل 12 ثانية بعد آخر إعلان
-  const elapsedSinceLastAd =
-    now - lastAdEndedAt;
+  // فاصل 12 ثانية بعد آخر إعلان - الإعلانات التلقائية معفية منه
+  if (!isAuto) {
+    const elapsedSinceLastAd =
+      now - lastAdEndedAt;
 
-  if (
-    lastAdEndedAt > 0 &&
-    elapsedSinceLastAd < MIN_GAP_BETWEEN_ADS_MS
-  ) {
-    return false;
+    if (
+      lastAdEndedAt > 0 &&
+      elapsedSinceLastAd < MIN_GAP_BETWEEN_ADS_MS
+    ) {
+      return false;
+    }
   }
 
   globalAdLock = true;
@@ -48,11 +55,15 @@ export function tryAcquireGlobalAdLock(): boolean {
 /**
  * تحرير قفل الإعلان عند انتهاء show().
  *
- * من هذه اللحظة يبدأ حساب الـ12 ثانية.
+ * من هذه اللحظة يبدأ حساب الـ12 ثانية - بس فقط إذا كان الإعلان
+ * يدوي (isAuto = false). الإعلان التلقائي لما يخلص ما "يضيف"
+ * فاصل الـ12 ثانية على الإعلانات الثانية.
  */
-export function releaseGlobalAdLock(): void {
+export function releaseGlobalAdLock(isAuto: boolean = false): void {
   globalAdLock = false;
-  lastAdEndedAt = Date.now();
+  if (!isAuto) {
+    lastAdEndedAt = Date.now();
+  }
   lockAcquiredAt = 0;
 }
 

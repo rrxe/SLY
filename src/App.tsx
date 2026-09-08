@@ -372,7 +372,7 @@ const [starsAdsRequired, setStarsAdsRequired] = useState(50);
   // AdsGram رفض/ماكو fill)، نحاول أسرع - بعد 20 ثانية بس - لين ينجح
   // إعلان، وبعدها يرجع الفاصل لـ40 ثانية.
   const AD_REPEAT_SUCCESS_MS = 40000;
-  const AD_REPEAT_RETRY_MS = 20000;
+  const AD_REPEAT_RETRY_MS = 10000;
   const adShowInFlightRef = useRef(false);
 
 
@@ -503,7 +503,7 @@ const [starsAdsRequired, setStarsAdsRequired] = useState(50);
     // نتخطى هذي الدورة بالكامل بدل ما ننتظر الدور. الانتظار هو اللي كان
     // يخلي إعلانين يطلعون ورا بعض بلحظات - وهذا بالضبط اللي يخلي AdsGram
     // يشوفها سبام (onNonStopShow) وما يحسبها Impressions صحيحة.
-    if (!tryAcquireGlobalAdLock()) return false;
+    if (!tryAcquireGlobalAdLock(true)) return false;
 
     adShowInFlightRef.current = true;
     try {
@@ -514,7 +514,7 @@ const [starsAdsRequired, setStarsAdsRequired] = useState(50);
       return false;
     } finally {
       adShowInFlightRef.current = false;
-      releaseGlobalAdLock();
+      releaseGlobalAdLock(true);
     }
   };
 
