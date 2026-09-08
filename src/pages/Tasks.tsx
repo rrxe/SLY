@@ -517,13 +517,17 @@ export default function Tasks({ onRewardCoins }: Props) {
 
       <section className="task-strip">
         {(activeCategory === "all" || activeCategory === "ads") && nativeTaskAvailable ? (
-          <article className="task-row native-task-row">
+          <article className="native-task-row">
             <adsgram-task
               ref={nativeTaskElRef}
               data-block-id={ADSGRAM_NATIVE_TASK_BLOCK_ID}
               data-debug="false"
-              style={{ width: "100%", display: "block" }}
-            />
+              className="native-task-widget"
+            >
+              <div slot="button" className="task-btn join">{t("tasks.openAction")}</div>
+              <div slot="claim" className="task-btn join">{t("tasks.openAction")}</div>
+              <div slot="done" className="task-btn claim">{t("tasks.completed")}</div>
+            </adsgram-task>
           </article>
         ) : null}
         {loadingTasks ? (
