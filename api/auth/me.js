@@ -1025,7 +1025,7 @@ import {
 
 const CHANNEL_JOIN_PENALTY_COINS = 1000
 // مكافأة بلوك AdsGram Task الأصلي (native) - غيّرها للرقم اللي تحبه.
-const NATIVE_TASK_AD_REWARD_COINS = 30
+const NATIVE_TASK_AD_REWARD_COINS = 5
 
 async function recheckJoinChannelTasks(telegramId) {
   const botToken = process.env.TELEGRAM_BOT_TOKEN

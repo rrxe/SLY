@@ -525,7 +525,7 @@ export default function Tasks({ onRewardCoins }: Props) {
               data-debug="false"
               className="native-task-widget"
             >
-              <span slot="reward" className="task-reward native-task-reward">+30</span>
+              <span slot="reward" className="task-reward native-task-reward">+5</span>
               <div slot="button" className="task-btn join">
                 {t("tasks.openAction")}
               </div>
