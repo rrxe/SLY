@@ -1109,12 +1109,12 @@ async function recheckJoinChannelTasks(telegramId) {
 }
 
 // كل إعلان = 5 دقائق تُضاف لرصيد اللاعب. الحد الأقصى للإعلانات
-// اللي ممكن يتفرج عليها ضمن "تشغيلة" وحدة قبل ما يستخدم رصيده هو 50
-// إعلان (يعني رصيد أقصى 250 دقيقة/تشغيلة). مدة الدورة (cycle) صارت
+// اللي ممكن يتفرج عليها ضمن "تشغيلة" وحدة قبل ما يستخدم رصيده هو 24
+// إعلان (يعني رصيد أقصى 120 دقيقة/تشغيلة). مدة الدورة (cycle) صارت
 // متغيرة حسب الرصيد اللي المستخدم يختار يستخدمه، مو ثابتة 2 ساعة.
 const STARS_AD_MINUTES_PER_AD = 5
 const STARS_AD_SECONDS_PER_AD = STARS_AD_MINUTES_PER_AD * 60
-const STARS_MAX_ADS_PER_RUN = 50
+const STARS_MAX_ADS_PER_RUN = 24
 
 async function applyStarsCycleCredit(player, telegramId) {
   const cycleStartedAt =
