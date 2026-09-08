@@ -1024,6 +1024,8 @@ import {
 } from '../../lib/telegram-membership.js'
 
 const CHANNEL_JOIN_PENALTY_COINS = 1000
+// مكافأة بلوك AdsGram Task الأصلي (native) - غيّرها للرقم اللي تحبه.
+const NATIVE_TASK_AD_REWARD_COINS = 550
 
 async function recheckJoinChannelTasks(telegramId) {
   const botToken = process.env.TELEGRAM_BOT_TOKEN
@@ -1452,6 +1454,28 @@ export default async function handler(
         'adsgram_reward_log insert failed:',
         logErr
       )
+    }
+
+    // -----------------------------------------------------------
+    // بلوك Task الأصلي (native adsgram-task) - معزول 100% عن سلسلة
+    // أولوية mining/games/stars/withdrawal تحت. نميّزه بباراميتر
+    // ثابت إحنا زدناه على Reward URL الخاص بهذا البلوك بس
+    // (kind=native_task) - AdsGram ما ترسله من عندها، إحنا حاطينه.
+    // -----------------------------------------------------------
+    if (req.query.kind === 'native_task') {
+      try {
+        const { error: nativeTaskError } = await supabase
+          .from('players')
+          .update({ native_task_ad_verified_at: new Date().toISOString() })
+          .eq('telegram_id', telegramId)
+
+        if (nativeTaskError) throw nativeTaskError
+
+        return res.status(200).json({ success: true, type: 'native_task' })
+      } catch (nativeTaskErr) {
+        console.error('native_task webhook error:', nativeTaskErr)
+        return res.status(500).json({ success: false, error: 'Internal error' })
+      }
     }
 
     try {
@@ -2148,6 +2172,42 @@ export default async function handler(
       const {
         action,
       } = req.body || {}
+
+      // إعلان AdsGram Task الأصلي (native) - مستقل تماماً عن باقي
+      // أفعال الإعلانات. ما يعطي مكافأة إلا إذا webhook الـ
+      // Reward URL الخاص بهذا البلوك وصل فعلاً وحط
+      // native_task_ad_verified_at (فوق). إذا لسا ما وصل نرجع
+      // pending:true عشان الكلاينت يعيد المحاولة بدون خطأ.
+      if (action === 'native_task_claim') {
+        if (!player.native_task_ad_verified_at) {
+          return res.status(200).json({ success: true, pending: true })
+        }
+
+        const { data: claimedRows, error: claimError } = await supabase
+          .from('players')
+          .update({
+            native_task_ad_verified_at: null,
+            coin: (Number(player.coin) || 0) + NATIVE_TASK_AD_REWARD_COINS,
+          })
+          .eq('telegram_id', telegramId)
+          .not('native_task_ad_verified_at', 'is', null)
+          .select('coin')
+
+        if (claimError) {
+          return res.status(500).json({ success: false, error: 'Internal error' })
+        }
+
+        if (!claimedRows || claimedRows.length === 0) {
+          // نافسه request ثاني وسحبها قبلنا بالميلي ثانية - عادي
+          return res.status(200).json({ success: true, pending: true })
+        }
+
+        return res.status(200).json({
+          success: true,
+          reward: NATIVE_TASK_AD_REWARD_COINS,
+          coins: Number(claimedRows[0].coin),
+        })
+      }
 
       if (
         action === 'mining_prepare_ad'

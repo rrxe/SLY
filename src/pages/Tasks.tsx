@@ -36,6 +36,10 @@ const GIGA_PUB_CLAIM_DELAY_MS = 0; // صفر لـ GigaPub أيضاً (إعلان
 const ADSGRAM_TASK_BLOCK_ID = "46262";
 const ADSGRAM_SCRIPT_SRC = "https://sad.adsgram.ai/js/sad.min.js";
 
+// بلوك AdsGram من نوع "Task" (إعلان أصلي/native يظهر كعنصر بقائمة
+// المهام، منفصل 100% عن بلوكات Reward الموجودة - ما يمس أي منها).
+const ADSGRAM_NATIVE_TASK_BLOCK_ID = "task-46724";
+
 type AdsgramShowResult = {
   done: boolean;
   description: string;
@@ -54,6 +58,24 @@ declare global {
       init: (opts: { blockId: string }) => AdsgramController;
     };
     showGiga?: () => Promise<void>;
+  }
+}
+
+// عنصر <adsgram-task> ويب كومبوننت جاهز من سكربت AdsGram نفسه - ما
+// يحتاج init() ولا show()، AdsGram ترندره وتطلق حدث "reward" لما
+// المستخدم يكمل المهمة.
+declare global {
+  namespace JSX {
+    interface IntrinsicElements {
+      "adsgram-task": React.DetailedHTMLProps<
+        React.HTMLAttributes<HTMLElement> & {
+          "block-id"?: string;
+          debug?: string;
+          classname?: string;
+        },
+        HTMLElement
+      >;
+    }
   }
 }
 
@@ -177,8 +199,60 @@ export default function Tasks({ onRewardCoins }: Props) {
   const [claimingIds, setClaimingIds] = useState<Record<string, boolean>>({});
   const claimTimersRef = useRef<Record<string, number>>({});
   const adsgramControllerRef = useRef<AdsgramController | null>(null);
+  const nativeTaskElRef = useRef<HTMLElement | null>(null);
+  const nativeTaskClaimTimerRef = useRef<number | undefined>(undefined);
+  // متفائل افتراضياً (true) - نخفيه بس إذا AdsGram قالت صراحة "ما
+  // عندي عرض حالياً" (onBannerNotFound)، عشان ما تضل مساحة فاضية.
+  const [nativeTaskAvailable, setNativeTaskAvailable] = useState(true);
 
   useEffect(() => { window.scrollTo({ top: 0, left: 0, behavior: "auto" }); }, []);
+
+  // حدث "reward" من عنصر <adsgram-task> بس تنبيه من جهة الكلاينت -
+  // ما نثق فيه لحاله. المكافأة الحقيقية توصل سيرفرنا عبر webhook
+  // AdsGram (Reward URL منفصل لهذا البلوك)، فنستنى شوي ونحاول نسحبها
+  // بـ native_task_claim - إذا لسا ما وصلت نعيد المحاولة لين توصل.
+  const claimNativeTaskAd = (attempt = 0) => {
+    const initData = getInitData();
+    fetch("/api/auth/me", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `tga ${initData}` },
+      body: JSON.stringify({ action: "native_task_claim" }),
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        if (data?.success && !data.pending && typeof data.reward === "number") {
+          onRewardCoins(data.reward, t("tasks.typeAdsGram"), t("tasks.coinsRewardToast", { amount: data.reward }));
+          setToast(t("tasks.coinsRewardToast", { amount: data.reward }));
+          return;
+        }
+        if (attempt < 15) {
+          nativeTaskClaimTimerRef.current = window.setTimeout(() => claimNativeTaskAd(attempt + 1), 2000);
+        }
+      })
+      .catch(() => {
+        if (attempt < 15) {
+          nativeTaskClaimTimerRef.current = window.setTimeout(() => claimNativeTaskAd(attempt + 1), 2000);
+        }
+      });
+  };
+
+  useEffect(() => {
+    const el = nativeTaskElRef.current;
+    if (!el) return;
+    const onReward = () => claimNativeTaskAd();
+    // AdsGram ترسل هذا الحدث لما ما يكون عندها عرض/مهمة حالياً
+    // لهذا البلوك (مو خطأ بالكود - عادي، خصوصاً بالبداية لين
+    // يصير عندها fill). نخفي الصندوق بدل ما يضل فاضي.
+    const onNotFound = () => setNativeTaskAvailable(false);
+    el.addEventListener("reward", onReward);
+    el.addEventListener("onBannerNotFound", onNotFound);
+    return () => {
+      el.removeEventListener("reward", onReward);
+      el.removeEventListener("onBannerNotFound", onNotFound);
+      if (nativeTaskClaimTimerRef.current) window.clearTimeout(nativeTaskClaimTimerRef.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
 
   useEffect(() => {
@@ -439,6 +513,16 @@ export default function Tasks({ onRewardCoins }: Props) {
       </div>
 
       <section className="task-strip">
+        {(activeCategory === "all" || activeCategory === "ads") && nativeTaskAvailable ? (
+          <article className="task-row native-task-row">
+            <adsgram-task
+              ref={nativeTaskElRef}
+              block-id={ADSGRAM_NATIVE_TASK_BLOCK_ID}
+              debug="false"
+              style={{ width: "100%", display: "block" }}
+            />
+          </article>
+        ) : null}
         {loadingTasks ? (
           <div className="task-empty">{t("tasks.loadingTasks")}</div>
         ) : serverTasks.length === 0 ? (
