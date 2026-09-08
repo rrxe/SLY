@@ -531,12 +531,12 @@ export default function Tasks({ onRewardCoins }: Props) {
               </div>
               <div
                 slot="claim"
-                className="task-btn native-claim-btn"
+                className="task-btn claim native-claim-btn"
                 onClick={() => claimNativeTaskAd()}
               >
                 {t("tasks.claimAction")}
               </div>
-              <div slot="done" className="task-btn claim">{t("tasks.completed")}</div>
+              <div slot="done" className="task-btn claim">{t("tasks.nativeTaskDone")}</div>
             </adsgram-task>
           </article>
         ) : null}

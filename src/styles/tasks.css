@@ -556,3 +556,23 @@
     margin: 0 auto;
   }
 }
+
+/* fix-overrides-native-task */
+.native-task-widget {
+  overflow: hidden !important;
+  --adsgram-task-button-width: 68px !important;
+}
+
+.native-task-widget .native-claim-btn {
+  color: #a9bab7 !important;
+  background: #1b2324 !important;
+  border: 1px solid rgba(255, 255, 255, 0.05) !important;
+  box-shadow: none !important;
+}
+
+.native-task-widget .task-btn.claim,
+.native-task-widget .native-claim-btn {
+  max-width: 100% !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
