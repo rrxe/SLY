@@ -2196,23 +2196,15 @@ export default async function handler(
           return res.status(200).json({ success: true, pending: true })
         }
 
-        const nativeTaskToday = getTodayBaghdad()
-        const nativeTaskIsSameDay = player.native_task_claims_date === nativeTaskToday
-        const nativeTaskNewCount = nativeTaskIsSameDay
-          ? (Number(player.native_task_claims_count) || 0) + 1
-          : 1
-
         const { data: claimedRows, error: claimError } = await supabase
           .from('players')
           .update({
             native_task_ad_verified_at: null,
             coin: (Number(player.coin) || 0) + NATIVE_TASK_AD_REWARD_COINS,
-            native_task_claims_count: nativeTaskNewCount,
-            native_task_claims_date: nativeTaskToday,
           })
           .eq('telegram_id', telegramId)
           .not('native_task_ad_verified_at', 'is', null)
-          .select('coin, native_task_claims_count')
+          .select('coin')
 
         if (claimError) {
           return res.status(500).json({ success: false, error: 'Internal error' })
@@ -2227,7 +2219,6 @@ export default async function handler(
           success: true,
           reward: NATIVE_TASK_AD_REWARD_COINS,
           coins: Number(claimedRows[0].coin),
-          nativeTaskClaimsToday: Number(claimedRows[0].native_task_claims_count) || 0,
         })
       }
 
