@@ -1,3 +1,4 @@
+import { useLanguage } from "../i18n/LanguageContext";
 import "../styles/games.css";
 
 type Props = {
@@ -35,16 +36,17 @@ export default function Games({
   onWatchAd,
   onPlay,
 }: Props) {
+  const { t } = useLanguage();
   const totalToday = freeAttempts + bonusAttempts;
   const outOfAttempts = attemptsRemaining <= 0;
 
   return (
     <section className="games-page">
       <header className="games-header">
-        <p className="games-eyebrow">GAMES</p>
-        <h2>Play &amp; Earn More</h2>
+        <p className="games-eyebrow">{t("games.eyebrow")}</p>
+        <h2>{t("games.title")}</h2>
         <span className="games-subtitle">
-          Limited daily attempts — earn extra attempts by watching an ad
+          {t("games.subtitle")}
         </span>
       </header>
 
@@ -52,15 +54,15 @@ export default function Games({
         <div className="games-attempts-top">
           <div className="games-attempts-count">
             <strong>{attemptsRemaining}</strong>
-            <span>attempts left today</span>
+            <span>{t("games.attemptsLeft")}</span>
           </div>
           <AttemptDots remaining={attemptsRemaining} total={Math.max(totalToday, freeAttempts)} />
         </div>
 
         <div className="games-attempts-breakdown">
-          <span>{freeAttempts} free</span>
+          <span>{t("games.freeCount", { count: freeAttempts })}</span>
           <span className="dot-sep">•</span>
-          <span>{bonusAttempts} from ads</span>
+          <span>{t("games.bonusCount", { count: bonusAttempts })}</span>
         </div>
 
         <button
@@ -68,7 +70,7 @@ export default function Games({
           onClick={onWatchAd}
           disabled={adBusy}
         >
-          {adBusy ? "Loading ad..." : "Watch Ad (+1 attempt)"}
+          {adBusy ? t("games.loadingAd") : t("games.watchAdBonus")}
         </button>
 
         {adToast ? <div className="games-ad-toast">{adToast}</div> : null}
@@ -90,12 +92,12 @@ export default function Games({
           </div>
 
           <div className="game-card-info">
-            <h3>Laser Escape</h3>
-            <p>Dodge meteors and fire your laser through 5 waves of space</p>
+            <h3>{t("games.laserEscapeTitle")}</h3>
+            <p>{t("games.laserEscapeDesc")}</p>
 
             <div className="game-card-meta">
-              <span className="game-card-chip gold">+100 coins / wave</span>
-              <span className="game-card-chip">5 lives</span>
+              <span className="game-card-chip gold">{t("games.coinsPerWave")}</span>
+              <span className="game-card-chip">{t("games.lives")}</span>
             </div>
           </div>
 
@@ -104,15 +106,16 @@ export default function Games({
             onClick={onPlay}
             disabled={outOfAttempts || playBusy}
           >
-            {playBusy ? "..." : outOfAttempts ? "No attempts left" : "Play Now"}
+            {playBusy ? "..." : outOfAttempts ? t("games.noAttemptsLeft") : t("games.playNow")}
           </button>
         </div>
 
         <div className="game-card game-card-soon">
-          <div className="game-card-soon-badge">Coming Soon</div>
-          <p>New space games joining this section soon</p>
+          <div className="game-card-soon-badge">{t("games.comingSoon")}</div>
+          <p>{t("games.comingSoonDesc")}</p>
         </div>
       </div>
     </section>
   );
 }
+

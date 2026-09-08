@@ -1,0 +1,53 @@
+.language-switch-card {
+  border-radius: var(--radius-xl);
+  background: #12181a;
+  border: 1px solid rgba(84, 230, 212, 0.10);
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.language-switch-head p {
+  color: #7fe0d2;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+
+.language-switch-head span {
+  color: #8fa19e;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.language-switch-row {
+  display: flex;
+  gap: 10px;
+}
+
+.language-switch-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: #1b2324;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #8fa19e;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s, color 0.2s;
+}
+
+.language-switch-btn.active {
+  background: rgba(84, 230, 212, 0.12);
+  border-color: rgba(84, 230, 212, 0.35);
+  color: #eaf4f2;
+}
+

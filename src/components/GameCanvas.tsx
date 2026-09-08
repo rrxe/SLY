@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import "../styles/game.css";
 import UiIcons from "./UiIcons";
+import { useLanguage } from "../i18n/LanguageContext";
 
 type Props = {
   onExit: (coinsEarned?: number) => void;
@@ -157,6 +158,7 @@ function makeWave(wave: number, width: number): Meteor[] {
 }
 
 export default function GameCanvas({ onExit }: Props) {
+  const { t } = useLanguage();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rafRef = useRef<number | null>(null);
   const lastTimeRef = useRef(0);
@@ -188,8 +190,8 @@ export default function GameCanvas({ onExit }: Props) {
     lasers: [] as Laser[],
     bursts: [] as Burst[],
     banner: {
-      title: "WAVE 1",
-      subtitle: "Brace for impact",
+      title: t("gameCanvas.waveLabel", { n: 1 }),
+      subtitle: t("gameCanvas.braceForImpact"),
       timer: 1.1,
       tone: "wave" as Banner["tone"],
     },
@@ -199,7 +201,7 @@ export default function GameCanvas({ onExit }: Props) {
     wave: 1,
     energy: 5,
     coins: 0,
-    status: "Wave 1 / 5",
+    status: t("gameCanvas.waveStatus", { n: 1, total: TOTAL_WAVES }),
   });
 
   const [result, setResult] = useState<null | {
@@ -315,8 +317,8 @@ export default function GameCanvas({ onExit }: Props) {
       s.meteors = [];
       s.lasers = [];
       s.banner = {
-        title: `WAVE ${wave}`,
-        subtitle: wave === 5 ? "Final storm" : wave >= 4 ? "Meteor pressure rising" : "Incoming rocks",
+        title: t("gameCanvas.waveLabel", { n: wave }),
+        subtitle: wave === 5 ? t("gameCanvas.finalStorm") : wave >= 4 ? t("gameCanvas.meteorPressureRising") : t("gameCanvas.incomingRocks"),
         timer: 1.05,
         tone: "wave",
       };
@@ -327,7 +329,7 @@ export default function GameCanvas({ onExit }: Props) {
         wave,
         energy: s.energy,
         coins: s.coins,
-        status: `Wave ${wave} / ${TOTAL_WAVES}`,
+        status: t("gameCanvas.waveStatus", { n: wave, total: TOTAL_WAVES }),
       });
       setResult(null);
     };
@@ -335,9 +337,10 @@ export default function GameCanvas({ onExit }: Props) {
     const finishWin = () => {
       if (s.phase === "win" || s.phase === "lose") return;
       s.phase = "win";
+      const winSubtitle = t("gameCanvas.missionCompleteSubtitle", { total: TOTAL_WAVES, coins: s.coins });
       s.banner = {
-        title: "MISSION COMPLETE",
-        subtitle: `You cleared all ${TOTAL_WAVES} waves and earned ${s.coins} coins.`,
+        title: t("gameCanvas.missionComplete"),
+        subtitle: winSubtitle,
         timer: 2.2,
         tone: "win",
       };
@@ -349,21 +352,21 @@ export default function GameCanvas({ onExit }: Props) {
         wave: TOTAL_WAVES,
         energy: s.energy,
         coins: s.coins,
-        status: "Mission complete",
+        status: t("gameCanvas.missionCompleteStatus"),
       });
 
       setResult({
-        title: "Mission complete",
-        text: `You cleared all ${TOTAL_WAVES} waves and earned ${s.coins} coins.`,
+        title: t("gameCanvas.missionCompleteStatus"),
+        text: winSubtitle,
         tone: "win",
       });
     };
 
-    const finishLose = (reason = "A meteor escaped.") => {
+    const finishLose = (reason = t("gameCanvas.meteorEscaped")) => {
       if (s.phase === "win" || s.phase === "lose") return;
       s.phase = "lose";
       s.banner = {
-        title: "RUN FAILED",
+        title: t("gameCanvas.runFailed"),
         subtitle: reason,
         timer: 2.2,
         tone: "lose",
@@ -376,12 +379,12 @@ export default function GameCanvas({ onExit }: Props) {
         wave: s.wave,
         energy: s.energy,
         coins: s.coins,
-        status: "Run failed",
+        status: t("gameCanvas.runFailedStatus"),
       });
 
       setResult({
-        title: "Run failed",
-        text: `${reason} You earned ${s.coins} coins this run.`,
+        title: t("gameCanvas.runFailedStatus"),
+        text: t("gameCanvas.runFailedText", { reason, coins: s.coins }),
         tone: "lose",
       });
     };
@@ -402,7 +405,7 @@ export default function GameCanvas({ onExit }: Props) {
       }
 
       s.banner = {
-        title: "-1 LIFE",
+        title: t("gameCanvas.minusOneLife"),
         subtitle: reason,
         timer: 0.7,
         tone: "lose",
@@ -413,7 +416,10 @@ export default function GameCanvas({ onExit }: Props) {
         wave: s.wave,
         energy: s.energy,
         coins: s.coins,
-        status: `${s.energy} ${s.energy === 1 ? "life" : "lives"} left`,
+        status: t("gameCanvas.livesLeft", {
+          count: s.energy,
+          unit: s.energy === 1 ? t("gameCanvas.life") : t("gameCanvas.lives"),
+        }),
       });
     };
 
@@ -519,7 +525,7 @@ export default function GameCanvas({ onExit }: Props) {
         if (!meteor.active) return false;
 
         if (meteor.y - meteor.size > s.height) {
-          damageShip("A meteor escaped.");
+          damageShip(t("gameCanvas.meteorEscaped"));
           return false;
         }
 
@@ -536,7 +542,7 @@ export default function GameCanvas({ onExit }: Props) {
           )
         ) {
           burst(meteor.x, meteor.y, "rgba(255,120,120,.95)");
-          damageShip("Your ship was hit.");
+          damageShip(t("gameCanvas.shipHit"));
           return false;
         }
 
@@ -846,8 +852,8 @@ ctx.save();
           s.coins += WAVE_REWARD;
           sfx("clear");
           s.banner = {
-            title: `WAVE ${s.wave} CLEARED`,
-            subtitle: `+${WAVE_REWARD} coins`,
+            title: t("gameCanvas.waveClearedTitle", { n: s.wave }),
+            subtitle: t("gameCanvas.waveClearedCoins", { amount: WAVE_REWARD }),
             timer: 1.0,
             tone: "wave",
           };
@@ -856,7 +862,7 @@ ctx.save();
             wave: s.wave,
             energy: s.energy,
             coins: s.coins,
-            status: `Wave ${s.wave} cleared +${WAVE_REWARD} coins`,
+            status: t("gameCanvas.waveClearedStatus", { n: s.wave, amount: WAVE_REWARD }),
           });
 
           if (s.wave >= TOTAL_WAVES) {
@@ -1023,26 +1029,26 @@ ctx.save();
         <button
           className="hud-back"
           onClick={() => onExit(hud.coins)}
-          aria-label="Back to lobby"
+          aria-label={t("gameCanvas.backToLobby")}
         >
           <UiIcons name="back" className="hud-back-icon" />
         </button>
 
         <div className="hud-row">
           <div className="hud-chip">
-            <small>Wave</small>
+            <small>{t("gameCanvas.wave")}</small>
             <strong>
               {hud.wave}/{TOTAL_WAVES}
             </strong>
           </div>
 
           <div className="hud-chip gold">
-            <small>Coins</small>
+            <small>{t("gameCanvas.coins")}</small>
             <strong>{hud.coins}</strong>
           </div>
 
           <div className="hud-chip cyan">
-            <small>Energy</small>
+            <small>{t("gameCanvas.energy")}</small>
             <strong>{hud.energy}/5</strong>
           </div>
         </div>
@@ -1054,14 +1060,15 @@ ctx.save();
         <div className="game-overlay">
           <div className={`result-card ${result.tone}`}>
             <p className="result-kicker">
-              {result.tone === "win" ? "Victory" : "Run Ended"}
+              {result.tone === "win" ? t("gameCanvas.victory") : t("gameCanvas.runEnded")}
             </p>
             <h2>{result.title}</h2>
             <span>{result.text}</span>
-            <button onClick={() => onExit(hud.coins)}>Back to lobby</button>
+            <button onClick={() => onExit(hud.coins)}>{t("gameCanvas.backToLobby")}</button>
           </div>
         </div>
       )}
     </section>
   );
 }
+

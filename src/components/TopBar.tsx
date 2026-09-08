@@ -1,6 +1,7 @@
 import "../styles/topbar.css";
 import UiIcons from "./UiIcons";
 import type { Page } from "../App";
+import { useLanguage } from "../i18n/LanguageContext";
 
 type Props = {
   page: Page;
@@ -8,57 +9,29 @@ type Props = {
   usdt: number;
 };
 
-const titles: Record<
-  Page,
-  {
-    label: string;
-    sub: string;
-  }
-> = {
-  home: {
-    label: "SLY",
-    sub: "Mine & earn",
-  },
-
-  tasks: {
-    label: "Tasks",
-    sub: "Daily missions",
-  },
-
-  games: {
-    label: "Games",
-    sub: "Play & earn",
-  },
-
-  referrals: {
-    label: "Referrals",
-    sub: "Invite & earn",
-  },
-
-  stars: {
-    label: "Stars",
-    sub: "Weekly leaderboard",
-  },
-
-  profile: {
-    label: "Profile",
-    sub: "Exchange & withdraw",
-  },
-};
-
 export default function TopBar({
   page,
   coins,
   usdt,
 }: Props) {
-  const current =
-    titles[page];
+  const { t } = useLanguage();
+
+  const titles: Record<Page, { label: string; sub: string }> = {
+    home: { label: t("topbar.home.label"), sub: t("topbar.home.sub") },
+    tasks: { label: t("topbar.tasks.label"), sub: t("topbar.tasks.sub") },
+    games: { label: t("topbar.games.label"), sub: t("topbar.games.sub") },
+    referrals: { label: t("topbar.referrals.label"), sub: t("topbar.referrals.sub") },
+    stars: { label: t("topbar.stars.label"), sub: t("topbar.stars.sub") },
+    profile: { label: t("topbar.profile.label"), sub: t("topbar.profile.sub") },
+  };
+
+  const current = titles[page];
 
   return (
     <header className="topbar">
       <div className="topbar-left">
         <p className="topbar-kicker">
-          SLY MINING
+          {t("topbar.kicker")}
         </p>
 
         <div className="topbar-row">
@@ -81,7 +54,7 @@ export default function TopBar({
 
           <div>
             <small>
-              Coins
+              {t("topbar.coins")}
             </small>
 
             <strong>
@@ -98,7 +71,7 @@ export default function TopBar({
 
           <div>
             <small>
-              USDT
+              {t("topbar.usdt")}
             </small>
 
             <strong>
@@ -110,3 +83,4 @@ export default function TopBar({
     </header>
   );
 }
+

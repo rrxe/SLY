@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import UiIcons from "../components/UiIcons";
 import "../styles/modals.css";
+import { useLanguage } from "../i18n/LanguageContext";
 
 type RedeemResult = { success: boolean; message: string };
 
@@ -11,6 +12,7 @@ type Props = {
 };
 
 export default function GiftCodeModal({ open, onClose, onRedeem }: Props) {
+  const { t } = useLanguage();
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState<"idle" | "success" | "error">("idle");
@@ -55,22 +57,22 @@ export default function GiftCodeModal({ open, onClose, onRedeem }: Props) {
       <div className="modal-card exchange-modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-head">
           <div>
-            <p>Gift Code</p>
-            <h2>Redeem Code</h2>
+            <p>{t("giftCodeModal.eyebrow")}</p>
+            <h2>{t("giftCodeModal.title")}</h2>
           </div>
 
-          <button className="modal-close" onClick={handleBackdrop} aria-label="Close modal">
+          <button className="modal-close" onClick={handleBackdrop} aria-label={t("common.close")}>
             <UiIcons name="back" className="modal-close-icon" />
           </button>
         </div>
 
         <label className="exchange-field">
-          <span>Code</span>
+          <span>{t("giftCodeModal.codeLabel")}</span>
           <div className="exchange-input-row">
             <input
               value={code}
               onChange={(e) => setCode(e.target.value)}
-              placeholder="Enter your gift code"
+              placeholder={t("giftCodeModal.codePlaceholder")}
               autoCapitalize="characters"
               disabled={busy}
             />
@@ -83,13 +85,13 @@ export default function GiftCodeModal({ open, onClose, onRedeem }: Props) {
               {message}
             </p>
           ) : (
-            <p>Enter a gift code to claim your bonus coins.</p>
+            <p>{t("giftCodeModal.noteDefault")}</p>
           )}
         </div>
 
         <div className="modal-actions">
           <button className="modal-button ghost" onClick={handleBackdrop} type="button" disabled={busy}>
-            Cancel
+            {t("giftCodeModal.cancel")}
           </button>
 
           <button
@@ -98,10 +100,11 @@ export default function GiftCodeModal({ open, onClose, onRedeem }: Props) {
             type="button"
             disabled={!code.trim() || busy}
           >
-            {busy ? "Redeeming..." : "Redeem"}
+            {busy ? t("giftCodeModal.redeeming") : t("giftCodeModal.redeem")}
           </button>
         </div>
       </div>
     </div>
   );
 }
+

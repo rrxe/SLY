@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import UiIcons from "../components/UiIcons";
 import "../styles/modals.css";
 import { tryAcquireGlobalAdLock, releaseGlobalAdLock, getAdLockWaitSeconds } from "../lib/adLock";
+import { useLanguage } from "../i18n/LanguageContext";
 
 type Props = {
   open: boolean;
@@ -42,6 +43,7 @@ export default function ExchangeModal({
   onClose,
   onConfirm,
 }: Props) {
+  const { t } = useLanguage();
   const adsgramControllerRef = useRef<AdsgramController | null>(null);
   const [amountText, setAmountText] = useState("5000");
   const [stage, setStage] = useState<"edit" | "watching">("edit");
@@ -79,19 +81,19 @@ export default function ExchangeModal({
     if (!canExchange) {
       setMessage(
         coins < MIN_COINS
-          ? "Not enough coins for exchange."
-          : `Minimum exchange is ${MIN_COINS.toLocaleString()} coins.`
+          ? t("exchangeModal.notEnoughCoins")
+          : t("exchangeModal.minimumExchange", { amount: MIN_COINS.toLocaleString() })
       );
       return;
     }
 
     setStage("watching");
-    setMessage("Watching ad...");
+    setMessage(t("exchangeModal.watchingAd"));
 
     // نمنع أي إعلان ثاني يطلع فوق هاي حتى يخلص هذا (نفس القفل المستخدم
     // بالمايننق والمهام بـ App.tsx / Tasks.tsx)
     if (!tryAcquireGlobalAdLock()) {
-      setMessage(`Please wait ${getAdLockWaitSeconds()}s to watch another ad.`);
+      setMessage(t("exchangeModal.pleaseWaitSeconds", { seconds: getAdLockWaitSeconds() }));
       setStage("edit");
       return;
     }
@@ -102,14 +104,14 @@ export default function ExchangeModal({
       }
 
       if (!adsgramControllerRef.current) {
-        setMessage("Ads are currently unavailable. Please try again.");
+        setMessage(t("exchangeModal.adsUnavailable"));
         setStage("edit");
         return;
       }
 
       await adsgramControllerRef.current.show();
     } catch {
-      setMessage("The ad could not be completed. Please try again.");
+      setMessage(t("exchangeModal.adFailed"));
       setStage("edit");
       return;
     } finally {
@@ -130,11 +132,11 @@ export default function ExchangeModal({
       <div className="modal-card exchange-modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-head">
           <div>
-            <p>Exchange</p>
-            <h2>Coins → USDT</h2>
+            <p>{t("exchangeModal.eyebrow")}</p>
+            <h2>{t("exchangeModal.title")}</h2>
           </div>
 
-          <button className="modal-close" onClick={handleBackdrop} aria-label="Close modal">
+          <button className="modal-close" onClick={handleBackdrop} aria-label={t("common.close")}>
             <UiIcons name="back" className="modal-close-icon" />
           </button>
         </div>
@@ -142,35 +144,35 @@ export default function ExchangeModal({
         <div className="exchange-hero">
           <div className="exchange-orb" />
           <div>
-            <span>Rate</span>
-            <strong>1000 Coins = 0.0025 USDT</strong>
+            <span>{t("exchangeModal.rateLabel")}</span>
+            <strong>{t("exchangeModal.rateValue")}</strong>
           </div>
         </div>
 
         <label className="exchange-field">
-          <span>Amount</span>
+          <span>{t("exchangeModal.amountLabel")}</span>
           <div className="exchange-input-row">
             <input
               value={amountText}
               onChange={(e) => setAmountText(e.target.value.replace(/[^\d]/g, ""))}
               inputMode="numeric"
-              placeholder="Enter coins"
+              placeholder={t("exchangeModal.amountPlaceholder")}
             />
             <button className="exchange-max" onClick={handleMax} type="button">
-              MAX
+              {t("exchangeModal.max")}
             </button>
           </div>
         </label>
 
         <div className="exchange-preview">
           <div>
-            <span>You receive</span>
+            <span>{t("exchangeModal.youReceive")}</span>
             <strong>{usdt.toFixed(4)} USDT</strong>
           </div>
 
           <div>
-            <span>Available</span>
-            <strong>{coins.toLocaleString()} Coins</strong>
+            <span>{t("exchangeModal.available")}</span>
+            <strong>{coins.toLocaleString()} {t("exchangeModal.coinsSuffix")}</strong>
           </div>
         </div>
 
@@ -179,22 +181,22 @@ export default function ExchangeModal({
             <p>{message}</p>
           ) : (
             <p>
-              You will watch an ad before the exchange is confirmed. After that,
-              the coins are deducted and USDT is added instantly.
+              {t("exchangeModal.noteDefault")}
             </p>
           )}
         </div>
 
         <div className="modal-actions">
           <button className="modal-button ghost" onClick={handleBackdrop} type="button">
-            Cancel
+            {t("exchangeModal.cancel")}
           </button>
 
           <button className="modal-button primary" onClick={handleWatchAd} type="button" disabled={!canExchange}>
-            {stage === "watching" ? "Watching Ad..." : "Watch Ad & Exchange"}
+            {stage === "watching" ? t("exchangeModal.confirmWatching") : t("exchangeModal.confirmWatch")}
           </button>
         </div>
       </div>
     </div>
   );
 }
+

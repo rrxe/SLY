@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { tryAcquireGlobalAdLock, releaseGlobalAdLock, getAdLockWaitSeconds } from "../lib/adLock";
+import { useLanguage } from "../i18n/LanguageContext";
 import "../styles/tasks.css";
 
 type Props = {
@@ -161,6 +162,7 @@ function CoinsIcon() {
 }
 
 export default function Tasks({ onRewardCoins }: Props) {
+  const { t } = useLanguage();
   const [activeCategory, setActiveCategory] = useState<"all" | "ads" | "join_channel" | "bots">("all");
   const [toast, setToast] = useState("");
   const [serverTasks, setServerTasks] = useState<ServerTask[]>([]);
@@ -243,7 +245,7 @@ export default function Tasks({ onRewardCoins }: Props) {
       body: JSON.stringify(body),
     });
     const data = await res.json();
-    if (!res.ok || !data.success) throw new Error(data.error || "Failed to process task");
+    if (!res.ok || !data.success) throw new Error(data.error || t("tasks.failedToProcessTask"));
     return data;
   };
 
@@ -270,10 +272,14 @@ export default function Tasks({ onRewardCoins }: Props) {
       const reward = Number(data.reward ?? task.reward ?? 0);
       setProgressById((prev) => ({ ...prev, [id]: { completed: nextCompleted, max_completions: nextMax } }));
       setOpenedAtById((prev) => { const copy = { ...prev }; delete copy[id]; return copy; });
-      onRewardCoins(reward, task.title, `Task ${nextCompleted}/${nextMax} +${reward} coins`);
-      setToast(`+${reward} coins`);
+      onRewardCoins(
+        reward,
+        task.title,
+        t("tasks.taskProgressMeta", { completed: nextCompleted, max: nextMax, reward })
+      );
+      setToast(t("tasks.coinsRewardToast", { amount: reward }));
     } catch (err: any) {
-      setToast(err?.message || "Failed to verify task");
+      setToast(err?.message || t("tasks.failedToVerifyTask"));
     } finally {
       clearClaimTimer(id);
       setClaimingIds((prev) => { const copy = { ...prev }; delete copy[id]; return copy; });
@@ -313,12 +319,12 @@ export default function Tasks({ onRewardCoins }: Props) {
     const id = String(task.id);
     if (openingIds[id]) return;
     const progress = progressById[id] || { completed: 0, max_completions: Math.max(1, Number(task.max_completions || 1)) };
-    if (progress.completed >= progress.max_completions) { setToast("Task limit reached."); return; }
+    if (progress.completed >= progress.max_completions) { setToast(t("tasks.taskLimitReached")); return; }
 
     const taskType = String(task.task_type || "").toLowerCase();
     const allowedTypes = ["normal", "smart_ad", "ads_galaxy", "join_channel", "custom", "giga_pub", "adsgram"];
     if (!allowedTypes.includes(taskType)) {
-      setToast("Invalid task type.");
+      setToast(t("tasks.invalidTaskType"));
       return;
     }
 
@@ -334,18 +340,18 @@ export default function Tasks({ onRewardCoins }: Props) {
           }
         }
         if (!adsgramControllerRef.current) {
-          setToast("AdsGram ad not ready yet. Try again.");
+          setToast(t("tasks.adsgramNotReady"));
           return;
         }
         if (!tryAcquireGlobalAdLock()) {
-          setToast(`Please wait ${getAdLockWaitSeconds()}s to watch another ad.`);
+          setToast(t("tasks.pleaseWaitSeconds", { seconds: getAdLockWaitSeconds() }));
           return;
         }
 
         try {
           await adsgramControllerRef.current.show();
         } catch (err: any) {
-          setToast(err?.message || "Ad failed to load.");
+          setToast(err?.message || t("tasks.adFailedToLoad"));
           return;
         } finally {
           releaseGlobalAdLock();
@@ -355,25 +361,25 @@ export default function Tasks({ onRewardCoins }: Props) {
         const openedAt = Date.now();
         setOpenedAtById((prev) => ({ ...prev, [id]: openedAt }));
         scheduleAutoClaim(task, openedAt);
-        setToast("Ad watched. Claiming coins...");
+        setToast(t("tasks.adWatchedClaiming"));
         return;
       }
 
       // معالجة GigaPub
       if (isGigaPubTask(task)) {
         if (typeof window.showGiga !== "function") {
-          setToast("GigaPub ad not ready yet. Try again.");
+          setToast(t("tasks.gigaPubNotReady"));
           return;
         }
         if (!tryAcquireGlobalAdLock()) {
-          setToast(`Please wait ${getAdLockWaitSeconds()}s to watch another ad.`);
+          setToast(t("tasks.pleaseWaitSeconds", { seconds: getAdLockWaitSeconds() }));
           return;
         }
 
         try {
           await window.showGiga();
         } catch (err: any) {
-          setToast(err?.message || "Ad failed to load.");
+          setToast(err?.message || t("tasks.adFailedToLoad"));
           return;
         } finally {
           releaseGlobalAdLock();
@@ -383,13 +389,13 @@ export default function Tasks({ onRewardCoins }: Props) {
         const openedAt = Date.now();
         setOpenedAtById((prev) => ({ ...prev, [id]: openedAt }));
         scheduleAutoClaim(task, openedAt);
-        setToast("Ad watched. Claiming coins...");
+        setToast(t("tasks.adWatchedClaiming"));
         return;
       }
 
       // المهام العادية (مع رابط)
       const url = String(task.url || "").trim();
-      if (!url) { setToast("Task has no URL."); return; }
+      if (!url) { setToast(t("tasks.taskNoUrl")); return; }
 
       await postTaskAction({ taskId: task.id, action: "open" });
       window.open(url, "_blank", "noopener,noreferrer");
@@ -397,9 +403,9 @@ export default function Tasks({ onRewardCoins }: Props) {
       setOpenedAtById((prev) => ({ ...prev, [id]: openedAt }));
       scheduleAutoClaim(task, openedAt);
       const waitSeconds = getClaimDelayMs(task) / 1000;
-      setToast(`Opened. Sending coins in ${waitSeconds} seconds.`);
+      setToast(t("tasks.openedSendingIn", { seconds: waitSeconds }));
     } catch (err: any) {
-      setToast(err?.message || "Failed to open task.");
+      setToast(err?.message || t("tasks.failedToOpenTask"));
     } finally {
       setOpeningIds((prev) => { const copy = { ...prev }; delete copy[id]; return copy; });
     }
@@ -410,15 +416,15 @@ export default function Tasks({ onRewardCoins }: Props) {
       {toast ? <div className="tasks-toast">{toast}</div> : null}
       <section className="tasks-hero">
         <div className="tasks-hero-icon"><CoinsIcon /></div>
-        <div className="tasks-hero-text"><h1>Earn Coins</h1><p>Complete tasks to earn coins</p></div>
+        <div className="tasks-hero-text"><h1>{t("tasks.heroTitle")}</h1><p>{t("tasks.heroSubtitle")}</p></div>
       </section>
 
       <div className="task-category-tabs">
         {([
-          { key: "all", label: "All", count: serverTasks.length },
-          { key: "ads", label: "Ads", count: serverTasks.filter((t) => getTaskCategory(t) === "ads").length },
-          { key: "join_channel", label: "Join Channel", count: serverTasks.filter((t) => getTaskCategory(t) === "join_channel").length },
-          { key: "bots", label: "Bots", count: serverTasks.filter((t) => getTaskCategory(t) === "bots").length },
+          { key: "all", label: t("tasks.tabAll"), count: serverTasks.length },
+          { key: "ads", label: t("tasks.tabAds"), count: serverTasks.filter((t) => getTaskCategory(t) === "ads").length },
+          { key: "join_channel", label: t("tasks.tabJoinChannel"), count: serverTasks.filter((t) => getTaskCategory(t) === "join_channel").length },
+          { key: "bots", label: t("tasks.tabBots"), count: serverTasks.filter((t) => getTaskCategory(t) === "bots").length },
         ] as const).map((tab) => (
           <button
             key={tab.key}
@@ -434,9 +440,9 @@ export default function Tasks({ onRewardCoins }: Props) {
 
       <section className="task-strip">
         {loadingTasks ? (
-          <div className="task-empty">Loading tasks...</div>
+          <div className="task-empty">{t("tasks.loadingTasks")}</div>
         ) : serverTasks.length === 0 ? (
-          <div className="task-empty">No tasks available right now.</div>
+          <div className="task-empty">{t("tasks.noTasks")}</div>
         ) : (
           serverTasks
             .filter((task) => activeCategory === "all" || getTaskCategory(task) === activeCategory)
@@ -457,10 +463,10 @@ export default function Tasks({ onRewardCoins }: Props) {
 
             const isJoinBot = isJoinBotTask(task);
 
-            let taskTypeLabel = task.task_type || "task";
-            if (isSmartAd) taskTypeLabel = "smart ad";
-            else if (isAdsGram) taskTypeLabel = "adsgram";
-            else if (isGigaPub) taskTypeLabel = "giga pub";
+            let taskTypeLabel = task.task_type || t("tasks.typeTask");
+            if (isSmartAd) taskTypeLabel = t("tasks.typeSmartAd");
+            else if (isAdsGram) taskTypeLabel = t("tasks.typeAdsGram");
+            else if (isGigaPub) taskTypeLabel = t("tasks.typeGigaPub");
 
             return (
               <article key={id} className={`task-row ${claimedAll ? "done" : ""}`}>
@@ -475,18 +481,18 @@ export default function Tasks({ onRewardCoins }: Props) {
                   </div>
                   <div className="task-mini-status">
                     {claimedAll ? (
-                      <span className="green">Completed</span>
+                      <span className="green">{t("tasks.completed")}</span>
                     ) : !opened ? (
-                      <span className="gray">{isAdsGram || isGigaPub ? "Watch the ad to earn coins" : "Open link first"}</span>
+                      <span className="gray">{isAdsGram || isGigaPub ? t("tasks.watchAdToEarn") : t("tasks.openLinkFirst")}</span>
                     ) : !waitedEnough ? (
-                      <span className="blue">Sending coins in {Math.ceil((claimDelayMs - (Date.now() - openedAt)) / 1000)} seconds</span>
+                      <span className="blue">{t("tasks.sendingCoinsIn", { seconds: Math.ceil((claimDelayMs - (Date.now() - openedAt)) / 1000) })}</span>
                     ) : (
-                      <span className="green">{claiming ? "Verifying..." : `Ready ${progress.completed}/${progress.max_completions}`}</span>
+                      <span className="green">{claiming ? t("tasks.verifying") : t("tasks.readyProgress", { completed: progress.completed, max: progress.max_completions })}</span>
                     )}
                   </div>
                   {isJoinBot ? (
                     <div className="task-note">
-                      🤖 Bot-join tasks don't count toward referral progress.
+                      {t("tasks.botJoinNote")}
                     </div>
                   ) : null}
                 </div>
@@ -496,8 +502,8 @@ export default function Tasks({ onRewardCoins }: Props) {
                   </div>
                   <button type="button" className="task-btn join" onClick={() => handleOpenTask(task)} disabled={opening || claimedAll}>
                     {opening
-                      ? (isAdsGram || isGigaPub ? "Loading ad..." : "Opening...")
-                      : (isAdsGram || isGigaPub ? "Watch Ad" : "Open")}
+                      ? (isAdsGram || isGigaPub ? t("tasks.loadingAdAction") : t("tasks.openingAction"))
+                      : (isAdsGram || isGigaPub ? t("tasks.watchAdAction") : t("tasks.openAction"))}
                   </button>
                 </div>
               </article>
@@ -508,3 +514,4 @@ export default function Tasks({ onRewardCoins }: Props) {
     </section>
   );
 }
+

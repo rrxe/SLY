@@ -1,5 +1,6 @@
 import { useState } from "react";
 import "../styles/mandatory-subscription.css";
+import { useLanguage } from "../i18n/LanguageContext";
 
 function openMandatoryChannelLink(url: string) {
   try {
@@ -115,6 +116,7 @@ export default function MandatorySubscription({
   loading = false,
   onVerify,
 }: Props) {
+  const { t } = useLanguage();
   const [checking, setChecking] =
     useState(false);
 
@@ -145,12 +147,11 @@ export default function MandatorySubscription({
 
         <div className="mandatory-head">
           <h1>
-            Join to Continue
+            {t("mandatorySubscription.title")}
           </h1>
 
           <p>
-            You must join the channels below to
-            use the bot and unlock your reward.
+            {t("mandatorySubscription.body")}
           </p>
         </div>
 
@@ -181,8 +182,8 @@ export default function MandatorySubscription({
                 onClick={() => openMandatoryChannelLink(channel.url)}
               >
                 {channel.joined
-                  ? "Joined"
-                  : "Join"}
+                  ? t("mandatorySubscription.joined")
+                  : t("mandatorySubscription.join")}
               </button>
             </div>
           ))}
@@ -200,27 +201,28 @@ export default function MandatorySubscription({
           {checking ? (
             <>
               <span className="mandatory-spinner" />
-              Checking...
+              {t("mandatorySubscription.checking")}
             </>
           ) : allJoined ? (
             <>
               <CheckIcon />
-              Membership Verified
+              {t("mandatorySubscription.verified")}
             </>
           ) : (
             <>
               <CheckIcon />
-              Verify Membership
+              {t("mandatorySubscription.verify")}
             </>
           )}
         </button>
 
         {loading ? (
           <div className="mandatory-loading">
-            Checking membership...
+            {t("mandatorySubscription.checkingMembership")}
           </div>
         ) : null}
       </div>
     </div>
   );
 }
+

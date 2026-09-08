@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import UiIcons from "../components/UiIcons";
+import { useLanguage } from "../i18n/LanguageContext";
 import "../styles/home.css";
 
 type MiningState = {
@@ -34,11 +35,11 @@ type LeaderUser = {
 const DAILY_POINTS = 250;
 
 const milestones = [
-  { days: 3, chest: "Common" },
-  { days: 7, chest: "Epic" },
-  { days: 14, chest: "Legendary" },
-  { days: 50, chest: "Mythic" },
-];
+  { days: 3, chestKey: "milestoneCommon" },
+  { days: 7, chestKey: "milestoneEpic" },
+  { days: 14, chestKey: "milestoneLegendary" },
+  { days: 50, chestKey: "milestoneMythic" },
+] as const;
 
 function formatTime(ms: number) {
   const totalSeconds = Math.max(0, Math.ceil(ms / 1000));
@@ -70,6 +71,7 @@ export default function Home({
   onMining,
   onRedeemGiftCode,
 }: Props) {
+  const { t } = useLanguage();
   const [leaderboard, setLeaderboard] = useState<LeaderUser[]>([]);
   const [now, setNow] = useState(() => Date.now());
 
@@ -149,41 +151,40 @@ export default function Home({
         <div className="mining-orbit orbit-one" />
         <div className="mining-orbit orbit-two" />
 
-        <span className="hero-badge">SLY MINING</span>
+        <span className="hero-badge">{t("home.heroBadge")}</span>
 
-        <h1 className="hero-title">Mine Coins</h1>
+        <h1 className="hero-title">{t("home.heroTitle")}</h1>
 
         <p className="hero-desc">
-          Start a 2-hour mining cycle, then watch one more ad to claim your
-          reward.
+          {t("home.heroDesc")}
         </p>
 
         <div className="mining-reward">
           <strong>+{mining.reward.toLocaleString()}</strong>
-          <span>Coins every 2 hours</span>
+          <span>{t("home.rewardEvery2h")}</span>
         </div>
 
         <div className="mining-status-card">
           {!mining.active ? (
             <>
-              <span className="mining-status-label">READY TO START</span>
-              <strong>Watch an ad to activate mining</strong>
-              <small>One rewarded ad starts your 2-hour cycle.</small>
+              <span className="mining-status-label">{t("home.statusReadyLabel")}</span>
+              <strong>{t("home.statusReadyTitle")}</strong>
+              <small>{t("home.statusReadyNote")}</small>
             </>
           ) : claimReady ? (
             <>
-              <span className="mining-status-label ready">CLAIM READY</span>
-              <strong>{mining.reward.toLocaleString()} Coins waiting</strong>
-              <small>Watch one rewarded ad to claim.</small>
+              <span className="mining-status-label ready">{t("home.statusClaimLabel")}</span>
+              <strong>{t("home.statusClaimTitle", { amount: mining.reward.toLocaleString() })}</strong>
+              <small>{t("home.statusClaimNote")}</small>
             </>
           ) : (
             <>
-              <span className="mining-status-label">MINING IN PROGRESS</span>
+              <span className="mining-status-label">{t("home.statusActiveLabel")}</span>
               <strong className="mining-timer">
                 {formatTime(remainingMs)}
               </strong>
               <small>
-                Started at {formatMiningStartedAt(mining.startedAt)}
+                {t("home.statusStartedAt", { time: formatMiningStartedAt(mining.startedAt) })}
               </small>
             </>
           )}
@@ -199,14 +200,14 @@ export default function Home({
           {miningAdBusy ? (
             <>
               <span className="hero-play-spinner" />
-              <span className="hero-play-text">Watching...</span>
+              <span className="hero-play-text">{t("home.buttonWatching")}</span>
             </>
           ) : !mining.active ? (
             <>
               <span className="hero-play-icon">
                 <UiIcons name="play" className="hero-play-icon-svg" />
               </span>
-              <span className="hero-play-text">Watch Ad & Start Mining</span>
+              <span className="hero-play-text">{t("home.buttonStart")}</span>
             </>
           ) : claimReady ? (
             <>
@@ -214,17 +215,17 @@ export default function Home({
                 <UiIcons name="coins" className="hero-play-icon-svg" />
               </span>
               <span className="hero-play-text">
-                Watch Ad & Claim {mining.reward.toLocaleString()}
+                {t("home.buttonClaim", { amount: mining.reward.toLocaleString() })}
               </span>
             </>
           ) : (
-            <span className="hero-play-text">Mining in Progress</span>
+            <span className="hero-play-text">{t("home.buttonInProgress")}</span>
           )}
         </button>
 
         {!miningReady ? (
           <small className="mining-sdk-note">
-            Preparing rewarded mining ads...
+            {t("home.preparingAds")}
           </small>
         ) : null}
       </section>
@@ -232,8 +233,8 @@ export default function Home({
       <article className="mini-card gift-code-card">
         <div className="section-head compact">
           <div>
-            <p>Redeem</p>
-            <h2>Gift Code</h2>
+            <p>{t("home.giftEyebrow")}</p>
+            <h2>{t("home.giftTitle")}</h2>
           </div>
           <svg
             viewBox="0 0 24 24"
@@ -251,7 +252,7 @@ export default function Home({
         </div>
 
         <p className="gift-code-hint">
-          Have a promo or gift code? Enter it below for bonus coins.
+          {t("home.giftHint")}
         </p>
 
         <div className="gift-code-input-row">
@@ -259,7 +260,7 @@ export default function Home({
             className="gift-code-input"
             value={giftCode}
             onChange={(e) => setGiftCode(e.target.value)}
-            placeholder="Enter your gift code"
+            placeholder={t("home.giftPlaceholder")}
             autoCapitalize="characters"
             disabled={giftBusy}
           />
@@ -270,7 +271,7 @@ export default function Home({
             type="button"
             disabled={!giftCode.trim() || giftBusy}
           >
-            {giftBusy ? "Redeeming..." : "Enter Gift Code"}
+            {giftBusy ? t("home.giftButtonBusy") : t("home.giftButton")}
           </button>
         </div>
 
@@ -288,13 +289,13 @@ export default function Home({
         <div className="checkin-top">
           <div className="checkin-streak-badge">
             <strong>{streak}</strong>
-            <span>days</span>
+            <span>{t("common.days")}</span>
           </div>
 
           <div className="checkin-top-text">
-            <p className="checkin-eyebrow">Daily Check-in</p>
-            <h2>+{DAILY_POINTS} points today</h2>
-            <span className="checkin-status">Checked in</span>
+            <p className="checkin-eyebrow">{t("home.checkinEyebrow")}</p>
+            <h2>{t("home.checkinPoints", { points: DAILY_POINTS })}</h2>
+            <span className="checkin-status">{t("home.checkinStatus")}</span>
           </div>
         </div>
 
@@ -315,7 +316,7 @@ export default function Home({
                 }`}
               >
                 <strong>{item.days}</strong>
-                <span>{item.chest}</span>
+                <span>{t(`home.${item.chestKey}`)}</span>
               </div>
             );
           })}
@@ -324,12 +325,14 @@ export default function Home({
         <div className="checkin-footer">
           <span className="checkin-next">
             {nextMilestone
-              ? `Next reward in ${nextMilestone.days - streak} days`
-              : "All rewards unlocked"}
+              ? t("home.nextRewardIn", { days: nextMilestone.days - streak })
+              : t("home.allRewardsUnlocked")}
           </span>
 
           <span className="checkin-countdown">
-            {currentChest ? `${currentChest.chest} unlocked` : "Keep your streak going"}
+            {currentChest
+              ? t("home.chestUnlocked", { chest: t(`home.${currentChest.chestKey}`) })
+              : t("home.keepStreakGoing")}
           </span>
         </div>
       </section>
@@ -338,8 +341,8 @@ export default function Home({
         <article className="mini-card">
           <div className="section-head compact">
             <div>
-              <p>Top 10</p>
-              <h2>Leaderboard</h2>
+              <p>{t("home.leaderboardEyebrow")}</p>
+              <h2>{t("home.leaderboardTitle")}</h2>
             </div>
             <UiIcons name="leaderboard" className="section-head-icon" />
           </div>
@@ -353,7 +356,7 @@ export default function Home({
                   textAlign: "center",
                 }}
               >
-                No leaderboard data from server
+                {t("home.noLeaderboardData")}
               </div>
             ) : (
               leaderboard.map((player) => (
@@ -367,11 +370,13 @@ export default function Home({
 
                   <div className="leader-copy">
                     <strong>{player.name}</strong>
-                    <small>{player.coins} coins</small>
+                    <small>{player.coins} {t("home.coinsSuffix")}</small>
                   </div>
 
                   <span className={`tier ${player.tier.toLowerCase()}`}>
-                    {player.tier}
+                    {["Common", "Rare", "Epic", "Legendary", "Mythic"].includes(player.tier)
+                      ? t(`home.tier${player.tier}`)
+                      : player.tier}
                   </span>
                 </div>
               ))
@@ -382,3 +387,4 @@ export default function Home({
     </section>
   );
 }
+

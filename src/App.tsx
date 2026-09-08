@@ -18,6 +18,7 @@ import { tryAcquireGlobalAdLock, releaseGlobalAdLock, getAdLockWaitSeconds } fro
 
 import ExchangeModal from "./modals/ExchangeModal";
 import WithdrawalModal from "./modals/WithdrawalModal";
+import { useLanguage } from "./i18n/LanguageContext";
 
 export type Page = "home" | "tasks" | "referrals" | "stars" | "games" | "profile";
 type ActivityTone = "info" | "reward" | "exchange";
@@ -227,6 +228,7 @@ type RequiredChannel = {
 };
 
 export default function App() {
+  const { t } = useLanguage();
   const [page, setPage] = useState<Page>("home");
   const [exchangeOpen, setExchangeOpen] = useState(false);
   const [withdrawOpen, setWithdrawOpen] = useState(false);
@@ -591,7 +593,7 @@ const [starsAdsRequired, setStarsAdsRequired] = useState(50);
 
     if (!adsgramStarsControllerRef.current) {
       setStarsAdToast(
-        "Ads are still loading, try again in a moment."
+        t("app.adStillLoading")
       )
       return
     }
@@ -605,7 +607,7 @@ const [starsAdsRequired, setStarsAdsRequired] = useState(50);
     if (!tryAcquireGlobalAdLock()) {
       setStarsAdBusy(false)
       setStarsAdToast(
-        `Please wait ${getAdLockWaitSeconds()}s to watch another ad.`
+        t("app.pleaseWaitSeconds", { seconds: getAdLockWaitSeconds() })
       )
       return
     }
@@ -646,7 +648,7 @@ const [starsAdsRequired, setStarsAdsRequired] = useState(50);
         )
 
         throw new Error(
-          "Ads are locked while your 2-hour cycle is running."
+          t("app.adsLockedDuringCycle")
         )
       }
 
@@ -654,7 +656,7 @@ const [starsAdsRequired, setStarsAdsRequired] = useState(50);
         showResult?.error
       ) {
         throw new Error(
-          "Ad failed to load or complete."
+          t("app.adFailedToLoadOrComplete")
         )
       }
 
@@ -704,16 +706,16 @@ const [starsAdsRequired, setStarsAdsRequired] = useState(50);
       )
 
       setStarsAdToast(
-        `Ad verified by AdsGram — ${
-          latest?.starsAdBatchCount ??
-          batchBefore + 1
-        }/${starsAdsRequired}`
+        t("app.adVerifiedBy", {
+          count: latest?.starsAdBatchCount ?? batchBefore + 1,
+          required: starsAdsRequired,
+        })
       )
 
     } catch (err: any) {
       setStarsAdToast(
         err?.message ||
-        "Something went wrong. Please try again."
+        t("app.somethingWentWrong")
       )
     } finally {
       setStarsAdBusy(false)
@@ -727,7 +729,7 @@ const [starsAdsRequired, setStarsAdsRequired] = useState(50);
     if (starsUseBusy || starsAdBusy) return;
 
     if (starsAdBatchCount <= 0) {
-      setStarsAdToast("شاهد إعلان واحد على الأقل قبل استخدام الرصيد.");
+      setStarsAdToast(t("app.watchOneAdFirst"));
       return;
     }
 
@@ -743,9 +745,9 @@ const [starsAdsRequired, setStarsAdsRequired] = useState(50);
       starsAdBatchCountUpdatedAtRef.current = Date.now();
       setStarsAdBatchCount(result.starsAdBatchCount ?? 0);
       setStarsCycleUnlocksAt(result.starsCycleUnlocksAt ?? null);
-      setStarsAdToast("تم تفعيل الرصيد — وقتك يرتفع تلقائياً الآن.");
+      setStarsAdToast(t("app.balanceActivated"));
     } catch (err: any) {
-      setStarsAdToast(err?.message || "تعذر استخدام الرصيد، حاول مرة أخرى.");
+      setStarsAdToast(err?.message || t("app.couldNotUseBalance"));
     } finally {
       setStarsUseBusy(false);
     }
@@ -761,12 +763,12 @@ const [starsAdsRequired, setStarsAdsRequired] = useState(50);
   const showGamesAd = async () => {
     const controller = adsgramGamesControllerRef.current;
     if (!controller) {
-      throw new Error("Ad is not ready yet. Try again in a moment.");
+      throw new Error(t("app.adNotReady"));
     }
 
     const acquired = tryAcquireGlobalAdLock();
     if (!acquired) {
-      throw new Error(`Please wait ${getAdLockWaitSeconds()}s to watch another ad.`);
+      throw new Error(t("app.pleaseWaitSeconds", { seconds: getAdLockWaitSeconds() }));
     }
 
     let timeoutId: number | undefined;
@@ -810,7 +812,7 @@ const [starsAdsRequired, setStarsAdsRequired] = useState(50);
   const handleWatchGamesAd = async () => {
     if (gamesAdBusy) return;
     if (!adsgramGamesControllerRef.current) {
-      setGamesAdToast("Ads are still loading, try again in a moment.");
+      setGamesAdToast(t("app.adStillLoading"));
       return;
     }
 
@@ -845,13 +847,13 @@ const [starsAdsRequired, setStarsAdsRequired] = useState(50);
         // بس يتأخر بإرسال الـwebhook على شبكات الموبايل. محاولة تانية
         // لاحقاً تلتقط التأكيد المتأخر بدون إعادة مشاهدة الإعلان.
         throw new Error(
-          "Still confirming your ad with AdsGram — this can take a minute on mobile networks. Try again shortly; no need to rewatch."
+          t("app.stillConfirmingAd")
         );
       }
 
-      setGamesAdToast("Nice! You got +1 attempt 🎮");
+      setGamesAdToast(t("app.gotBonusAttempt"));
     } catch (err: any) {
-      setGamesAdToast(err?.message || "Something went wrong. Please try again.");
+      setGamesAdToast(err?.message === AD_SHOW_TIMEOUT_MESSAGE ? t("app.adTimeoutRetry") : (err?.message || t("app.somethingWentWrong")));
     } finally {
       setGamesAdBusy(false);
     }
@@ -875,7 +877,7 @@ const [starsAdsRequired, setStarsAdsRequired] = useState(50);
       setPlayingLaserEscape(true);
       playingLaserEscapeRef.current = true;
     } catch (err: any) {
-      setGamesAdToast(err?.message || "ما قدرنا نبدأ الجولة، جرب مرة ثانية.");
+      setGamesAdToast(err?.message || t("app.couldNotStartRun"));
     } finally {
       setGamesPlayBusy(false);
     }
@@ -895,10 +897,10 @@ const [starsAdsRequired, setStarsAdsRequired] = useState(50);
         body: JSON.stringify({ taskType: "game_run", reward: coinsEarned }),
       })
         .then(() => {
-          handleTaskReward(coinsEarned, `Laser Escape +${coinsEarned}`, "Game reward");
+          handleTaskReward(coinsEarned, t("app.gameRewardTitle", { amount: coinsEarned }), t("app.gameRewardMeta"));
         })
         .catch(() => {
-          pushActivity("Couldn't record the reward", "Try reopening the app", "info");
+          pushActivity(t("app.couldntRecordReward"), t("app.tryReopeningApp"), "info");
         });
     }
   };
@@ -984,8 +986,8 @@ const [starsAdsRequired, setStarsAdsRequired] = useState(50);
 
       setChannelLeftNotice(
         data.channelTasksReset.length === 1
-          ? "You left a channel — that task was reset and 1000 coins were deducted. Rejoin and complete it again."
-          : `You left ${data.channelTasksReset.length} channels — those tasks were reset and coins were deducted. Rejoin and complete them again.`
+          ? t("app.channelLeftSingle")
+          : t("app.channelLeftMultiple", { count: data.channelTasksReset.length })
       );
     }
 
@@ -1035,12 +1037,12 @@ const [starsAdsRequired, setStarsAdsRequired] = useState(50);
   const showMiningAd = async () => {
     const controller = adsgramMiningControllerRef.current;
     if (!controller) {
-      throw new Error("Mining ad is not ready yet. Try again in a moment.");
+      throw new Error(t("app.miningAdNotReady"));
     }
 
     const acquired = tryAcquireGlobalAdLock();
     if (!acquired) {
-      throw new Error(`Please wait ${getAdLockWaitSeconds()}s to watch another ad.`);
+      throw new Error(t("app.pleaseWaitSeconds", { seconds: getAdLockWaitSeconds() }));
     }
 
     let timeoutId: number | undefined;
@@ -1119,7 +1121,7 @@ const [starsAdsRequired, setStarsAdsRequired] = useState(50);
             // Don't cancel — the ad played, AdsGram's postback may just be
             // slow. Leave the intent so a late postback still verifies it.
             throw new Error(
-              "Still confirming your ad with AdsGram — this can take a minute on mobile networks. Try Start again shortly; no need to rewatch if it was already confirmed."
+              t("app.tryStartAgainShortly")
             );
           }
         }
@@ -1136,13 +1138,13 @@ const [starsAdsRequired, setStarsAdsRequired] = useState(50);
           saveCachedMining(started.mining);
         }
 
-        setMiningToast("Mining started. Come back in 2 hours.");
+        setMiningToast(t("app.miningStarted"));
         loadPlayerData().catch(() => {});
         return;
       }
 
       if (!mining.claimReady) {
-        throw new Error("Mining cycle is not ready yet.");
+        throw new Error(t("app.miningCycleNotReady"));
       }
 
       const alreadyShownClaim = miningAdShownForStageRef.current.claim;
@@ -1182,7 +1184,7 @@ const [starsAdsRequired, setStarsAdsRequired] = useState(50);
           // and a later Claim tap (mining_prepare_ad returns
           // alreadyVerified) picks it up without rewatching an ad.
           throw new Error(
-            "Still confirming your ad with AdsGram — this can take a minute on mobile networks. Try Claim again shortly; no need to rewatch if it was already confirmed."
+            t("app.tryClaimAgainShortly")
           );
         }
       }
@@ -1199,18 +1201,18 @@ const [starsAdsRequired, setStarsAdsRequired] = useState(50);
 
         setWallet((prev) => ({ ...prev, coins: prev.coins + reward }));
         pushActivity(
-          `Mining reward +${reward.toLocaleString()}`,
-          "Coins earned from SLY Mining",
+          t("app.miningRewardTitle", { amount: reward.toLocaleString() }),
+          t("app.miningRewardMeta"),
           "reward"
         );
 
         setMining(claimed.mining);
         saveCachedMining(claimed.mining);
-        setMiningToast(`+${reward.toLocaleString()} coins`);
+        setMiningToast(t("app.miningRewardToast", { amount: reward.toLocaleString() }));
         loadPlayerData().catch(() => {});
       }
     } catch (err: any) {
-      setMiningToast(err?.message || "Mining action failed.");
+      setMiningToast(err?.message === AD_SHOW_TIMEOUT_MESSAGE ? t("app.adTimeoutRetry") : (err?.message || t("app.miningActionFailed")));
 
       // الفرونت كان يفترض حالة غلط (مثلاً "Ready to Start" بينما
       // الباك اند يقول التعدين شغال أصلاً) — نعيد مزامنة الحالة
@@ -1304,8 +1306,8 @@ const [starsAdsRequired, setStarsAdsRequired] = useState(50);
               setWallet((prev) => ({ ...prev, coins: checkin.coins }));
               setStreak(checkin.streak ?? data.streak ?? 0);
               pushActivity(
-                `Daily check-in +${checkin.reward}`,
-                "Reward claimed automatically",
+                t("app.dailyCheckinTitle", { amount: checkin.reward }),
+                t("app.dailyCheckinMeta"),
                 "reward"
               );
             }
@@ -1319,8 +1321,8 @@ const [starsAdsRequired, setStarsAdsRequired] = useState(50);
         const msg = String(err.message || "");
         setBootError(
           msg.includes("authentication")
-            ? "Open the game inside the Telegram app so your account can be recognized."
-            : "Couldn't reach the server. Try closing and reopening the app."
+            ? t("app.bootErrorAuth")
+            : t("app.bootErrorGeneric")
         );
       })
       .finally(() => {
@@ -1368,14 +1370,14 @@ window.removeEventListener("focus", refreshPlayerData);
       }));
 
       pushActivity(
-        "Exchange completed",
-        `${amountCoins.toLocaleString()} Coins → ${data.usdtGained} USDT`,
+        t("app.exchangeCompletedTitle"),
+        t("app.exchangeCompletedMeta", { coins: amountCoins.toLocaleString(), usdt: data.usdtGained }),
         "exchange"
       );
 
       loadPlayerData().catch(() => {});
     } catch (err: any) {
-      pushActivity("Exchange failed", err.message, "info");
+      pushActivity(t("app.exchangeFailedTitle"), err.message, "info");
     }
   };
 
@@ -1389,8 +1391,8 @@ window.removeEventListener("focus", refreshPlayerData);
       setWallet((prev) => ({ ...prev, coins: data.coins }));
 
       pushActivity(
-        "Gift code redeemed",
-        `+${Number(data.rewardCoins || 0).toLocaleString()} Coins`,
+        t("app.giftCodeRedeemedTitle"),
+        t("app.giftCodeRedeemedMeta", { amount: Number(data.rewardCoins || 0).toLocaleString() }),
         "reward"
       );
 
@@ -1398,10 +1400,10 @@ window.removeEventListener("focus", refreshPlayerData);
 
       return {
         success: true,
-        message: `You received ${Number(data.rewardCoins || 0).toLocaleString()} coins!`,
+        message: t("app.giftCodeReceived", { amount: Number(data.rewardCoins || 0).toLocaleString() }),
       };
     } catch (err: any) {
-      return { success: false, message: err.message || "Failed to redeem code" };
+      return { success: false, message: err.message || t("app.giftCodeFailed") };
     }
   };
 
@@ -1426,16 +1428,16 @@ window.removeEventListener("focus", refreshPlayerData);
       setNextWithdrawalAvailableAt(null);
 
       pushActivity(
-        "Withdrawal requested",
+        t("app.withdrawalRequestedTitle"),
         method === "binance"
-          ? `${amount.toFixed(4)} USDT to Binance ID ${target}`
-          : `${amount.toFixed(4)} USDT to GRAM (TON) address ${target.slice(0, 6)}...${target.slice(-4)}`,
+          ? t("app.withdrawalToBinance", { amount: amount.toFixed(4), target })
+          : t("app.withdrawalToGram", { amount: amount.toFixed(4), target: `${target.slice(0, 6)}...${target.slice(-4)}` }),
         "exchange"
       );
 
       loadPlayerData().catch(() => {});
     } catch (err: any) {
-      pushActivity("Withdrawal failed", err.message, "info");
+      pushActivity(t("app.withdrawalFailedTitle"), err.message, "info");
     }
   };
 
@@ -1564,7 +1566,7 @@ window.removeEventListener("focus", refreshPlayerData);
             textAlign: "center",
           }}
         >
-          <span>Heads up: this device/network already has an account. New accounts from here won't earn referral rewards — your own account and gameplay aren't affected.</span>
+          <span>{t("app.duplicateNotice")}</span>
           <button
             onClick={dismissDuplicateNotice}
             style={{
@@ -1576,7 +1578,7 @@ window.removeEventListener("focus", refreshPlayerData);
               cursor: "pointer",
               padding: 0,
             }}
-            aria-label="Dismiss"
+            aria-label={t("app.dismiss")}
           >
             ×
           </button>
@@ -1618,7 +1620,7 @@ window.removeEventListener("focus", refreshPlayerData);
               cursor: "pointer",
               padding: 0,
             }}
-            aria-label="Dismiss"
+            aria-label={t("app.dismiss")}
           >
             ×
           </button>
@@ -1739,3 +1741,4 @@ window.removeEventListener("focus", refreshPlayerData);
     </div>
   );
 }
+

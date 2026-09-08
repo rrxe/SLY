@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useLanguage } from "../i18n/LanguageContext";
 
 interface ReferralsProps {
   telegramId: string;
@@ -13,6 +14,7 @@ export default function Referrals({
   referralRewardUsdt,
   referralRequiredTasks,
 }: ReferralsProps) {
+  const { t } = useLanguage();
   const [copied, setCopied] = useState(false);
 
   const botUsername = "SLYMintX_bot";
@@ -46,7 +48,7 @@ export default function Referrals({
           border: "1px solid rgba(255,255,255,.06)",
         }}
       >
-        <h2 style={{ margin: 0, fontSize: 28 }}>Referrals</h2>
+        <h2 style={{ margin: 0, fontSize: 28 }}>{t("referrals.title")}</h2>
 
         <p
           style={{
@@ -55,16 +57,10 @@ export default function Referrals({
             lineHeight: 1.6,
           }}
         >
-          Your referral is accepted after the invited user completes{" "}
-          <strong style={{ color: "#eaf4f2" }}>
-            {referralRequiredTasks} tasks
-          </strong>
-          . Every successful task completion counts, including repeatable tasks.
-          You receive{" "}
-          <strong style={{ color: "#54e6d4" }}>
-            {referralRewardUsdt} USDT
-          </strong>{" "}
-          when the referral is confirmed.
+          {t("referrals.description", {
+            tasks: referralRequiredTasks,
+            reward: referralRewardUsdt,
+          })}
         </p>
 
         <div style={{ marginTop: 20 }}>
@@ -77,7 +73,7 @@ export default function Referrals({
             }}
           >
             <span style={{ fontSize: 14, color: "#8fa19e" }}>
-              Qualified Referrals
+              {t("referrals.qualifiedReferrals")}
             </span>
 
             <div
@@ -102,7 +98,7 @@ export default function Referrals({
             }}
           >
             <div style={{ fontSize: 14, fontWeight: 700, color: "#eaf4f2" }}>
-              Referral requirement
+              {t("referrals.requirementTitle")}
             </div>
 
             <div
@@ -113,11 +109,7 @@ export default function Referrals({
                 lineHeight: 1.6,
               }}
             >
-              The invited user must complete{" "}
-              <strong style={{ color: "#54e6d4" }}>
-                {referralRequiredTasks} tasks
-              </strong>{" "}
-              before the referral is counted.
+              {t("referrals.requirementBody", { tasks: referralRequiredTasks })}
             </div>
 
             <div
@@ -128,9 +120,7 @@ export default function Referrals({
                 lineHeight: 1.5,
               }}
             >
-              Example: 3 normal tasks + 2 ad completions ={" "}
-              {referralRequiredTasks} tasks.
-              Repeating an allowed task also counts each successful completion.
+              {t("referrals.requirementExample", { tasks: referralRequiredTasks })}
             </div>
           </div>
 
@@ -143,7 +133,7 @@ export default function Referrals({
                 marginBottom: 6,
               }}
             >
-              Your Referral Link
+              {t("referrals.linkLabel")}
             </label>
 
             <div style={{ display: "flex", gap: 8 }}>
@@ -151,7 +141,7 @@ export default function Referrals({
                 type="text"
                 readOnly
                 value={referralLink}
-                placeholder={telegramId ? "" : "Referral link unavailable"}
+                placeholder={telegramId ? "" : t("referrals.linkUnavailable")}
                 style={{
                   flex: 1,
                   background: "#101516",
@@ -180,7 +170,7 @@ export default function Referrals({
                   transition: "background 0.2s",
                 }}
               >
-                {copied ? "Copied!" : "Copy"}
+                {copied ? t("referrals.copied") : t("referrals.copy")}
               </button>
             </div>
           </div>
@@ -189,3 +179,4 @@ export default function Referrals({
     </section>
   );
 }
+

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import UiIcons from "../components/UiIcons";
 import "../styles/modals.css";
 import { tryAcquireGlobalAdLock, releaseGlobalAdLock, getAdLockWaitSeconds } from "../lib/adLock";
+import { useLanguage } from "../i18n/LanguageContext";
 
 type WithdrawMethod = "binance" | "bnb";
 // ملاحظة: القيمة الداخلية "bnb" بقيت كما هي (تخزين قاعدة البيانات
@@ -73,6 +74,7 @@ export default function WithdrawalModal({
   onClose,
   onConfirm,
 }: Props) {
+  const { t } = useLanguage();
   const [method, setMethod] =
     useState<WithdrawMethod>("binance");
 
@@ -160,7 +162,7 @@ export default function WithdrawalModal({
       amount > MAX_WITHDRAW
     ) {
       setError(
-        `Maximum withdrawal is ${MAX_WITHDRAW} USDT per withdrawal.`
+        t("withdrawModal.errorMaxPerWithdrawal", { max: MAX_WITHDRAW })
       );
     }
   };
@@ -181,7 +183,7 @@ export default function WithdrawalModal({
     // (بدون await) قبل .show()، وإلا AdsGram ما يربط الظهور بضغطة
     // المستخدم مباشرة وممكن ما يحسبه Impression صحيح.
     if (!tryAcquireGlobalAdLock()) {
-      setError(`Please wait ${getAdLockWaitSeconds()}s to watch another ad.`);
+      setError(t("withdrawModal.pleaseWaitSeconds", { seconds: getAdLockWaitSeconds() }));
       setWatchingAd(false);
       return;
     }
@@ -202,7 +204,7 @@ export default function WithdrawalModal({
         !adsgramControllerRef.current
       ) {
         setError(
-          "Ads are currently unavailable. Please try again."
+          t("withdrawModal.adsUnavailable")
         );
 
         setWatchingAd(false);
@@ -226,7 +228,7 @@ export default function WithdrawalModal({
       await onWatchAd();
     } catch {
       setError(
-        "The ad could not be completed. Please try again."
+        t("withdrawModal.adFailed")
       );
     } finally {
       setWatchingAd(false);
@@ -237,9 +239,7 @@ export default function WithdrawalModal({
   const handleWithdraw = () => {
     if (!adsComplete) {
       setError(
-        `Watch ${
-          requiredAds - watchedAds
-        } more ad(s) to unlock withdrawal.`
+        t("withdrawModal.errorWatchMoreAds", { count: requiredAds - watchedAds })
       );
 
       return;
@@ -253,7 +253,7 @@ export default function WithdrawalModal({
       amount <= 0
     ) {
       setError(
-        "Please enter a valid amount."
+        t("withdrawModal.errorEnterValidAmount")
       );
 
       return;
@@ -263,7 +263,7 @@ export default function WithdrawalModal({
       amount < MIN_WITHDRAW
     ) {
       setError(
-        `Minimum withdrawal is ${MIN_WITHDRAW} USDT.`
+        t("withdrawModal.errorMinWithdrawal", { min: MIN_WITHDRAW })
       );
 
       return;
@@ -273,7 +273,7 @@ export default function WithdrawalModal({
       amount > MAX_WITHDRAW
     ) {
       setError(
-        `Maximum withdrawal is ${MAX_WITHDRAW} USDT per withdrawal.`
+        t("withdrawModal.errorMaxPerWithdrawal", { max: MAX_WITHDRAW })
       );
 
       return;
@@ -283,7 +283,7 @@ export default function WithdrawalModal({
       amount > usdtBalance
     ) {
       setError(
-        "Insufficient USDT balance."
+        t("withdrawModal.errorInsufficientBalance")
       );
 
       return;
@@ -297,7 +297,7 @@ export default function WithdrawalModal({
 
       if (!trimmed) {
         setError(
-          "Enter your Binance ID."
+          t("withdrawModal.errorEnterBinanceId")
         );
 
         return;
@@ -320,7 +320,7 @@ export default function WithdrawalModal({
 
     if (!trimmedBnbAddress) {
       setError(
-        "Enter your GRAM (TON) wallet address."
+        t("withdrawModal.errorEnterGramAddress")
       );
 
       return;
@@ -350,17 +350,17 @@ export default function WithdrawalModal({
       >
         <div className="modal-head">
           <div>
-            <p>Withdraw</p>
+            <p>{t("withdrawModal.eyebrow")}</p>
 
             <h2>
-              Withdraw USDT
+              {t("withdrawModal.title")}
             </h2>
           </div>
 
           <button
             className="modal-close"
             onClick={onClose}
-            aria-label="Close modal"
+            aria-label={t("common.close")}
           >
             <UiIcons
               name="back"
@@ -372,7 +372,7 @@ export default function WithdrawalModal({
         <div className="withdraw-ads-gate">
           <div className="withdraw-ads-gate-top">
             <span>
-              Watch ads to unlock withdrawal
+              {t("withdrawModal.watchAdsToUnlock")}
             </span>
 
             <strong>
@@ -405,10 +405,10 @@ export default function WithdrawalModal({
             }
           >
             {adsComplete
-              ? "Unlocked ✓"
+              ? t("withdrawModal.unlocked")
               : watchingAd
-              ? "Confirming reward..."
-              : "Watch Ad"}
+              ? t("withdrawModal.confirmingReward")
+              : t("withdrawModal.watchAd")}
           </button>
         </div>
 
@@ -425,7 +425,7 @@ export default function WithdrawalModal({
               setError("");
             }}
           >
-            Binance ID (USDT)
+            {t("withdrawModal.binanceMethod")}
           </button>
 
           <button
@@ -440,7 +440,7 @@ export default function WithdrawalModal({
               setError("");
             }}
           >
-            GRAM Wallet (TON)
+            {t("withdrawModal.gramMethod")}
           </button>
         </div>
 
@@ -448,7 +448,7 @@ export default function WithdrawalModal({
         "binance" ? (
           <label className="exchange-field">
             <span>
-              Binance ID
+              {t("withdrawModal.binanceIdLabel")}
             </span>
 
             <div className="exchange-input-row">
@@ -461,14 +461,14 @@ export default function WithdrawalModal({
                   );
                   setError("");
                 }}
-                placeholder="Your Binance User ID"
+                placeholder={t("withdrawModal.binanceIdPlaceholder")}
               />
             </div>
           </label>
         ) : (
           <label className="exchange-field">
             <span>
-              GRAM Address (TON)
+              {t("withdrawModal.gramAddressLabel")}
             </span>
 
             <div className="exchange-input-row">
@@ -481,7 +481,7 @@ export default function WithdrawalModal({
                   );
                   setError("");
                 }}
-                placeholder="Your GRAM (TON) wallet address"
+                placeholder={t("withdrawModal.gramAddressPlaceholder")}
               />
             </div>
           </label>
@@ -489,7 +489,7 @@ export default function WithdrawalModal({
 
         <label className="exchange-field">
           <span>
-            Amount (USDT)
+            {t("withdrawModal.amountLabel")}
           </span>
 
           <div className="exchange-input-row">
@@ -504,7 +504,7 @@ export default function WithdrawalModal({
                   e.target.value
                 )
               }
-              placeholder={`Min ${MIN_WITHDRAW} / Max ${MAX_WITHDRAW} USDT`}
+              placeholder={t("withdrawModal.amountPlaceholder", { min: MIN_WITHDRAW, max: MAX_WITHDRAW })}
             />
 
             <button
@@ -512,7 +512,7 @@ export default function WithdrawalModal({
               onClick={handleMax}
               type="button"
             >
-              MAX
+              {t("withdrawModal.max")}
             </button>
           </div>
         </label>
@@ -520,12 +520,12 @@ export default function WithdrawalModal({
         <div className="exchange-preview">
           <div>
             <span>
-              Available Balance
+              {t("withdrawModal.availableBalance")}
             </span>
 
             <strong>
               {usdtBalance.toFixed(4)}
-              USDT
+              {" "}USDT
             </strong>
           </div>
         </div>
@@ -542,8 +542,8 @@ export default function WithdrawalModal({
           ) : (
             <p>
               {method === "binance"
-                ? "Funds will be sent as USDT directly to your Binance account ID."
-                : "Funds will be sent as GRAM (TON) to your wallet address. The amount is entered in USDT; the equivalent GRAM is sent manually by the admin."}
+                ? t("withdrawModal.noteBinance")
+                : t("withdrawModal.noteGram")}
             </p>
           )}
 
@@ -553,11 +553,7 @@ export default function WithdrawalModal({
                 marginTop: 6,
               }}
             >
-              Minimum withdrawal:{" "}
-              {MIN_WITHDRAW} USDT
-              {" • "}
-              Maximum per withdrawal:{" "}
-              {MAX_WITHDRAW} USDT
+              {t("withdrawModal.minMax", { min: MIN_WITHDRAW, max: MAX_WITHDRAW })}
             </p>
           )}
         </div>
@@ -568,7 +564,7 @@ export default function WithdrawalModal({
             onClick={onClose}
             type="button"
           >
-            Cancel
+            {t("withdrawModal.cancel")}
           </button>
 
           <button
@@ -577,10 +573,11 @@ export default function WithdrawalModal({
             type="button"
             disabled={!adsComplete}
           >
-            Confirm Withdraw
+            {t("withdrawModal.confirmWithdraw")}
           </button>
         </div>
       </div>
     </div>
   );
 }
+

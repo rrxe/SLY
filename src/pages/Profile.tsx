@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import UiIcons from "../components/UiIcons";
+import LanguageSwitch from "../components/LanguageSwitch";
+import { useLanguage } from "../i18n/LanguageContext";
 import "../styles/profile.css";
 
 type ActivityTone = "info" | "reward" | "exchange";
@@ -75,12 +77,6 @@ function formatHistoryTarget(entry: {
     : entry.target;
 }
 
-const STATUS_LABELS: Record<string, string> = {
-  pending: "Pending",
-  completed: "Approved",
-  rejected: "Rejected",
-};
-
 export default function Profile({
   lifetimeCoins,
   lifetimeSpent,
@@ -92,6 +88,14 @@ export default function Profile({
   onWalletConnected,
   onWalletDisconnected,
 }: Props) {
+  const { t } = useLanguage();
+
+  const STATUS_LABELS: Record<string, string> = {
+    pending: t("profile.statusPending"),
+    completed: t("profile.statusApproved"),
+    rejected: t("profile.statusRejected"),
+  };
+
   const [connectedAddress, setConnectedAddress] = useState<string | null>(() =>
     serverWalletAddress ?? loadStoredAddress()
   );
@@ -130,12 +134,12 @@ export default function Profile({
     const trimmed = inputValue.trim();
 
     if (!trimmed) {
-      setError("Enter your TON wallet address.");
+      setError(t("profile.errorEmptyAddress"));
       return;
     }
 
     if (!TON_ADDRESS_PATTERN.test(trimmed)) {
-      setError("That doesn't look like a valid TON address.");
+      setError(t("profile.errorInvalidAddress"));
       return;
     }
 
@@ -174,11 +178,10 @@ export default function Profile({
       <section className="wallet-hero">
         <div className="wallet-hero-top">
           <div>
-            <p className="wallet-kicker">Wallet Center</p>
-            <h1>{connectedAddress ? "Wallet connected" : "Connect your GRAM (TON) wallet"}</h1>
+            <p className="wallet-kicker">{t("profile.walletCenter")}</p>
+            <h1>{connectedAddress ? t("profile.walletConnected") : t("profile.connectWallet")}</h1>
             <p className="wallet-lead">
-              Link a TON address to withdraw as GRAM. Prefer Binance? You can also withdraw
-              USDT directly to your Binance ID — no wallet needed for that option.
+              {t("profile.walletLead")}
             </p>
           </div>
 
@@ -192,7 +195,7 @@ export default function Profile({
           <div className="wallet-connected">
             <div className="wallet-address-row">
               <div className="wallet-address-info">
-                <span className="wallet-address-label">Connected address</span>
+                <span className="wallet-address-label">{t("profile.connectedAddress")}</span>
                 <strong className="wallet-address-value">
                   {truncateAddress(connectedAddress)}
                 </strong>
@@ -200,35 +203,35 @@ export default function Profile({
 
               <div className="wallet-address-actions">
                 <button className="wallet-icon-btn" onClick={handleCopy} type="button">
-                  {copied ? "Copied" : "Copy"}
+                  {copied ? t("profile.copied") : t("profile.copy")}
                 </button>
                 <button
                   className="wallet-icon-btn danger"
                   onClick={() => setConfirmingDisconnect(true)}
                   type="button"
                 >
-                  Disconnect
+                  {t("profile.disconnect")}
                 </button>
               </div>
             </div>
 
             {confirmingDisconnect && (
               <div className="wallet-confirm">
-                <span>Disconnect this wallet?</span>
+                <span>{t("profile.disconnectConfirm")}</span>
                 <div className="wallet-confirm-actions">
                   <button
                     className="wallet-confirm-btn ghost"
                     onClick={() => setConfirmingDisconnect(false)}
                     type="button"
                   >
-                    Cancel
+                    {t("profile.cancel")}
                   </button>
                   <button
                     className="wallet-confirm-btn danger"
                     onClick={handleDisconnect}
                     type="button"
                   >
-                    Disconnect
+                    {t("profile.disconnect")}
                   </button>
                 </div>
               </div>
@@ -239,7 +242,7 @@ export default function Profile({
             <div className="wallet-input-row">
               <input
                 className="wallet-input"
-                placeholder="TON wallet address"
+                placeholder={t("profile.walletPlaceholder")}
                 value={inputValue}
                 onChange={(event) => {
                   setInputValue(event.target.value);
@@ -250,7 +253,7 @@ export default function Profile({
                 autoCorrect="off"
               />
               <button className="wallet-connect-btn" onClick={handleConnect} type="button">
-                Connect
+                {t("profile.connect")}
               </button>
             </div>
 
@@ -266,7 +269,7 @@ export default function Profile({
           </span>
           <div className="stats-bar-text">
             <strong>{lifetimeCoins.toLocaleString()}</strong>
-            <small>Earned</small>
+            <small>{t("profile.earned")}</small>
           </div>
         </div>
 
@@ -278,7 +281,7 @@ export default function Profile({
           </span>
           <div className="stats-bar-text">
             <strong>{lifetimeSpent.toLocaleString()}</strong>
-            <small>Exchanged</small>
+            <small>{t("profile.exchanged")}</small>
           </div>
         </div>
 
@@ -290,7 +293,7 @@ export default function Profile({
           </span>
           <div className="stats-bar-text">
             <strong>{usdtBalance.toFixed(4)}</strong>
-            <small>USDT</small>
+            <small>{t("profile.usdt")}</small>
           </div>
         </div>
       </section>
@@ -300,20 +303,22 @@ export default function Profile({
       <section className="profile-actions">
         <button className="profile-action primary" onClick={onOpenExchange}>
           <UiIcons name="exchange" className="profile-action-icon" />
-          <span>Exchange Coins</span>
+          <span>{t("profile.exchangeCoins")}</span>
         </button>
 
         <button className="profile-action ghost" onClick={onOpenWithdraw}>
           <UiIcons name="withdraw" className="profile-action-icon" />
-          <span>Withdraw USDT</span>
+          <span>{t("profile.withdrawUsdt")}</span>
         </button>
       </section>
+
+      <LanguageSwitch />
 
       <section className="withdraw-history-card">
         <div className="withdraw-history-head">
           <div>
-            <p>Your requests</p>
-            <h2>Withdrawal History</h2>
+            <p>{t("profile.yourRequests")}</p>
+            <h2>{t("profile.withdrawalHistory")}</h2>
           </div>
           <UiIcons name="withdraw" className="withdraw-history-head-icon" />
         </div>
@@ -321,7 +326,7 @@ export default function Profile({
         <div className="withdraw-history-list">
           {!withdrawalHistory || withdrawalHistory.length === 0 ? (
             <div className="withdraw-history-empty">
-              No withdrawal requests yet
+              {t("profile.noWithdrawalsYet")}
             </div>
           ) : (
             withdrawalHistory.map((entry) => (
@@ -333,7 +338,7 @@ export default function Profile({
                 <div className="withdraw-history-item-body">
                   <strong>{Number(entry.amount).toFixed(4)} USDT</strong>
                   <small>
-                    {entry.method === "binance" ? "Binance ID" : "GRAM Wallet (TON)"}
+                    {entry.method === "binance" ? t("profile.binanceId") : t("profile.gramWallet")}
                     {" · "}
                     {formatHistoryTarget(entry)}
                   </small>
@@ -353,3 +358,4 @@ export default function Profile({
     </section>
   );
 }
+

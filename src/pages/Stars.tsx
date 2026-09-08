@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useLanguage } from "../i18n/LanguageContext";
 import "../styles/stars.css";
 
 type StarPlayer = {
@@ -151,6 +152,7 @@ export default function Stars({
   onWatchAd?: () => void;
   onUseBalance?: () => void;
 }) {
+  const { t } = useLanguage();
   const [nowTick, setNowTick] = useState(Date.now());
 
   useEffect(() => {
@@ -178,7 +180,7 @@ export default function Stars({
         const data = await res.json();
 
         if (!res.ok) {
-          throw new Error(data?.error || "Failed to load leaderboard");
+          throw new Error(data?.error || t("stars.failedToLoad"));
         }
 
         if (!cancelled) {
@@ -188,7 +190,7 @@ export default function Stars({
         }
       } catch (err: any) {
         if (!cancelled) {
-          setError(err?.message || "Failed to load leaderboard");
+          setError(err?.message || t("stars.failedToLoad"));
           setLoading(false);
         }
       }
@@ -211,42 +213,43 @@ export default function Stars({
       <StarRain count={22} />
       <div className="stars-page-content">
       <div className="stars-hero">
-        <h2>Stars Leaderboard</h2>
+        <h2>{t("stars.title")}</h2>
         <p>
-          The longer you keep the bot open this week, the higher you climb.
-          Top 3 win real Telegram Stars every week — from{" "}
-          <strong>50</strong> up to <strong>500</strong> <StarIcon className="stars-inline-icon" />
+          {t("stars.intro", { low: "50", high: "500" })}{" "}
+          <StarIcon className="stars-inline-icon" />
         </p>
         <p className="stars-hero-sub">
-          Ranks <strong>#4</strong> and <strong>#5</strong> also win a prize — from{" "}
-          <strong>15</strong> up to <strong>50</strong> <StarIcon className="stars-inline-icon" />
+          {t("stars.introSub", { low: "15", high: "50" })}{" "}
+          <StarIcon className="stars-inline-icon" />
         </p>
 
         {myRank && myRank.rank > 10 && (
           <div className="stars-hero-myrank">
             <StarIcon className="stars-hero-myrank-icon" />
-            <span>Your rank: #{myRank.rank}</span>
+            <span>{t("stars.yourRank", { rank: myRank.rank })}</span>
           </div>
         )}
 
         <div className="stars-ad-card">
-          <h3 className="stars-ad-card-title">Watch Ads for Time</h3>
+          <h3 className="stars-ad-card-title">{t("stars.watchAdsCardTitle")}</h3>
 
           {isLocked ? (
             <div className="stars-ad-locked">
               <div className="stars-ad-locked-dot" />
               <p className="stars-ad-card-sub">
-                Cycle running — your time is climbing automatically.
+                {t("stars.cycleRunning")}
               </p>
               <div className="stars-ad-timer-badge">
-                Unlocks in {formatCountdown((unlocksAtMs as number) - nowTick)}
+                {t("stars.unlocksIn", { time: formatCountdown((unlocksAtMs as number) - nowTick) })}
               </div>
             </div>
           ) : (
             <>
               <p className="stars-ad-card-sub">
-                Watch {adsRequired} ads to unlock {formatCountdown(2 * 60 * 60 * 1000)} of
-                climbing time.
+                {t("stars.watchAdsToUnlock", {
+                  count: adsRequired,
+                  time: formatCountdown(2 * 60 * 60 * 1000),
+                })}
               </p>
               <div className="stars-ad-progress">
                 <div
@@ -257,19 +260,21 @@ export default function Stars({
                 />
               </div>
               <div className="stars-ad-progress-label">
-                {adBatchCount}/{adsRequired} watched
+                {t("stars.adsWatched", { count: adBatchCount, required: adsRequired })}
               </div>
 
               {onUseBalance && adBatchCount > 0 && (
                 <div className="stars-balance-info">
-                  Balance ready: <strong>{adBatchCount}</strong> ads ={" "}
-                  <strong>{formatCountdown(adBatchCount * 5 * 60 * 1000)}</strong>
+                  {t("stars.balanceReady", {
+                    count: adBatchCount,
+                    time: formatCountdown(adBatchCount * 5 * 60 * 1000),
+                  })}
                 </div>
               )}
 
               <div className="stars-ad-actions">
                 <button className="stars-ad-btn" onClick={onWatchAd} disabled={adBusy}>
-                  {adBusy ? "Loading…" : "Watch Ad"}
+                  {adBusy ? t("stars.loadingEllipsis") : t("stars.watchAd")}
                 </button>
                 {onUseBalance && (
                   <button
@@ -278,16 +283,16 @@ export default function Stars({
                     disabled={useBusy || adBatchCount <= 0}
                   >
                     {useBusy
-                      ? "Loading…"
+                      ? t("stars.loadingEllipsis")
                       : adBatchCount > 0
-                        ? `Use Balance (${adBatchCount})`
-                        : "Use Balance"}
+                        ? t("stars.useBalanceCount", { count: adBatchCount })
+                        : t("stars.useBalance")}
                   </button>
                 )}
               </div>
               {adBusy && (
                 <div className="stars-ad-hint">
-                  Taking a while? This will auto-reset in a few seconds.
+                  {t("stars.takingAWhile")}
                 </div>
               )}
             </>
@@ -297,12 +302,12 @@ export default function Stars({
         </div>
       </div>
 
-      {loading && <div className="stars-status">Loading leaderboard…</div>}
+      {loading && <div className="stars-status">{t("stars.loadingLeaderboard")}</div>}
 
       {!loading && error && <div className="stars-status stars-error">{error}</div>}
 
       {!loading && !error && players.length === 0 && (
-        <div className="stars-status">No activity recorded yet this week.</div>
+        <div className="stars-status">{t("stars.noActivityThisWeek")}</div>
       )}
 
       {!loading && !error && players.length > 0 && (
@@ -357,9 +362,10 @@ export default function Stars({
 
       <div className="stars-footer">
         <StarIcon className="stars-footer-icon" />
-        <span>Rankings reset weekly by the team once prizes are sent out.</span>
+        <span>{t("stars.footerNote")}</span>
       </div>
       </div>
     </section>
   );
 }
+
