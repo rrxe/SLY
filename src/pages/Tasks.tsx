@@ -72,8 +72,8 @@ declare module "react" {
     interface IntrinsicElements {
       "adsgram-task": DetailedHTMLProps<
         HTMLAttributes<HTMLElement> & {
-          "block-id"?: string;
-          debug?: string;
+          "data-block-id"?: string;
+          "data-debug"?: string;
           classname?: string;
         },
         HTMLElement
@@ -520,8 +520,8 @@ export default function Tasks({ onRewardCoins }: Props) {
           <article className="task-row native-task-row">
             <adsgram-task
               ref={nativeTaskElRef}
-              block-id={ADSGRAM_NATIVE_TASK_BLOCK_ID}
-              debug="false"
+              data-block-id={ADSGRAM_NATIVE_TASK_BLOCK_ID}
+              data-debug="false"
               style={{ width: "100%", display: "block" }}
             />
           </article>
