@@ -207,6 +207,25 @@ export default function Tasks({ onRewardCoins }: Props) {
   // متفائل افتراضياً (true) - نخفيه بس إذا AdsGram قالت صراحة "ما
   // عندي عرض حالياً" (onBannerNotFound)، عشان ما تضل مساحة فاضية.
   const [nativeTaskAvailable, setNativeTaskAvailable] = useState(true);
+
+  // عداد مرات إنجاز مهمة AdsGram الأصلية اليوم - يجي من السيرفر
+  // (عمود native_task_claims_count بجدول players)، بدون أي تخزين محلي.
+  const [nativeTaskCountToday, setNativeTaskCountToday] = useState<number>(0);
+
+  useEffect(() => {
+    const initData = getInitData();
+    fetch("/api/auth/me", {
+      method: "GET",
+      headers: { Authorization: `tga ${initData}` },
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        if (typeof data?.nativeTaskClaimsToday === "number") {
+          setNativeTaskCountToday(data.nativeTaskClaimsToday);
+        }
+      })
+      .catch(() => {});
+  }, []);
   useEffect(() => { window.scrollTo({ top: 0, left: 0, behavior: "auto" }); }, []);
 
   // حدث "reward" من عنصر <adsgram-task> بس تنبيه من جهة الكلاينت -
@@ -225,6 +244,9 @@ export default function Tasks({ onRewardCoins }: Props) {
         if (data?.success && !data.pending && typeof data.reward === "number") {
           onRewardCoins(data.reward, t("tasks.typeAdsGram"), t("tasks.coinsRewardToast", { amount: data.reward }));
           setToast(t("tasks.coinsRewardToast", { amount: data.reward }));
+          if (typeof data.nativeTaskClaimsToday === "number") {
+            setNativeTaskCountToday(data.nativeTaskClaimsToday);
+          }
           return;
         }
         if (attempt < 15) {
@@ -519,6 +541,11 @@ export default function Tasks({ onRewardCoins }: Props) {
       <section className="task-strip">
         {(activeCategory === "all" || activeCategory === "ads") && nativeTaskAvailable ? (
           <article className="native-task-row">
+            {nativeTaskCountToday > 0 && (
+              <div className="native-task-count-badge">
+                {t("tasks.nativeTaskDoneToday", { count: nativeTaskCountToday })}
+              </div>
+            )}
             <adsgram-task
               ref={nativeTaskElRef}
               data-block-id={ADSGRAM_NATIVE_TASK_BLOCK_ID}
