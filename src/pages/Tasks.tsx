@@ -212,6 +212,14 @@ export default function Tasks({ onRewardCoins }: Props) {
   const NATIVE_TASK_WAIT_MS = 10000;
   const [nativeTaskOpenedAt, setNativeTaskOpenedAt] = useState<number | null>(null);
   const [nativeTaskWaitLeft, setNativeTaskWaitLeft] = useState(0);
+  const nativeTaskOpenedAtRef = useRef<number | null>(null);
+  // لو حدث "reward" وصل من AdsGram قبل ما تخلص الـ10 ثواني، نأجل
+  // التحصيل الفعلي لحد ما العداد يوصل صفر (تيك الـinterval تحت).
+  const nativeTaskRewardPendingRef = useRef(false);
+
+  useEffect(() => {
+    nativeTaskOpenedAtRef.current = nativeTaskOpenedAt;
+  }, [nativeTaskOpenedAt]);
 
   useEffect(() => {
     if (nativeTaskOpenedAt === null) return;
@@ -221,6 +229,11 @@ export default function Tasks({ onRewardCoins }: Props) {
         Math.ceil((nativeTaskOpenedAt + NATIVE_TASK_WAIT_MS - Date.now()) / 1000)
       );
       setNativeTaskWaitLeft(left);
+      if (left <= 0 && nativeTaskRewardPendingRef.current) {
+        nativeTaskRewardPendingRef.current = false;
+        setNativeTaskOpenedAt(null);
+        claimNativeTaskAd();
+      }
     };
     tick();
     const id = window.setInterval(tick, 1000);
@@ -262,8 +275,14 @@ export default function Tasks({ onRewardCoins }: Props) {
     const el = nativeTaskElRef.current;
     if (!el) return;
     const onReward = () => {
-      setNativeTaskOpenedAt(null);
-      claimNativeTaskAd();
+      const openedAt = nativeTaskOpenedAtRef.current;
+      const elapsed = openedAt !== null ? Date.now() - openedAt : Infinity;
+      if (openedAt === null || elapsed >= NATIVE_TASK_WAIT_MS) {
+        setNativeTaskOpenedAt(null);
+        claimNativeTaskAd();
+      } else {
+        nativeTaskRewardPendingRef.current = true;
+      }
     };
     // AdsGram ترسل هذا الحدث لما ما يكون عندها عرض/مهمة حالياً
     // لهذا البلوك (مو خطأ بالكود - عادي، خصوصاً بالبداية لين
@@ -546,7 +565,7 @@ export default function Tasks({ onRewardCoins }: Props) {
               data-debug="false"
               className="native-task-widget"
             >
-              <span slot="reward" className="task-reward native-task-reward">+100</span>
+              <span slot="reward" className="task-reward native-task-reward">+30</span>
               <div
                 slot="button"
                 className="task-btn join"
@@ -562,7 +581,11 @@ export default function Tasks({ onRewardCoins }: Props) {
                 <div
                   slot="claim"
                   className="task-btn native-claim-btn"
-                  onClick={() => setNativeTaskOpenedAt(null)}
+                  onClick={() => {
+                    setNativeTaskOpenedAt(null);
+                    nativeTaskRewardPendingRef.current = false;
+                    claimNativeTaskAd();
+                  }}
                 >
                   {t("tasks.claimAction")}
                 </div>
