@@ -64,11 +64,14 @@ declare global {
 // عنصر <adsgram-task> ويب كومبوننت جاهز من سكربت AdsGram نفسه - ما
 // يحتاج init() ولا show()، AdsGram ترندره وتطلق حدث "reward" لما
 // المستخدم يكمل المهمة.
-declare global {
+// ملاحظة: بـ React 19 نيمسبيس JSX العام (declare global { namespace
+// JSX }) ما يندمج صح مع أنواع @types/react الجديدة - لازم نوسّع
+// JSX جوا موديول "react" نفسه (declare module "react"), مو global.
+declare module "react" {
   namespace JSX {
     interface IntrinsicElements {
-      "adsgram-task": React.DetailedHTMLProps<
-        React.HTMLAttributes<HTMLElement> & {
+      "adsgram-task": DetailedHTMLProps<
+        HTMLAttributes<HTMLElement> & {
           "block-id"?: string;
           debug?: string;
           classname?: string;
