@@ -165,6 +165,71 @@ function getOrCreateDeviceId() {
 }
 
 
+// هاش بسيط وسريع (FNV-1a 32-bit) نستخدمه بس عشان نضغط بصمة الـ
+// canvas/WebGL (اللي أصلها نص طويل base64) لسطر قصير قبل ما ننزلها
+// جوا X-Client-Signals - عشان ما نتجاوز حد الـ2000 حرف اللي السيرفر
+// يقبله (getClientSignalsHash بـ api/auth/me.js) ونعطل الفحص كامل.
+function hashString32(input: string) {
+  let hash = 0x811c9dc5
+  for (let i = 0; i < input.length; i += 1) {
+    hash ^= input.charCodeAt(i)
+    hash = Math.imul(hash, 0x01000193)
+  }
+  return (hash >>> 0).toString(16)
+}
+
+// بصمة canvas حقيقية - رسم نص/شكل بسيط وقراءة النتيجة كـ pixels،
+// اللي تختلف فعلياً حسب الـGPU/driver/font rendering للجهاز، وأصعب
+// بكثير على المستخدم إنه يزوّرها مقارنة بإعدادات المتصفح الظاهرة
+// (userAgent/timezone/language) اللي نجمعها أصلاً تحت.
+function getCanvasFingerprint() {
+  try {
+    const canvas = document.createElement("canvas")
+    const ctx = canvas.getContext("2d")
+    if (!ctx) return ""
+
+    canvas.width = 220
+    canvas.height = 30
+
+    ctx.textBaseline = "top"
+    ctx.font = "14px 'Arial'"
+    ctx.fillStyle = "#f60"
+    ctx.fillRect(125, 1, 62, 20)
+    ctx.fillStyle = "#069"
+    ctx.fillText("SLY-fp #canvas", 2, 15)
+    ctx.fillStyle = "rgba(102, 204, 0, 0.7)"
+    ctx.fillText("SLY-fp #canvas", 4, 17)
+
+    return hashString32(canvas.toDataURL())
+  } catch {
+    return ""
+  }
+}
+
+// بصمة WebGL (اسم كرت الشاشة/الـdriver الفعلي) - نفس فكرة الـcanvas،
+// بس مصدرها الـGPU نفسه بدل رسم بكسلات.
+function getWebglFingerprint() {
+  try {
+    const canvas = document.createElement("canvas")
+    const gl =
+      (canvas.getContext("webgl") as WebGLRenderingContext | null) ||
+      (canvas.getContext("experimental-webgl") as WebGLRenderingContext | null)
+    if (!gl) return ""
+
+    const dbg = gl.getExtension("WEBGL_debug_renderer_info")
+    const vendor = dbg
+      ? gl.getParameter((dbg as any).UNMASKED_VENDOR_WEBGL)
+      : gl.getParameter(gl.VENDOR)
+    const renderer = dbg
+      ? gl.getParameter((dbg as any).UNMASKED_RENDERER_WEBGL)
+      : gl.getParameter(gl.RENDERER)
+
+    return hashString32(`${vendor}~${renderer}`)
+  } catch {
+    return ""
+  }
+}
+
 function getClientSignals() {
   if (typeof window === "undefined") return ""
 
@@ -188,6 +253,10 @@ function getClientSignals() {
         Number(nav.hardwareConcurrency || 0),
       deviceMemory:
         Number((nav as any).deviceMemory || 0),
+      canvas:
+        getCanvasFingerprint(),
+      webgl:
+        getWebglFingerprint(),
     })
   } catch {
     return ""
