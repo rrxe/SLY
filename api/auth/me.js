@@ -143,21 +143,11 @@ function getClientSignalsHash(req) {
 // (excludeTelegramId=telegramId نفسه) عشان الفحص يصير مستمر مو مرة
 // وحدة بس عند التسجيل.
 async function findDuplicateAccount(deviceHash, fpHash, ipHash, uaHash, excludeTelegramId) {
-  if (deviceHash) {
-    let query = supabase
-      .from('players')
-      .select('telegram_id')
-      .eq('security_device_hash', deviceHash)
-      .limit(1)
-
-    if (excludeTelegramId) {
-      query = query.neq('telegram_id', excludeTelegramId)
-    }
-
-    const { data, error } = await query
-    if (error) throw error
-    if (data && data.length > 0) return true
-  }
+  // device_hash انشالت من الفحص (طلب المستخدمة) - كانت أضعف إشارة
+  // أصلاً لأنها تنمسح بمجرد مسح localStorage، وصارت غير ضرورية بعد
+  // ما صار فيه canvas/webgl fingerprint (جزء من fpHash) أقوى بكثير.
+  // الباراميتر يضل موجود بالتوقيع بس ما ينستخدم، عشان ما نحتاج نلمس
+  // كل مكان ينادي الدالة.
 
   if (fpHash) {
     let query = supabase
