@@ -5,7 +5,7 @@
   bottom:10px;
   z-index:40;
   display:grid;
-  grid-template-columns:repeat(6,1fr);
+  grid-template-columns:repeat(5,1fr);
   gap:3px;
   padding:6px;
   border-radius:18px;
@@ -52,43 +52,6 @@
 
 .nav-item.active{
   color:var(--blue-0);
-}
-
-.nav-item.stars{
-  color:#ffd76a;
-}
-
-.nav-item.stars .nav-icon{
-  filter:drop-shadow(0 0 6px rgba(255,207,77,.65));
-}
-
-.nav-item.stars span{
-  text-shadow:0 0 8px rgba(255,207,77,.4);
-}
-
-.nav-item.stars::after{
-  content:"";
-  position:absolute;
-  inset:2px;
-  border-radius:var(--radius-sm);
-  border:1px solid rgba(255,207,77,.35);
-  background:radial-gradient(circle at 50% 20%, rgba(255,207,77,.16), transparent 70%);
-  pointer-events:none;
-  animation:stars-nav-glow 2.4s ease-in-out infinite;
-}
-
-.nav-item.stars.active{
-  color:#ffe08a;
-}
-
-.nav-item.stars.active::before{
-  background:#ffd76a;
-  box-shadow:0 0 6px rgba(255,215,106,.8);
-}
-
-@keyframes stars-nav-glow{
-  0%, 100% { opacity:.55; }
-  50% { opacity:1; }
 }
 
 /* قسم الألعاب: توهج بنفسجي مميز يخليه يلفت الانتباه بين البقية */
