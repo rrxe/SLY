@@ -21,7 +21,6 @@ export default function TopBar({
     tasks: { label: t("topbar.tasks.label"), sub: t("topbar.tasks.sub") },
     games: { label: t("topbar.games.label"), sub: t("topbar.games.sub") },
     referrals: { label: t("topbar.referrals.label"), sub: t("topbar.referrals.sub") },
-    stars: { label: t("topbar.stars.label"), sub: t("topbar.stars.sub") },
     profile: { label: t("topbar.profile.label"), sub: t("topbar.profile.sub") },
   };
 

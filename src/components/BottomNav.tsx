@@ -14,11 +14,10 @@ export default function BottomNav({ page, setPage }: Props) {
   const items: {
     id: Page;
     label: string;
-    icon: "home" | "tasks" | "referrals" | "star" | "games" | "profile";
+    icon: "home" | "tasks" | "referrals" | "games" | "profile";
   }[] = [
     { id: "home", label: t("bottomnav.home"), icon: "home" },
     { id: "tasks", label: t("bottomnav.tasks"), icon: "tasks" },
-    { id: "stars", label: t("bottomnav.stars"), icon: "star" },
     { id: "games", label: t("bottomnav.games"), icon: "games" },
     { id: "referrals", label: t("bottomnav.referrals"), icon: "referrals" },
     { id: "profile", label: t("bottomnav.profile"), icon: "profile" },

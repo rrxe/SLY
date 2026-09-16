@@ -9,7 +9,6 @@ import Home from "./pages/Home";
 import Tasks from "./pages/Tasks";
 import Referrals from "./pages/Referrals";
 import Profile from "./pages/Profile";
-import Stars from "./pages/Stars";
 import Games from "./pages/Games";
 import GameCanvas from "./components/GameCanvas";
 import MandatorySubscription from "./components/MandatorySubscription";
@@ -20,7 +19,7 @@ import ExchangeModal from "./modals/ExchangeModal";
 import WithdrawalModal from "./modals/WithdrawalModal";
 import { useLanguage } from "./i18n/LanguageContext";
 
-export type Page = "home" | "tasks" | "referrals" | "stars" | "games" | "profile";
+export type Page = "home" | "tasks" | "referrals" | "games" | "profile";
 type ActivityTone = "info" | "reward" | "exchange";
 
 type Activity = {
@@ -82,12 +81,9 @@ type WithdrawalHistoryEntry = {
 
 const ADSGRAM_BLOCK_ID = "int-46084";
 const ADSGRAM_MINING_BLOCK_ID = "46086";
-const ADSGRAM_STARS_BLOCK_ID = "46086";
 // عدّل هذا لاحقاً برقم Block ID حقيقي من لوحة Adsgram (سوّي وحدة
-// إعلانية جديدة بالاسم اللي تحب، مثلاً "SLY Games"). مؤقتاً يستخدم
-// نفس وحدة Stars لحد ما تسوي وحدة مخصصة.
+// إعلانية جديدة بالاسم اللي تحب، مثلاً "SLY Games").
 const ADSGRAM_GAMES_BLOCK_ID = "46086";
-// Stars uses server-side AdsGram reward verification like Mining/Games.
 const ADSGRAM_SCRIPT_SRC = "https://sad.adsgram.ai/js/sad.min.js";
 // كانت 45 ثانية بس هذا قصير: لو المتصفح/تيليگرام WebView حط تبويبنا
 // بالخلفية وقت عرض الإعلان (شي عادي على موبايل)، المؤقتات تتجمّد
@@ -353,7 +349,6 @@ export default function App() {
   const [adsgramReady, setAdsgramReady] = useState(false);
   const adsgramControllerRef = useRef<AdsgramController | null>(null);
   const adsgramMiningControllerRef = useRef<AdsgramController | null>(null);
-  const adsgramStarsControllerRef = useRef<AdsgramController | null>(null);
   const adsgramGamesControllerRef = useRef<AdsgramController | null>(null);
   // true طول ما جولة Laser Escape شغالة. يمنع الإعلان التلقائي
   // (showAdsgramAd، يشتغل بمؤقت دوري طول عمر التطبيق) من الظهور
@@ -390,19 +385,6 @@ export default function App() {
   }, [miningAdBusy]);
   const [miningReady, setMiningReady] = useState(false);
   const [miningToast, setMiningToast] = useState("");
-
-  const [starsAdBusy, setStarsAdBusy] = useState(false);
-  const [starsUseBusy, setStarsUseBusy] = useState(false);
-  const [starsAdBatchCount, setStarsAdBatchCount] = useState(0);
-  // آخر تحديث مؤكد لعداد Stars من السيرفر.
-  // يمنع رد GET قديم من الكتابة فوق قيمة أحدث أثناء انتظار webhook.
-  const starsAdBatchCountUpdatedAtRef = useRef(0);
-
-  // إذا تم تشغيل الإعلان فعلاً ثم تأخر AdsGram webhook،
-  // لا نعرض إعلاناً ثانياً عند إعادة المحاولة.
-const [starsAdsRequired, setStarsAdsRequired] = useState(50);
-  const [starsCycleUnlocksAt, setStarsCycleUnlocksAt] = useState<string | null>(null);
-  const [starsAdToast, setStarsAdToast] = useState("");
 
   // ---- حالة قسم Games (Laser Escape) ----
   const [gamesAdBusy, setGamesAdBusy] = useState(false);
@@ -493,12 +475,6 @@ const [starsAdsRequired, setStarsAdsRequired] = useState(50);
           blockId: ADSGRAM_MINING_BLOCK_ID,
         });
         attachDiagnostics(adsgramMiningControllerRef.current, "mining");
-      }
-      if (!adsgramStarsControllerRef.current) {
-        adsgramStarsControllerRef.current = window.Adsgram.init({
-          blockId: ADSGRAM_STARS_BLOCK_ID,
-        });
-        attachDiagnostics(adsgramStarsControllerRef.current, "stars");
       }
       if (!adsgramGamesControllerRef.current) {
         adsgramGamesControllerRef.current = window.Adsgram.init({
@@ -618,209 +594,6 @@ const [starsAdsRequired, setStarsAdsRequired] = useState(50);
       if (repeatTimer) window.clearTimeout(repeatTimer);
     };
   }, [booting, bootError, adsgramReady, membershipVerified]);
-
-  useEffect(() => {
-    if (!starsAdToast) return;
-    const timer = window.setTimeout(() => setStarsAdToast(""), 2600);
-    return () => window.clearTimeout(timer);
-  }, [starsAdToast]);
-// نفس Mining/Games:
-  // الكلاينت لا يقرر أن الإعلان اكتمل.
-  // ننتظر زيادة starsAdBatchCount بعد وصول AdsGram reward webhook.
-  const waitForStarsAdVerification = async (
-    batchBefore: number
-  ) => {
-    for (
-      let attempt = 0;
-      attempt < AD_VERIFY_MAX_ATTEMPTS;
-      attempt += 1
-    ) {
-      try {
-        const data = await loadPlayerData();
-
-        if (
-          typeof data?.starsAdBatchCount === "number" &&
-          data.starsAdBatchCount > batchBefore
-        ) {
-          return true;
-        }
-      } catch {}
-
-      await new Promise((resolve) =>
-        window.setTimeout(
-          resolve,
-          AD_VERIFY_POLL_MS
-        )
-      );
-    }
-
-    return false;
-  };
-
-  const handleWatchStarsAd = async () => {
-    if (starsAdBusy) return
-
-    if (!adsgramStarsControllerRef.current) {
-      setStarsAdToast(
-        t("app.adStillLoading")
-      )
-      return
-    }
-
-    const batchBefore =
-      starsAdBatchCount
-
-    setStarsAdBusy(true)
-    setStarsAdToast("")
-
-    if (!tryAcquireGlobalAdLock()) {
-      setStarsAdBusy(false)
-      setStarsAdToast(
-        t("app.pleaseWaitSeconds", { seconds: getAdLockWaitSeconds() })
-      )
-      return
-    }
-
-    try {
-      /*
-       * Same pattern as Mining/Games:
-       *
-       * show() starts immediately from the user click.
-       * prepare runs in parallel.
-       */
-      const preparePromise =
-        callApi("/api/auth/me", {
-          method: "POST",
-          body: JSON.stringify({
-            action: "stars_ad_prepare",
-          }),
-        })
-
-      let showResult
-
-      try {
-        showResult =
-          await adsgramStarsControllerRef
-            .current!
-            .show()
-      } finally {
-        releaseGlobalAdLock()
-      }
-
-      const prepare =
-        await preparePromise
-
-      if (prepare.locked) {
-        setStarsCycleUnlocksAt(
-          prepare.cycleUnlocksAt ??
-            null
-        )
-
-        throw new Error(
-          t("app.adsLockedDuringCycle")
-        )
-      }
-
-      if (
-        showResult?.error
-      ) {
-        throw new Error(
-          t("app.adFailedToLoadOrComplete")
-        )
-      }
-
-      /*
-       * مهم جداً:
-       * لا نسوي ACK من الكلاينت.
-       *
-       * ننتظر AdsGram Reward webhook
-       * حتى يزيد stars_ad_batch_count.
-       */
-      const verified =
-        await waitForStarsAdVerification(
-          batchBefore
-        )
-
-      if (!verified) {
-        /*
-         * لا نلغي stars_ad_intent هنا.
-         *
-         * إذا AdsGram تأخر بالـwebhook،
-         * سيبقى الإعلان معلق حتى يصل التأكيد.
-         */
-        throw new Error(
-          "Still confirming your ad with AdsGram — this can take a minute on mobile networks. Try again shortly; no need to rewatch."
-        )
-      }
-
-      /*
-       * جلب آخر قيمة بعد التأكيد.
-       */
-      const latest =
-        await callApi(
-          "/api/auth/me",
-          {
-            method: "GET",
-          }
-        )
-
-      setStarsAdBatchCount(
-        latest?.starsAdBatchCount ??
-          batchBefore + 1
-      )
-
-      setStarsCycleUnlocksAt(
-        latest?.starsCycleUnlocksAt ??
-          null
-      )
-
-      setStarsAdToast(
-        t("app.adVerifiedBy", {
-          count: latest?.starsAdBatchCount ?? batchBefore + 1,
-          required: starsAdsRequired,
-        })
-      )
-
-    } catch (err: any) {
-      setStarsAdToast(
-        err?.message ||
-        t("app.somethingWentWrong")
-      )
-    } finally {
-      setStarsAdBusy(false)
-    }
-  }
-
-  // يفعّل رصيد الإعلانات المتجمّع (كل إعلان = 5 دقائق) ويشغّل دورة
-  // احتساب الوقت لمدتها، بنفس نظام الاحتساب الموجود أصلاً (فرق وقت
-  // مستمر يُحتسب مع كل ping، مو تايمر بالواجهة).
-  const handleUseStarsBalance = async () => {
-    if (starsUseBusy || starsAdBusy) return;
-
-    if (starsAdBatchCount <= 0) {
-      setStarsAdToast(t("app.watchOneAdFirst"));
-      return;
-    }
-
-    setStarsUseBusy(true);
-    setStarsAdToast("");
-
-    try {
-      const result = await callApi("/api/auth/me", {
-        method: "POST",
-        body: JSON.stringify({ action: "stars_ad_use_balance" }),
-      });
-
-      starsAdBatchCountUpdatedAtRef.current = Date.now();
-      setStarsAdBatchCount(result.starsAdBatchCount ?? 0);
-      setStarsCycleUnlocksAt(result.starsCycleUnlocksAt ?? null);
-      setStarsAdToast(t("app.balanceActivated"));
-    } catch (err: any) {
-      setStarsAdToast(err?.message || t("app.couldNotUseBalance"));
-    } finally {
-      setStarsUseBusy(false);
-    }
-  };
 
   const cancelGamesAd = async () => {
     await callApi("/api/auth/me", {
@@ -975,7 +748,6 @@ const [starsAdsRequired, setStarsAdsRequired] = useState(50);
   };
 
   const loadPlayerData = async () => {
-    const requestStartedAt = Date.now();
     const data = await callApi("/api/auth/me", { method: "GET" });
 
     setWallet((prev) => ({
@@ -1014,19 +786,6 @@ const [starsAdsRequired, setStarsAdsRequired] = useState(50);
     if (data.mining) {
       setMining(data.mining);
       saveCachedMining(data.mining);
-    }
-
-    if (
-      typeof data.starsAdBatchCount === "number" &&
-      requestStartedAt >= starsAdBatchCountUpdatedAtRef.current
-    ) {
-      setStarsAdBatchCount(data.starsAdBatchCount);
-    }
-    if (typeof data.starsAdsRequired === "number") {
-      setStarsAdsRequired(data.starsAdsRequired);
-    }
-    if ("starsCycleUnlocksAt" in data) {
-      setStarsCycleUnlocksAt(data.starsCycleUnlocksAt ?? null);
     }
 
     if (typeof data.gamesAttemptsRemaining === "number") {
@@ -1739,20 +1498,6 @@ window.removeEventListener("focus", refreshPlayerData);
               referralsCount={referralsCount}
               referralRewardUsdt={referralRewardUsdt}
               referralRequiredTasks={referralRequiredTasks}
-            />
-          )}
-
-          {page === "stars" && (
-            <Stars
-              telegramId={telegramId}
-              adBusy={starsAdBusy}
-              useBusy={starsUseBusy}
-              adBatchCount={starsAdBatchCount}
-              adsRequired={starsAdsRequired}
-              cycleUnlocksAt={starsCycleUnlocksAt}
-              adToast={starsAdToast}
-              onWatchAd={handleWatchStarsAd}
-              onUseBalance={handleUseStarsBalance}
             />
           )}
 
