@@ -423,3 +423,64 @@
   -webkit-overflow-scrolling: touch;
   scrollbar-width: thin;
 }
+
+/* ---------------- Runner leaderboard modal ---------------- */
+
+.runner-lb-status{
+  padding: 26px 10px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 13.5px;
+}
+
+.runner-lb-list{
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.runner-lb-row{
+  display: grid;
+  grid-template-columns: 40px 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  background: var(--panel);
+  border: 1px solid var(--line);
+}
+
+.runner-lb-rank{
+  font-weight: 800;
+  color: var(--muted-2);
+  font-size: 13px;
+}
+
+.runner-lb-name{
+  font-weight: 700;
+  color: var(--text);
+  font-size: 13.5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.runner-lb-score{
+  font-weight: 800;
+  color: var(--gold-0);
+  font-size: 14px;
+}
+
+.runner-lb-row-me{
+  border-color: rgba(124, 240, 255, 0.4);
+  background: rgba(124, 240, 255, 0.08);
+}
+
+.runner-lb-row-me .runner-lb-rank{
+  color: #7cf0ff;
+}
+
+.runner-lb-row-detached{
+  margin-top: 4px;
+  border-style: dashed;
+}

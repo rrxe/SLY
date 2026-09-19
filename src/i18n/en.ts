@@ -191,6 +191,28 @@ const en = {
     playNow: "Play Now",
     comingSoon: "Coming Soon",
     comingSoonDesc: "New space games joining this section soon",
+    cometRunTitle: "Comet Run",
+    cometRunDesc: "Jump crystals and duck drones in an endless dash that gets faster the further you go",
+    cometRunReward: "Coins from distance",
+    cometRunBest: "Best: {{score}}",
+  },
+
+  runnerGame: {
+    score: "Score",
+    best: "Best",
+    tapToStart: "Tap to start",
+    controlsHint: "Tap to jump • Hold to duck",
+    milestone: "{{n}}!",
+    newBest: "New Best!",
+    runSummary: "You earned {{coins}} coins this run.",
+  },
+
+  runnerLeaderboard: {
+    eyebrow: "COMET RUN",
+    title: "Leaderboard",
+    loading: "Loading leaderboard…",
+    failedToLoad: "Failed to load leaderboard",
+    empty: "No runs recorded yet. Be the first!",
   },
 
   gameCanvas: {

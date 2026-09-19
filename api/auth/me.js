@@ -3050,6 +3050,9 @@ export default async function handler(
       gamesAdIntent:
         player.game_ad_intent === true,
 
+      runnerBestScore:
+        player.runner_best_score || 0,
+
       mining,
 
       channelTasksReset:

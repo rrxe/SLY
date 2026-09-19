@@ -11,12 +11,14 @@ import Referrals from "./pages/Referrals";
 import Profile from "./pages/Profile";
 import Games from "./pages/Games";
 import GameCanvas from "./components/GameCanvas";
+import RunnerGame from "./components/RunnerGame";
 import MandatorySubscription from "./components/MandatorySubscription";
 import SplashScreen from "./components/SplashScreen";
 import { tryAcquireGlobalAdLock, releaseGlobalAdLock, getAdLockWaitSeconds } from "./lib/adLock";
 
 import ExchangeModal from "./modals/ExchangeModal";
 import WithdrawalModal from "./modals/WithdrawalModal";
+import RunnerLeaderboardModal from "./modals/RunnerLeaderboardModal";
 import { useLanguage } from "./i18n/LanguageContext";
 
 export type Page = "home" | "tasks" | "referrals" | "games" | "profile";
@@ -394,6 +396,12 @@ export default function App() {
   const [gamesBonusAttempts, setGamesBonusAttempts] = useState(0);
   const [gamesPlayBusy, setGamesPlayBusy] = useState(false);
   const [playingLaserEscape, setPlayingLaserEscape] = useState(false);
+
+  // ---- لعبة Comet Run (الجري اللانهائي) ----
+  const [playingRunner, setPlayingRunner] = useState(false);
+  const [runnerBestScore, setRunnerBestScore] = useState(0);
+  const [runnerLeaderboardOpen, setRunnerLeaderboardOpen] = useState(false);
+
   const [duplicateNotice, setDuplicateNotice] = useState(false);
   const duplicateNoticeDismissedRef = useRef(false);
   const [channelLeftNotice, setChannelLeftNotice] = useState("");
@@ -747,6 +755,65 @@ export default function App() {
     }
   };
 
+  const handlePlayRunner = async () => {
+    if (gamesPlayBusy || gamesAttemptsRemaining <= 0) return;
+
+    setGamesPlayBusy(true);
+    setGamesAdToast("");
+
+    try {
+      const data = await callApi("/api/auth/me", {
+        method: "POST",
+        body: JSON.stringify({ action: "games_start_attempt" }),
+      });
+
+      setGamesAttemptsRemaining(
+        data.gamesAttemptsRemaining ?? Math.max(0, gamesAttemptsRemaining - 1)
+      );
+      setPlayingRunner(true);
+    } catch (err: any) {
+      setGamesAdToast(err?.message || t("app.couldNotStartRun"));
+    } finally {
+      setGamesPlayBusy(false);
+    }
+  };
+
+  const handleRunnerExit = (coinsEarned = 0, score = 0) => {
+    setPlayingRunner(false);
+
+    // فور ما الجولة تخلص، نجرب نعرض إعلان تلقائي على طول بدل ما
+    // ننتظر دورة المؤقت العشوائية الجاية.
+    showAdsgramAd().catch(() => {});
+
+    if (score > 0) {
+      setRunnerBestScore((prev) => Math.max(prev, Math.floor(score)));
+
+      callApi("/api/leaderboard", {
+        method: "POST",
+        body: JSON.stringify({ action: "submit_runner_score", score: Math.floor(score) }),
+      })
+        .then((data) => {
+          if (typeof data?.bestScore === "number") {
+            setRunnerBestScore(Math.max(0, Math.floor(data.bestScore)));
+          }
+        })
+        .catch(() => {});
+    }
+
+    if (coinsEarned > 0) {
+      callApi("/api/tasks/complete", {
+        method: "POST",
+        body: JSON.stringify({ taskType: "game_run", reward: coinsEarned }),
+      })
+        .then(() => {
+          handleTaskReward(coinsEarned, t("app.gameRewardTitle", { amount: coinsEarned }), t("app.gameRewardMeta"));
+        })
+        .catch(() => {
+          pushActivity(t("app.couldntRecordReward"), t("app.tryReopeningApp"), "info");
+        });
+    }
+  };
+
   const loadPlayerData = async () => {
     const data = await callApi("/api/auth/me", { method: "GET" });
 
@@ -765,6 +832,7 @@ export default function App() {
     setReferralsCount(Number(data.referralsCount ?? 0));
     setReferralRewardUsdt(Number(data.referralRewardUsdt ?? 0.01));
     setReferralRequiredTasks(Number(data.referralRequiredTasks ?? 5));
+    setRunnerBestScore(Math.max(0, Math.floor(Number(data.runnerBestScore ?? 0))));
 
     const channels =
       Array.isArray(data.requiredChannels)
@@ -1366,6 +1434,10 @@ window.removeEventListener("focus", refreshPlayerData);
     return <GameCanvas onExit={handleLaserEscapeExit} />;
   }
 
+  if (playingRunner) {
+    return <RunnerGame bestScore={runnerBestScore} onExit={handleRunnerExit} />;
+  }
+
   return (
     <div className="app">
       <Background />
@@ -1511,6 +1583,9 @@ window.removeEventListener("focus", refreshPlayerData);
               adToast={gamesAdToast}
               onWatchAd={handleWatchGamesAd}
               onPlay={handlePlayLaserEscape}
+              onPlayRunner={handlePlayRunner}
+              onOpenRunnerLeaderboard={() => setRunnerLeaderboardOpen(true)}
+              runnerBestScore={runnerBestScore}
             />
           )}
 
@@ -1551,6 +1626,12 @@ window.removeEventListener("focus", refreshPlayerData);
         onWatchAd={handleWatchWithdrawAd}
         onClose={() => setWithdrawOpen(false)}
         onConfirm={handleWithdraw}
+      />
+
+      <RunnerLeaderboardModal
+        open={runnerLeaderboardOpen}
+        telegramId={telegramId}
+        onClose={() => setRunnerLeaderboardOpen(false)}
       />
     </div>
   );

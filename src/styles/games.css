@@ -323,6 +323,99 @@
   box-shadow: none;
 }
 
+.game-card-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.game-card-title-row h3 {
+  margin-bottom: 0;
+}
+
+.game-card-leaderboard-btn {
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--gold-1);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+
+.game-card-leaderboard-icon {
+  width: 16px;
+  height: 16px;
+}
+
+/* ---------------- Comet Run card art ---------------- */
+
+.game-card-art-runner {
+  background: radial-gradient(circle at 30% 20%, #241a3a 0%, #0a0716 70%);
+}
+
+.runner-card-ground {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 28px;
+  height: 2px;
+  background: rgba(154, 110, 255, 0.55);
+  box-shadow: 0 0 10px rgba(154, 110, 255, 0.55);
+}
+
+.runner-card-comet {
+  position: absolute;
+  bottom: 30px;
+  left: 34px;
+  width: 22px;
+  height: 22px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #bff2ff, #4a8cff);
+  box-shadow: 0 0 14px rgba(124, 240, 255, 0.75);
+  animation: runner-card-hop 1.1s ease-in-out infinite;
+}
+
+@keyframes runner-card-hop {
+  0%, 60%, 100% { transform: translateY(0); }
+  30% { transform: translateY(-22px); }
+}
+
+.runner-card-crystal {
+  position: absolute;
+  bottom: 28px;
+  width: 0;
+  height: 0;
+  border-left: 9px solid transparent;
+  border-right: 9px solid transparent;
+  border-bottom: 20px solid #ff8f5c;
+  filter: drop-shadow(0 0 6px rgba(255, 120, 80, 0.6));
+}
+
+.runner-card-crystal.c1 { right: 60px; }
+.runner-card-crystal.c2 { right: 30px; bottom: 28px; transform: scale(0.8); }
+
+.runner-card-drone {
+  position: absolute;
+  top: 30px;
+  right: 90px;
+  width: 20px;
+  height: 12px;
+  border-radius: 999px;
+  background: #ff9fd6;
+  box-shadow: 0 0 10px rgba(255, 120, 200, 0.7);
+  animation: runner-card-drone-float 2s ease-in-out infinite;
+}
+
+@keyframes runner-card-drone-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+
 .game-card-soon {
   display: flex;
   align-items: center;

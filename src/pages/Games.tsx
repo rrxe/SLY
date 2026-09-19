@@ -1,4 +1,5 @@
 import { useLanguage } from "../i18n/LanguageContext";
+import UiIcons from "../components/UiIcons";
 import "../styles/games.css";
 
 type Props = {
@@ -10,6 +11,9 @@ type Props = {
   adToast: string;
   onWatchAd: () => void;
   onPlay: () => void;
+  onPlayRunner: () => void;
+  onOpenRunnerLeaderboard: () => void;
+  runnerBestScore: number;
 };
 
 function AttemptDots({ remaining, total }: { remaining: number; total: number }) {
@@ -35,6 +39,9 @@ export default function Games({
   adToast,
   onWatchAd,
   onPlay,
+  onPlayRunner,
+  onOpenRunnerLeaderboard,
+  runnerBestScore,
 }: Props) {
   const { t } = useLanguage();
   const totalToday = freeAttempts + bonusAttempts;
@@ -104,6 +111,48 @@ export default function Games({
           <button
             className="game-card-play"
             onClick={onPlay}
+            disabled={outOfAttempts || playBusy}
+          >
+            {playBusy ? "..." : outOfAttempts ? t("games.noAttemptsLeft") : t("games.playNow")}
+          </button>
+        </div>
+
+        <div className="game-card">
+          <div className="game-card-art game-card-art-runner" aria-hidden="true">
+            <div className="game-card-star s1" />
+            <div className="game-card-star s2" />
+            <div className="game-card-star s3" />
+            <div className="runner-card-ground" />
+            <div className="runner-card-comet" />
+            <div className="runner-card-crystal c1" />
+            <div className="runner-card-crystal c2" />
+            <div className="runner-card-drone" />
+          </div>
+
+          <div className="game-card-info">
+            <div className="game-card-title-row">
+              <h3>{t("games.cometRunTitle")}</h3>
+              <button
+                className="game-card-leaderboard-btn"
+                onClick={onOpenRunnerLeaderboard}
+                aria-label={t("runnerLeaderboard.title")}
+              >
+                <UiIcons name="leaderboard" className="game-card-leaderboard-icon" />
+              </button>
+            </div>
+            <p>{t("games.cometRunDesc")}</p>
+
+            <div className="game-card-meta">
+              <span className="game-card-chip gold">{t("games.cometRunReward")}</span>
+              <span className="game-card-chip">
+                {t("games.cometRunBest", { score: Math.max(0, Math.floor(runnerBestScore || 0)) })}
+              </span>
+            </div>
+          </div>
+
+          <button
+            className="game-card-play"
+            onClick={onPlayRunner}
             disabled={outOfAttempts || playBusy}
           >
             {playBusy ? "..." : outOfAttempts ? t("games.noAttemptsLeft") : t("games.playNow")}

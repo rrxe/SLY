@@ -193,6 +193,28 @@ const ar: Dictionary = {
     playNow: "العب الآن",
     comingSoon: "قريباً",
     comingSoonDesc: "ألعاب فضائية جديدة تنضم لهذا القسم قريباً",
+    cometRunTitle: "كوميت رن",
+    cometRunDesc: "اقفز فوق الكريستالات وانحنِ تحت الدرونات في سباق لانهائي يصير أسرع كل ما تقدّمت",
+    cometRunReward: "كوينز حسب المسافة",
+    cometRunBest: "الأفضل: {{score}}",
+  },
+
+  runnerGame: {
+    score: "النقاط",
+    best: "الأفضل",
+    tapToStart: "اضغط للبدء",
+    controlsHint: "اضغط للقفز • استمر بالضغط للانحناء",
+    milestone: "{{n}}!",
+    newBest: "رقم قياسي جديد!",
+    runSummary: "ربحت {{coins}} كوين بهذه الجولة.",
+  },
+
+  runnerLeaderboard: {
+    eyebrow: "كوميت رن",
+    title: "لوحة الصدارة",
+    loading: "جارِ تحميل لوحة الصدارة...",
+    failedToLoad: "تعذّر تحميل لوحة الصدارة",
+    empty: "لا توجد جولات مسجّلة بعد. كن أول واحد!",
   },
 
   gameCanvas: {
