@@ -61,8 +61,8 @@ const LANES = 3;
 const BASE_SPEED_H = 0.48; // سرعة البداية = ارتفاع الشاشة × هذا الرقم بالثانية
 const MAX_SPEED_H = 1.05; // أقصى سرعة
 const RAMP_SECONDS = 116; // الوقت للوصول لأقصى سرعة (نفس النسخة القديمة)
-const JUMP_DUR = 0.62;
-const JUMP_SAFE_Z = 0.42; // فوق هذا الارتفاع تعدّي الحواجز
+const JUMP_DUR = 0.72; // زودنا مدة القفزة شوي عشان تحس فعلاً إنك طرت مسافة
+const JUMP_SAFE_Z = 0.3; // خفّضناها عشان فترة الأمان فوق الحاجز تصير أطول وتوقيتها أسهل
 const JUMP_BUFFER = 0.14; // لو ضغطت قفز قبل ما تنزل بشوي، ينحفظ
 const SWIPE_PX = 16;
 const TAP_MAX_MS = 320;
@@ -976,7 +976,20 @@ export default function RunnerGame({ bestScore, onExit }: Props) {
           }
           if (s.jumpBuffer > 0) startJump();
         } else {
-          s.z = Math.sin((Math.PI * s.jumpT) / JUMP_DUR);
+          // منحنى فيه "تعليق" بالهواء: يطلع بسرعة، يضل بالقمة فترة كافية، وينزل بسرعة
+          // (بدل منحنى الجرس اللي يفوت بالقمة لحظة وحدة ويصعب توقيته)
+          const jp = clamp(s.jumpT / JUMP_DUR, 0, 1);
+          const RISE = 0.3;
+          const FALL = 0.3;
+          if (jp < RISE) {
+            const rt = jp / RISE;
+            s.z = rt * rt * (3 - 2 * rt);
+          } else if (jp > 1 - FALL) {
+            const ft = (1 - jp) / FALL;
+            s.z = ft * ft * (3 - 2 * ft);
+          } else {
+            s.z = 1;
+          }
         }
       }
       if (s.jumpBuffer > 0) s.jumpBuffer -= dt;
