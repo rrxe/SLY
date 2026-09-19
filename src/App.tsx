@@ -357,6 +357,10 @@ export default function App() {
   // فجأة وسط اللعب - نستخدم ref مو state حتى القيمة توصل فورية
   // لأي setTimeout شغال وقتها بدون ما تنتظر إعادة رندر.
   const playingLaserEscapeRef = useRef(false);
+  // نفس فكرة playingLaserEscapeRef بس للعبة Comet Run - يمنع الإعلان
+  // التلقائي (showAdsgramAd، يشتغل بمؤقت دوري طول عمر التطبيق) من
+  // الظهور فجأة وسط لعبة الجري.
+  const playingRunnerRef = useRef(false);
 
   // حالة MINING تعيش هنا (بمستوى App) مو داخل صفحة Home، حتى ما تنقطع
   // عملية start/claim إذا المستخدم بدّل صفحة قبل ما توصل تأكيدة الإعلان
@@ -543,6 +547,7 @@ export default function App() {
     if (!adsgramControllerRef.current) return false;
     // ما نعرض إعلان تلقائي وسط جولة لعب شغالة - نستناها تخلص.
     if (playingLaserEscapeRef.current) return false;
+    if (playingRunnerRef.current) return false;
 
     if (adShowInFlightRef.current) return false;
 
@@ -771,6 +776,7 @@ export default function App() {
         data.gamesAttemptsRemaining ?? Math.max(0, gamesAttemptsRemaining - 1)
       );
       setPlayingRunner(true);
+      playingRunnerRef.current = true;
     } catch (err: any) {
       setGamesAdToast(err?.message || t("app.couldNotStartRun"));
     } finally {
@@ -780,6 +786,7 @@ export default function App() {
 
   const handleRunnerExit = (coinsEarned = 0, score = 0) => {
     setPlayingRunner(false);
+    playingRunnerRef.current = false;
 
     // فور ما الجولة تخلص، نجرب نعرض إعلان تلقائي على طول بدل ما
     // ننتظر دورة المؤقت العشوائية الجاية.
