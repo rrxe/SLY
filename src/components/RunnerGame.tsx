@@ -1250,22 +1250,18 @@ export default function RunnerGame({ bestScore, onExit }: Props) {
       }
     };
 
-    // السحب يشتغل فوراً لما الإصبع يتجاوز الحد (بدون ما تنتظر ترفع إصبعك)
+    // كل لمسة = حركة وحدة بالضبط (يمين/يسار/قفزة)، حتى لو كمّلت تسحب إصبعك
     const onPointerMove = (event: PointerEvent) => {
-      if (event.pointerId !== ptrId) return;
+      if (event.pointerId !== ptrId || gestureUsed) return; // خلاص تنفّذت حركة، تجاهل باقي السحب
       const dx = event.clientX - startX;
       const dy = event.clientY - startY;
       const adx = Math.abs(dx);
       const ady = Math.abs(dy);
       if (Math.max(adx, ady) < SWIPE_PX) return;
 
-      gestureUsed = true;
+      gestureUsed = true; // يقفل أي حركة ثانية لين ترفع إصبعك وتلمس من جديد
       if (adx > ady) moveLane(dx > 0 ? 1 : -1);
       else if (dy < 0) doJump();
-
-      // نعيد نقطة البداية عشان تقدر تكمل السحب وتبدّل أكثر من مسار بنفس اللمسة
-      startX = event.clientX;
-      startY = event.clientY;
     };
 
     const onPointerUp = (event: PointerEvent) => {
