@@ -8,766 +8,1408 @@ type Props = {
   onExit: (coinsEarned: number, score: number) => void;
 };
 
-type ObstacleKind = "crystal" | "drone" | "lowCrystal";
+/* ------------------------------------------------------------------ */
+/*  Types                                                              */
+/* ------------------------------------------------------------------ */
+
+type ObstacleKind = "crystal" | "barrier" | "drone";
 
 type Obstacle = {
-  x: number;
+  x: number; // مركز العائق
   y: number;
   w: number;
   h: number;
+  lane: number;
   kind: ObstacleKind;
   passed: boolean;
-  spin: number;
+  phase: number;
 };
 
-type Star = {
-  x: number;
-  y: number;
-  r: number;
-  vy: number;
-  alpha: number;
-};
+type Star = { x: number; y: number; r: number; layer: number };
 
-type Dust = {
+type Particle = {
   x: number;
   y: number;
   vx: number;
   vy: number;
   life: number;
+  max: number;
   size: number;
+  color: number;
 };
+
+type Sprite = { cv: HTMLCanvasElement; w: number; h: number; pad: number };
 
 type Phase = "ready" | "active" | "over";
 
-const GRAVITY = 2350;
-const JUMP_VELOCITY = -780;
-const BASE_SPEED = 250;
-const MAX_SPEED = 760;
-const SPEED_RAMP = 4.4;
-const PLAYER_X_RATIO = 0.18;
-const STAND_W = 34;
-const STAND_H = 44;
-const DUCK_W = 46;
-const DUCK_H = 24;
-const HOLD_TO_DUCK_MS = 170;
+type SfxKind = "jump" | "land" | "left" | "right" | "near" | "milestone" | "start" | "hit";
+
+type TgWebApp = {
+  disableVerticalSwipes?: () => void;
+  enableVerticalSwipes?: () => void;
+  HapticFeedback?: {
+    impactOccurred?: (style: string) => void;
+    notificationOccurred?: (type: string) => void;
+  };
+};
+
+/* ------------------------------------------------------------------ */
+/*  Tuning (كل الأرقام هنا لو حبيت تعدّل الإحساس)                      */
+/* ------------------------------------------------------------------ */
+
+const LANES = 3;
+const BASE_SPEED_H = 0.48; // سرعة البداية = ارتفاع الشاشة × هذا الرقم بالثانية
+const MAX_SPEED_H = 1.05; // أقصى سرعة
+const RAMP_SECONDS = 116; // الوقت للوصول لأقصى سرعة (نفس النسخة القديمة)
+const JUMP_DUR = 0.62;
+const JUMP_SAFE_Z = 0.42; // فوق هذا الارتفاع تعدّي الحواجز
+const JUMP_BUFFER = 0.14; // لو ضغطت قفز قبل ما تنزل بشوي، ينحفظ
+const SWIPE_PX = 16;
+const TAP_MAX_MS = 320;
+const MAX_STEP = 1 / 100;
 const AIR_UNLOCK_SCORE = 16;
-const COMBO_UNLOCK_SCORE = 70;
+const DOUBLE_UNLOCK_SCORE = 24;
+const WALL_UNLOCK_SCORE = 40;
+
+const MUSIC_VOL = 0.5;
+const SFX_VOL = 1;
+const MUTE_KEY = "comet_run_muted";
+
+const PARTICLE_COLORS = ["#cddcef", "#7cf0ff", "#ff9fd6", "#ffe27a"];
+
+/* ------------------------------------------------------------------ */
+/*  Helpers                                                            */
+/* ------------------------------------------------------------------ */
 
 function clamp(value: number, min: number, max: number) {
   return Math.max(min, Math.min(max, value));
+}
+
+function lerp(a: number, b: number, t: number) {
+  return a + (b - a) * t;
 }
 
 function coinsForScore(score: number) {
   return Math.min(450, Math.floor(Math.max(0, score) / 4));
 }
 
-function rectHit(
-  ax: number,
-  ay: number,
-  aw: number,
-  ah: number,
-  bx: number,
-  by: number,
-  bw: number,
-  bh: number
-) {
-  return ax < bx + bw && ax + aw > bx && ay < by + bh && ay + ah > by;
+function readMuted() {
+  try {
+    return window.localStorage.getItem(MUTE_KEY) === "1";
+  } catch {
+    return false;
+  }
 }
 
-function makeStars(width: number, height: number): Star[] {
-  return Array.from({ length: 70 }, () => ({
-    x: Math.random() * width,
-    y: Math.random() * height * 0.7,
-    r: Math.random() * 1.6 + 0.4,
-    vy: 6 + Math.random() * 14,
-    alpha: 0.15 + Math.random() * 0.6,
-  }));
+function getTelegram(): TgWebApp | undefined {
+  return (window as unknown as { Telegram?: { WebApp?: TgWebApp } }).Telegram?.WebApp;
 }
+
+function roundRectPath(
+  c: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  r: number
+) {
+  const rr = Math.min(r, w / 2, h / 2);
+  c.beginPath();
+  c.moveTo(x + rr, y);
+  c.arcTo(x + w, y, x + w, y + h, rr);
+  c.arcTo(x + w, y + h, x, y + h, rr);
+  c.arcTo(x, y + h, x, y, rr);
+  c.arcTo(x, y, x + w, y, rr);
+  c.closePath();
+}
+
+/* ------------------------------------------------------------------ */
+/*  Audio engine: مؤثرات مركّبة + موسيقى خلفية تتسارع مع اللعبة        */
+/* ------------------------------------------------------------------ */
+
+const mtof = (m: number) => 440 * Math.pow(2, (m - 69) / 12);
+
+const CHORDS = [
+  { root: 45, tones: [57, 60, 64, 67] }, // Am
+  { root: 41, tones: [57, 60, 65, 69] }, // F
+  { root: 48, tones: [55, 60, 64, 67] }, // C
+  { root: 43, tones: [55, 59, 62, 67] }, // G
+];
+const ARP = [0, 1, 2, 3, 2, 1, 2, 3, 0, 1, 2, 3, 2, 1, 3, 2];
+
+function createAudio() {
+  let ac: AudioContext | null = null;
+  let master: GainNode | null = null;
+  let sfxBus: GainNode | null = null;
+  let musicBus: GainNode | null = null;
+  let musicFilter: BiquadFilterNode | null = null;
+  let noiseBuf: AudioBuffer | null = null;
+  let muted = readMuted();
+
+  let timer: ReturnType<typeof setInterval> | null = null;
+  let playing = false;
+  let nextTime = 0;
+  let step = 0;
+  let bpm = 110;
+
+  const ensure = () => {
+    if (ac) return ac;
+    const Ctor =
+      window.AudioContext ||
+      (window as Window & typeof globalThis & { webkitAudioContext?: typeof AudioContext })
+        .webkitAudioContext;
+    if (!Ctor) return null;
+
+    try {
+      ac = new Ctor({ latencyHint: "interactive" });
+    } catch {
+      ac = new Ctor();
+    }
+
+    const comp = ac.createDynamicsCompressor();
+    comp.threshold.value = -16;
+    comp.knee.value = 14;
+    comp.ratio.value = 5;
+    comp.attack.value = 0.003;
+    comp.release.value = 0.2;
+
+    master = ac.createGain();
+    master.gain.value = muted ? 0 : 1;
+
+    sfxBus = ac.createGain();
+    sfxBus.gain.value = SFX_VOL;
+
+    musicFilter = ac.createBiquadFilter();
+    musicFilter.type = "lowpass";
+    musicFilter.frequency.value = 1800;
+
+    musicBus = ac.createGain();
+    musicBus.gain.value = 0;
+
+    sfxBus.connect(comp);
+    musicBus.connect(musicFilter);
+    musicFilter.connect(comp);
+    comp.connect(master);
+    master.connect(ac.destination);
+
+    noiseBuf = ac.createBuffer(1, ac.sampleRate, ac.sampleRate);
+    const data = noiseBuf.getChannelData(0);
+    for (let i = 0; i < data.length; i += 1) data[i] = Math.random() * 2 - 1;
+
+    return ac;
+  };
+
+  // لازم يتنادى مباشرة داخل حركة لمس/ضغط من المستخدم (شرط iOS و Telegram)
+  const unlock = () => {
+    const c = ensure();
+    if (c && c.state === "suspended") void c.resume();
+  };
+
+  const env = (g: AudioParam, t0: number, peak: number, atk: number, dur: number) => {
+    g.setValueAtTime(0.0001, t0);
+    g.exponentialRampToValueAtTime(Math.max(peak, 0.0002), t0 + atk);
+    g.exponentialRampToValueAtTime(0.0001, t0 + Math.max(dur, atk + 0.01));
+  };
+
+  const blip = (
+    at: number,
+    f0: number,
+    f1: number,
+    dur: number,
+    type: OscillatorType,
+    vol: number,
+    bus?: GainNode | null
+  ) => {
+    const c = ac;
+    const out = bus ?? sfxBus;
+    if (!c || !out) return;
+    const o = c.createOscillator();
+    const g = c.createGain();
+    o.type = type;
+    o.frequency.setValueAtTime(f0, at);
+    if (f1 !== f0) o.frequency.exponentialRampToValueAtTime(Math.max(20, f1), at + dur);
+    env(g.gain, at, vol, 0.006, dur);
+    o.connect(g);
+    g.connect(out);
+    o.start(at);
+    o.stop(at + dur + 0.05);
+  };
+
+  const noise = (
+    at: number,
+    dur: number,
+    type: BiquadFilterType,
+    f0: number,
+    f1: number,
+    vol: number,
+    bus?: GainNode | null
+  ) => {
+    const c = ac;
+    const out = bus ?? sfxBus;
+    if (!c || !out || !noiseBuf) return;
+    const src = c.createBufferSource();
+    const flt = c.createBiquadFilter();
+    const g = c.createGain();
+    src.buffer = noiseBuf;
+    flt.type = type;
+    flt.Q.value = 1.1;
+    flt.frequency.setValueAtTime(f0, at);
+    if (f1 !== f0) flt.frequency.exponentialRampToValueAtTime(Math.max(30, f1), at + dur);
+    env(g.gain, at, vol, 0.005, dur);
+    src.connect(flt);
+    flt.connect(g);
+    g.connect(out);
+    src.start(at, Math.random() * 0.4);
+    src.stop(at + dur + 0.05);
+  };
+
+  const sfx = (kind: SfxKind) => {
+    const c = ac;
+    if (!c || muted) return;
+    const now = c.currentTime;
+
+    switch (kind) {
+      case "jump":
+        blip(now, 300, 840, 0.17, "triangle", 0.2);
+        noise(now, 0.14, "bandpass", 900, 2800, 0.05);
+        break;
+      case "land":
+        blip(now, 160, 60, 0.1, "sine", 0.24);
+        noise(now, 0.06, "lowpass", 1200, 300, 0.07);
+        break;
+      case "left":
+        blip(now, 640, 470, 0.06, "triangle", 0.08);
+        break;
+      case "right":
+        blip(now, 470, 640, 0.06, "triangle", 0.08);
+        break;
+      case "near":
+        noise(now, 0.2, "bandpass", 600, 2400, 0.05);
+        break;
+      case "milestone":
+        blip(now, 660, 660, 0.16, "triangle", 0.12);
+        blip(now + 0.07, 880, 880, 0.16, "triangle", 0.12);
+        blip(now + 0.14, 1320, 1320, 0.2, "triangle", 0.12);
+        blip(now + 0.21, 1760, 1760, 0.3, "sine", 0.05);
+        break;
+      case "start":
+        blip(now, 220, 880, 0.3, "sawtooth", 0.06);
+        blip(now + 0.1, 440, 1320, 0.25, "triangle", 0.07);
+        break;
+      case "hit":
+        noise(now, 0.55, "lowpass", 2600, 120, 0.5);
+        blip(now, 200, 38, 0.5, "sawtooth", 0.26);
+        blip(now, 90, 30, 0.6, "sine", 0.4);
+        break;
+    }
+  };
+
+  const scheduleStep = (i: number, at: number) => {
+    const bus = musicBus;
+    if (!bus) return;
+    const pos = i % 16;
+    const chord = CHORDS[Math.floor(i / 16) % CHORDS.length];
+    const stepDur = 60 / bpm / 4;
+
+    if (pos % 4 === 0) blip(at, 150, 45, 0.14, "sine", 0.45, bus);
+    if (pos === 4 || pos === 12) {
+      noise(at, 0.13, "bandpass", 1800, 1800, 0.14, bus);
+      blip(at, 220, 140, 0.08, "triangle", 0.07, bus);
+    }
+    noise(at, 0.035, "highpass", 7000, 7000, pos % 2 === 0 ? 0.03 : 0.012, bus);
+    if (pos % 2 === 0) {
+      const oct = pos % 8 === 6 ? 12 : 0;
+      blip(at, mtof(chord.root + oct), mtof(chord.root + oct), stepDur * 1.7, "sawtooth", 0.11, bus);
+    }
+    blip(at, mtof(chord.tones[ARP[pos]] + 12), mtof(chord.tones[ARP[pos]] + 12), stepDur * 0.9, "square", 0.03, bus);
+  };
+
+  const tick = () => {
+    const c = ac;
+    if (!c || !playing) return;
+    const stepDur = 60 / bpm / 4;
+    while (nextTime < c.currentTime + 0.14) {
+      scheduleStep(step, nextTime);
+      nextTime += stepDur;
+      step += 1;
+    }
+  };
+
+  const startMusic = () => {
+    const c = ensure();
+    if (!c || !musicBus || playing) return;
+    playing = true;
+    step = 0;
+    nextTime = c.currentTime + 0.06;
+    musicBus.gain.cancelScheduledValues(c.currentTime);
+    musicBus.gain.setTargetAtTime(MUSIC_VOL, c.currentTime, 0.08);
+    timer = setInterval(tick, 30);
+  };
+
+  const stopMusic = (fade = 0.5) => {
+    playing = false;
+    if (timer) {
+      clearInterval(timer);
+      timer = null;
+    }
+    if (ac && musicBus) {
+      musicBus.gain.cancelScheduledValues(ac.currentTime);
+      musicBus.gain.setTargetAtTime(0, ac.currentTime, fade / 3);
+    }
+  };
+
+  // p من 0 إلى 1: كل ما زادت السرعة يتسارع الإيقاع وينفتح الصوت
+  const setIntensity = (p: number) => {
+    bpm = 110 + p * 36;
+    if (ac && musicFilter) musicFilter.frequency.setTargetAtTime(1800 + p * 3400, ac.currentTime, 0.3);
+  };
+
+  const toggleMute = () => {
+    muted = !muted;
+    try {
+      window.localStorage.setItem(MUTE_KEY, muted ? "1" : "0");
+    } catch {
+      /* ignore */
+    }
+    if (ac && master) master.gain.setTargetAtTime(muted ? 0 : 1, ac.currentTime, 0.02);
+    return muted;
+  };
+
+  const suspend = () => {
+    if (ac && ac.state === "running") void ac.suspend();
+  };
+
+  const resume = () => {
+    if (ac && ac.state === "suspended") void ac.resume();
+  };
+
+  const dispose = () => {
+    stopMusic(0.05);
+    if (ac) {
+      void ac.close().catch(() => {});
+      ac = null;
+    }
+  };
+
+  return { unlock, sfx, startMusic, stopMusic, setIntensity, toggleMute, suspend, resume, dispose };
+}
+
+type AudioEngine = ReturnType<typeof createAudio>;
+
+/* ------------------------------------------------------------------ */
+/*  Component                                                          */
+/* ------------------------------------------------------------------ */
 
 export default function RunnerGame({ bestScore, onExit }: Props) {
   const { t } = useLanguage();
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const rafRef = useRef<number | null>(null);
-  const lastTimeRef = useRef(0);
-  const audioRef = useRef<AudioContext | null>(null);
+  const scoreElRef = useRef<HTMLElement>(null);
+  const bestElRef = useRef<HTMLElement>(null);
+  const scoreRef = useRef(0);
+  const audioRef = useRef<AudioEngine | null>(null);
+  const tRef = useRef(t);
 
-  const stateRef = useRef({
-    width: 0,
-    height: 0,
-    dpr: 1,
-    groundY: 0,
-    phase: "ready" as Phase,
-    elapsed: 0,
-    speed: BASE_SPEED,
-    score: 0,
-    coins: 0,
-    playerX: 0,
-    playerY: 0,
-    playerVy: 0,
-    playerW: STAND_W,
-    playerH: STAND_H,
-    grounded: true,
-    ducking: false,
-    pointerDownAt: 0,
-    pointerDown: false,
-    duckHoldFired: false,
-    spawnTimer: 0.9,
-    obstacles: [] as Obstacle[],
-    stars: [] as Star[],
-    dust: [] as Dust[],
-    shake: 0,
-    milestoneFlash: 0,
-    milestoneText: "",
-    newBestShown: false,
-  });
+  const initialBest = Math.max(0, Math.floor(bestScore || 0));
 
-  const [hud, setHud] = useState({ score: 0, best: Math.max(0, Math.floor(bestScore || 0)) });
+  const [ready, setReady] = useState(true);
+  const [muted, setMuted] = useState<boolean>(() => readMuted());
   const [result, setResult] = useState<null | {
     score: number;
     coins: number;
     isNewBest: boolean;
   }>(null);
-  const [ready, setReady] = useState(true);
+
+  useEffect(() => {
+    tRef.current = t;
+  }, [t]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    const ctx = canvas.getContext("2d");
+    // alpha:false = المتصفح ما يحتاج يمزج الكانفس مع اللي وراه، تركيب أسرع
+    const ctx = canvas.getContext("2d", { alpha: false });
     if (!ctx) return;
 
-    ctx.imageSmoothingEnabled = true;
-    const s = stateRef.current;
+    const audio = createAudio();
+    audioRef.current = audio;
 
-    const ensureAudio = async () => {
-      if (!audioRef.current) {
-        const AudioCtor =
-          window.AudioContext ||
-          (window as Window & typeof globalThis & { webkitAudioContext?: typeof AudioContext })
-            .webkitAudioContext;
-        if (!AudioCtor) return;
-        audioRef.current = new AudioCtor();
-      }
-      if (audioRef.current.state === "suspended") {
-        await audioRef.current.resume();
-      }
+    const tg = getTelegram();
+    // بدون هذا سحب الإصبع للأسفل/الأعلى داخل تيليجرام ممكن يصغّر التطبيق
+    tg?.disableVerticalSwipes?.();
+
+    const s = {
+      W: 0,
+      H: 0,
+      dpr: 1,
+      trackW: 0,
+      trackX: 0,
+      laneW: 0,
+      py: 0,
+      pw: 0,
+      ph: 0,
+      baseSpeed: 0,
+      maxSpeed: 0,
+
+      phase: "ready" as Phase,
+      paused: false,
+      elapsed: 0,
+      speed: 0,
+      scrollSpeed: 0,
+      scroll: 0,
+      score: 0,
+      scoreInt: 0,
+      bestShown: initialBest,
+      time: 0,
+
+      lane: 1,
+      px: 0,
+      jumpT: -1,
+      z: 0,
+      jumpBuffer: 0,
+
+      rowDist: 0,
+      nextGap: 0,
+      intensityStep: -1,
+
+      obstacles: [] as Obstacle[],
+      stars: [] as Star[],
+      particles: Array.from({ length: 96 }, () => ({
+        x: 0,
+        y: 0,
+        vx: 0,
+        vy: 0,
+        life: 0,
+        max: 1,
+        size: 2,
+        color: 0,
+      })) as Particle[],
+      pIdx: 0,
+      trailTimer: 0,
+
+      shake: 0,
+      flash: 0,
+      milestoneFlash: 0,
+      milestoneText: "",
+      lastNear: -1,
     };
 
-    const tone = (
-      freq: number,
-      duration: number,
-      type: OscillatorType = "sine",
-      gainValue = 0.05
+    const art = {
+      bg: null as HTMLCanvasElement | null,
+      fog: null as HTMLCanvasElement | null,
+      player: null as Sprite | null,
+      crystal: null as Sprite | null,
+      barrier: null as Sprite | null,
+      drone: null as Sprite | null,
+    };
+
+    let resultTimer: ReturnType<typeof setTimeout> | null = null;
+    let raf = 0;
+    let last = 0;
+
+    const laneX = (lane: number) => s.trackX + s.laneW * (lane + 0.5);
+
+    /* ---------------- feedback ---------------- */
+
+    const haptic = (kind: "light" | "error") => {
+      const h = tg?.HapticFeedback;
+      if (h) {
+        if (kind === "error") h.notificationOccurred?.("error");
+        else h.impactOccurred?.("light");
+        return;
+      }
+      if (navigator.vibrate) navigator.vibrate(kind === "error" ? [90, 40, 90] : 8);
+    };
+
+    const emit = (
+      x: number,
+      y: number,
+      vx: number,
+      vy: number,
+      life: number,
+      size: number,
+      color: number
     ) => {
-      const ac = audioRef.current;
-      if (!ac) return;
-      const osc = ac.createOscillator();
-      const gain = ac.createGain();
-      osc.type = type;
-      osc.frequency.value = freq;
-      gain.gain.value = 0.0001;
-      gain.gain.exponentialRampToValueAtTime(gainValue, ac.currentTime + 0.01);
-      gain.gain.exponentialRampToValueAtTime(0.0001, ac.currentTime + duration);
-      osc.connect(gain);
-      gain.connect(ac.destination);
-      osc.start();
-      osc.stop(ac.currentTime + duration + 0.03);
+      const p = s.particles[s.pIdx];
+      s.pIdx = (s.pIdx + 1) % s.particles.length;
+      p.x = x;
+      p.y = y;
+      p.vx = vx;
+      p.vy = vy;
+      p.life = life;
+      p.max = life;
+      p.size = size;
+      p.color = color;
     };
 
-    const sfx = (kind: "jump" | "hit" | "milestone") => {
-      if (!audioRef.current) return;
-      if (kind === "jump") tone(520, 0.09, "triangle", 0.035);
-      else if (kind === "hit") {
-        tone(140, 0.16, "sawtooth", 0.05);
-        tone(80, 0.22, "triangle", 0.035);
-      } else if (kind === "milestone") {
-        tone(660, 0.08, "sine", 0.03);
-        tone(880, 0.11, "sine", 0.03);
+    /* ---------------- assets (تنرسم مرة وحدة، مو كل فريم) ---------------- */
+
+    const makeCanvas = (w: number, h: number) => {
+      const cv = document.createElement("canvas");
+      cv.width = Math.max(1, Math.ceil(w * s.dpr));
+      cv.height = Math.max(1, Math.ceil(h * s.dpr));
+      const c = cv.getContext("2d") as CanvasRenderingContext2D;
+      c.scale(s.dpr, s.dpr);
+      return { cv, c };
+    };
+
+    const makeSprite = (
+      w: number,
+      h: number,
+      pad: number,
+      draw: (c: CanvasRenderingContext2D, w: number, h: number) => void
+    ): Sprite => {
+      const { cv, c } = makeCanvas(w + pad * 2, h + pad * 2);
+      c.translate(pad, pad);
+      draw(c, w, h);
+      return { cv, w, h, pad };
+    };
+
+    const buildSprites = () => {
+      const lw = s.laneW;
+      s.pw = lw * 0.4;
+      s.ph = lw * 0.52;
+
+      art.player = makeSprite(s.pw, s.ph, 18, (c, w, h) => {
+        const grad = c.createLinearGradient(0, 0, 0, h);
+        grad.addColorStop(0, "#e2fbff");
+        grad.addColorStop(0.45, "#7cf0ff");
+        grad.addColorStop(1, "#4a8cff");
+        c.fillStyle = grad;
+        c.shadowColor = "rgba(124,240,255,.75)";
+        c.shadowBlur = 14;
+        c.beginPath();
+        c.moveTo(w / 2, 0);
+        c.bezierCurveTo(w * 1.05, h * 0.28, w * 1.0, h * 0.8, w / 2, h);
+        c.bezierCurveTo(0, h * 0.8, -w * 0.05, h * 0.28, w / 2, 0);
+        c.closePath();
+        c.fill();
+        c.shadowBlur = 0;
+        c.fillStyle = "rgba(10,20,40,.6)";
+        c.beginPath();
+        c.ellipse(w / 2, h * 0.36, w * 0.17, h * 0.12, 0, 0, Math.PI * 2);
+        c.fill();
+      });
+
+      art.crystal = makeSprite(lw * 0.5, lw * 0.72, 16, (c, w, h) => {
+        const grad = c.createLinearGradient(0, 0, 0, h);
+        grad.addColorStop(0, "#ffd0a0");
+        grad.addColorStop(1, "#ff6b4a");
+        c.fillStyle = grad;
+        c.shadowColor = "rgba(255,120,80,.65)";
+        c.shadowBlur = 12;
+        c.beginPath();
+        c.moveTo(w / 2, 0);
+        c.lineTo(w, h * 0.45);
+        c.lineTo(w / 2, h);
+        c.lineTo(0, h * 0.45);
+        c.closePath();
+        c.fill();
+        c.shadowBlur = 0;
+        c.fillStyle = "rgba(120,20,10,.28)";
+        c.beginPath();
+        c.moveTo(w / 2, 0);
+        c.lineTo(w / 2, h);
+        c.lineTo(0, h * 0.45);
+        c.closePath();
+        c.fill();
+      });
+
+      art.barrier = makeSprite(lw * 0.88, lw * 0.3, 16, (c, w, h) => {
+        const grad = c.createLinearGradient(0, 0, 0, h);
+        grad.addColorStop(0, "#ff7ad0");
+        grad.addColorStop(1, "#8a4dff");
+        c.fillStyle = grad;
+        c.shadowColor = "rgba(255,110,210,.65)";
+        c.shadowBlur = 12;
+        roundRectPath(c, 0, 0, w, h, h * 0.4);
+        c.fill();
+        c.shadowBlur = 0;
+        c.save();
+        roundRectPath(c, 0, 0, w, h, h * 0.4);
+        c.clip();
+        c.strokeStyle = "rgba(255,255,255,.28)";
+        c.lineWidth = h * 0.22;
+        for (let x = -h; x < w + h; x += h * 0.9) {
+          c.beginPath();
+          c.moveTo(x, h);
+          c.lineTo(x + h, 0);
+          c.stroke();
+        }
+        c.restore();
+      });
+
+      art.drone = makeSprite(lw * 0.5, lw * 0.36, 16, (c, w, h) => {
+        c.fillStyle = "#ff9fd6";
+        c.shadowColor = "rgba(255,120,200,.75)";
+        c.shadowBlur = 14;
+        c.beginPath();
+        c.ellipse(w / 2, h / 2, w / 2, h / 2, 0, 0, Math.PI * 2);
+        c.fill();
+        c.shadowBlur = 0;
+        c.fillStyle = "rgba(60,10,50,.6)";
+        c.beginPath();
+        c.arc(w / 2, h / 2, h * 0.2, 0, Math.PI * 2);
+        c.fill();
+      });
+    };
+
+    const buildBackground = () => {
+      const { cv, c } = makeCanvas(s.W, s.H);
+      const g = c.createLinearGradient(0, 0, 0, s.H);
+      g.addColorStop(0, "#120a26");
+      g.addColorStop(0.55, "#0a0718");
+      g.addColorStop(1, "#04030c");
+      c.fillStyle = g;
+      c.fillRect(0, 0, s.W, s.H);
+
+      const rg = c.createRadialGradient(s.W / 2, s.H * 0.9, 0, s.W / 2, s.H * 0.9, s.H * 0.7);
+      rg.addColorStop(0, "rgba(120,80,255,.18)");
+      rg.addColorStop(1, "rgba(120,80,255,0)");
+      c.fillStyle = rg;
+      c.fillRect(0, 0, s.W, s.H);
+
+      c.fillStyle = "rgba(22,14,48,.8)";
+      c.fillRect(s.trackX, 0, s.trackW, s.H);
+
+      c.save();
+      c.strokeStyle = "rgba(154,110,255,.85)";
+      c.lineWidth = 2;
+      c.shadowColor = "rgba(154,110,255,.9)";
+      c.shadowBlur = 12;
+      c.beginPath();
+      c.moveTo(s.trackX, 0);
+      c.lineTo(s.trackX, s.H);
+      c.moveTo(s.trackX + s.trackW, 0);
+      c.lineTo(s.trackX + s.trackW, s.H);
+      c.stroke();
+      c.restore();
+
+      art.bg = cv;
+
+      // ضباب أعلى الشاشة: العوائق تظهر منه تدريجياً بدل ما "تنط" فجأة
+      const fogH = Math.ceil(s.H * 0.26);
+      const fog = makeCanvas(s.W, fogH);
+      const fg = fog.c.createLinearGradient(0, 0, 0, fogH);
+      fg.addColorStop(0, "rgba(18,10,38,1)");
+      fg.addColorStop(1, "rgba(18,10,38,0)");
+      fog.c.fillStyle = fg;
+      fog.c.fillRect(0, 0, s.W, fogH);
+      art.fog = fog.cv;
+    };
+
+    const makeStars = () =>
+      Array.from({ length: 60 }, () => ({
+        x: Math.random() * s.W,
+        y: Math.random() * s.H,
+        r: 0.6 + Math.random() * 1.1,
+        layer: Math.random() < 0.5 ? 0 : 1,
+      }));
+
+    const resize = () => {
+      const parent = canvas.parentElement;
+      const W = parent?.clientWidth || window.innerWidth;
+      const H = parent?.clientHeight || window.innerHeight;
+      // سقف 2 لأن dpr=3 يعني ضعف البكسلات تقريباً بدون فرق واضح، ويكسر الـ60fps
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      if (W === s.W && H === s.H && dpr === s.dpr) return;
+
+      s.W = W;
+      s.H = H;
+      s.dpr = dpr;
+
+      canvas.width = Math.floor(W * dpr);
+      canvas.height = Math.floor(H * dpr);
+      canvas.style.width = `${W}px`;
+      canvas.style.height = `${H}px`;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+      s.trackW = Math.min(W - 16, 440);
+      s.laneW = s.trackW / LANES;
+      s.trackX = (W - s.trackW) / 2;
+      s.py = H * 0.76;
+      s.baseSpeed = H * BASE_SPEED_H;
+      s.maxSpeed = H * MAX_SPEED_H;
+      if (s.phase === "ready") s.speed = s.baseSpeed;
+
+      buildSprites();
+      buildBackground();
+      if (s.stars.length === 0) s.stars = makeStars();
+
+      s.px = laneX(s.lane);
+      for (const ob of s.obstacles) ob.x = laneX(ob.lane);
+    };
+
+    /* ---------------- game logic ---------------- */
+
+    const pushObstacle = (kind: ObstacleKind, lane: number, overshoot: number) => {
+      const lw = s.laneW;
+      let w = lw * 0.5;
+      let h = lw * 0.72 * (0.9 + Math.random() * 0.25);
+      if (kind === "barrier") {
+        w = lw * 0.88;
+        h = lw * 0.3;
+      } else if (kind === "drone") {
+        w = lw * 0.5;
+        h = lw * 0.36;
       }
+      s.obstacles.push({
+        x: laneX(lane),
+        y: -h / 2 - 8 - overshoot,
+        w,
+        h,
+        lane,
+        kind,
+        passed: false,
+        phase: Math.random() * Math.PI * 2,
+      });
     };
 
-    const vibrate = (pattern: number | number[]) => {
-      if (navigator.vibrate) navigator.vibrate(pattern);
-    };
+    const spawnRow = (overshoot: number) => {
+      const sc = s.score;
+      const options = ["crystal", "crystal", "barrier"];
+      if (sc >= AIR_UNLOCK_SCORE) options.push("drone");
+      if (sc >= DOUBLE_UNLOCK_SCORE) options.push("double", "double");
+      if (sc >= WALL_UNLOCK_SCORE) options.push("wall");
 
-    const spawnDust = (x: number, y: number) => {
-      for (let i = 0; i < 5; i += 1) {
-        s.dust.push({
-          x,
-          y,
-          vx: -60 - Math.random() * 60,
-          vy: (Math.random() - 0.5) * 40,
-          life: 0.3 + Math.random() * 0.25,
-          size: 2 + Math.random() * 3,
-        });
+      const pick = options[(Math.random() * options.length) | 0];
+      const lane = (Math.random() * LANES) | 0;
+      let heavy = false;
+
+      if (pick === "crystal") pushObstacle("crystal", lane, overshoot);
+      else if (pick === "barrier") pushObstacle("barrier", lane, overshoot);
+      else if (pick === "drone") pushObstacle("drone", lane, overshoot);
+      else if (pick === "double") {
+        // دايماً يبقى مسار واحد فاضي عشان اللعبة عادلة
+        const freeLane = (Math.random() * LANES) | 0;
+        for (let l = 0; l < LANES; l += 1) {
+          if (l === freeLane) continue;
+          pushObstacle(Math.random() < 0.7 ? "crystal" : "barrier", l, overshoot);
+        }
+        heavy = true;
+      } else {
+        // جدار حواجز على كل المسارات: لازم تقفز
+        for (let l = 0; l < LANES; l += 1) pushObstacle("barrier", l, overshoot);
+        heavy = true;
       }
+
+      // المسافة للصف الجاي تُحسب بالسرعة، فيبقى الوقت المتاح للتفادي عادل حتى لو زادت السرعة
+      const progress = clamp((s.speed - s.baseSpeed) / (s.maxSpeed - s.baseSpeed), 0, 1);
+      const factor = lerp(1.0, 0.7, progress) * (0.92 + Math.random() * 0.28) + (heavy ? 0.15 : 0);
+      s.nextGap = s.speed * factor;
     };
 
-    const resetRun = () => {
-      s.phase = "ready";
-      s.elapsed = 0;
-      s.speed = BASE_SPEED;
-      s.score = 0;
-      s.coins = 0;
-      s.grounded = true;
-      s.ducking = false;
-      s.playerVy = 0;
-      s.playerW = STAND_W;
-      s.playerH = STAND_H;
-      s.playerY = s.groundY - s.playerH;
-      s.spawnTimer = 0.9;
-      s.obstacles = [];
-      s.dust = [];
-      s.shake = 0;
-      s.milestoneFlash = 0;
-      s.newBestShown = false;
-      setHud({ score: 0, best: Math.max(0, Math.floor(bestScore || 0)) });
-      setResult(null);
-      setReady(true);
-    };
-
-    const startRun = async () => {
-      if (s.phase === "active") return;
-      s.phase = "active";
-      setReady(false);
-      await ensureAudio();
+    const startJump = () => {
+      s.jumpT = 0;
+      s.jumpBuffer = 0;
+      audio.sfx("jump");
+      haptic("light");
+      for (let i = 0; i < 4; i += 1) {
+        emit(s.px, s.py + s.ph * 0.4, (Math.random() - 0.5) * 90, 60 + Math.random() * 60, 0.3, 2.5, 0);
+      }
     };
 
     const doJump = () => {
-      if (s.phase !== "active" || !s.grounded || s.ducking) return;
-      s.playerVy = JUMP_VELOCITY;
-      s.grounded = false;
-      spawnDust(s.playerX + s.playerW * 0.3, s.groundY - 2);
-      sfx("jump");
+      if (s.phase !== "active" || s.paused) return;
+      if (s.jumpT >= 0) {
+        s.jumpBuffer = JUMP_BUFFER;
+        return;
+      }
+      startJump();
     };
 
-    const setDuck = (value: boolean) => {
-      if (s.phase !== "active") return;
-      if (!s.grounded && value) return;
-      if (s.ducking === value) return;
-      s.ducking = value;
-      s.playerW = value ? DUCK_W : STAND_W;
-      s.playerH = value ? DUCK_H : STAND_H;
-      s.playerY = s.groundY - s.playerH;
+    const moveLane = (dir: number) => {
+      if (s.phase !== "active" || s.paused) return;
+      const target = clamp(s.lane + dir, 0, LANES - 1);
+      if (target === s.lane) return;
+      s.lane = target;
+      audio.sfx(dir < 0 ? "left" : "right");
+      for (let i = 0; i < 3; i += 1) {
+        emit(s.px, s.py + s.ph * 0.3, -dir * (40 + Math.random() * 60), 30 + Math.random() * 50, 0.25, 2.5, 1);
+      }
+    };
+
+    const startRun = () => {
+      if (s.phase !== "ready") return;
+      s.phase = "active";
+      s.rowDist = 0;
+      s.nextGap = s.H * 0.35;
+      setReady(false);
+      audio.sfx("start");
+      audio.startMusic();
+    };
+
+    const pauseRun = () => {
+      if (s.phase !== "active" || s.paused) return;
+      s.paused = true;
+      audio.suspend();
+    };
+
+    const resumeRun = () => {
+      if (!s.paused) return;
+      s.paused = false;
+      last = 0;
+      audio.resume();
     };
 
     const finishRun = () => {
       if (s.phase !== "active") return;
       s.phase = "over";
-      s.shake = 0.3;
-      sfx("hit");
-      vibrate([110, 40, 110]);
+      s.shake = 0.38;
+      s.flash = 1;
+      audio.sfx("hit");
+      audio.stopMusic(0.6);
+      haptic("error");
+
+      for (let i = 0; i < 28; i += 1) {
+        const a = Math.random() * Math.PI * 2;
+        const sp = 80 + Math.random() * 260;
+        emit(s.px, s.py, Math.cos(a) * sp, Math.sin(a) * sp, 0.5 + Math.random() * 0.4, 2 + Math.random() * 3, i % 2 ? 1 : 2);
+      }
 
       const finalScore = Math.floor(s.score);
       const coinsEarned = coinsForScore(finalScore);
-      const isNewBest = finalScore > Math.floor(bestScore || 0);
+      const isNewBest = finalScore > initialBest;
+      scoreRef.current = finalScore;
+      s.scoreInt = finalScore;
+      if (scoreElRef.current) scoreElRef.current.textContent = String(finalScore);
+      if (finalScore > s.bestShown) {
+        s.bestShown = finalScore;
+        if (bestElRef.current) bestElRef.current.textContent = String(finalScore);
+      }
 
-      s.coins = coinsEarned;
-
-      setHud({ score: finalScore, best: Math.max(finalScore, Math.floor(bestScore || 0)) });
-      setResult({ score: finalScore, coins: coinsEarned, isNewBest });
+      // نأخر ظهور البطاقة نص ثانية عشان اللاعب يشوف الاصطدام
+      resultTimer = setTimeout(() => {
+        setResult({ score: finalScore, coins: coinsEarned, isNewBest });
+      }, 500);
     };
 
-    const spawnObstacle = () => {
-      const width = s.width;
-      const canAir = s.score >= AIR_UNLOCK_SCORE;
-      const canCombo = s.score >= COMBO_UNLOCK_SCORE;
+    const collide = (ob: Obstacle) => {
+      const pw = s.pw * 0.62;
+      const ph = s.ph * 0.66;
+      const pl = s.px - pw / 2;
+      const pt = s.py - ph / 2;
 
-      const roll = Math.random();
-      const kind: ObstacleKind =
-        canAir && roll < 0.32 ? "drone" : roll < 0.14 ? "lowCrystal" : "crystal";
-
-      if (kind === "drone") {
-        const h = 22;
-        const w = 34;
-        s.obstacles.push({
-          x: width + 20,
-          y: s.groundY - s.playerH * 0.98 - h,
-          w,
-          h,
-          kind,
-          passed: false,
-          spin: 0,
-        });
+      let hw = ob.w;
+      let hh = ob.h;
+      if (ob.kind === "crystal") {
+        hw *= 0.6;
+        hh *= 0.78;
+      } else if (ob.kind === "barrier") {
+        if (s.z > JUMP_SAFE_Z) return false;
+        hw *= 0.94;
+        hh *= 0.85;
       } else {
-        const h = kind === "lowCrystal" ? 30 : 30 + Math.random() * 20;
-        const w = 22 + Math.random() * 8;
-        s.obstacles.push({
-          x: width + 20,
-          y: s.groundY - h,
-          w,
-          h,
-          kind,
-          passed: false,
-          spin: 0,
-        });
+        hw *= 0.66;
+        hh *= 0.66;
       }
 
-      if (canCombo && Math.random() < 0.22) {
-        const extraKind: ObstacleKind = canAir && Math.random() < 0.5 ? "drone" : "crystal";
-        const gap = 70 + Math.random() * 30;
-        if (extraKind === "drone") {
-          const h = 22;
-          const w = 34;
-          s.obstacles.push({
-            x: width + 20 + gap,
-            y: s.groundY - s.playerH * 0.98 - h,
-            w,
-            h,
-            kind: extraKind,
-            passed: false,
-            spin: 0,
-          });
-        } else {
-          const h = 30 + Math.random() * 20;
-          const w = 22 + Math.random() * 8;
-          s.obstacles.push({
-            x: width + 20 + gap,
-            y: s.groundY - h,
-            w,
-            h,
-            kind: extraKind,
-            passed: false,
-            spin: 0,
-          });
-        }
-      }
-    };
-
-    const updateStars = (dt: number) => {
-      for (const star of s.stars) {
-        star.y += star.vy * dt;
-        if (star.y > s.height * 0.75) {
-          star.y = -4;
-          star.x = Math.random() * s.width;
-        }
-      }
-    };
-
-    const updateDust = (dt: number) => {
-      s.dust = s.dust.filter((d) => {
-        d.life -= dt;
-        d.x += d.vx * dt;
-        d.y += d.vy * dt;
-        return d.life > 0;
-      });
+      return (
+        pl < ob.x + hw / 2 && pl + pw > ob.x - hw / 2 && pt < ob.y + hh / 2 && pt + ph > ob.y - hh / 2
+      );
     };
 
     const update = (dt: number) => {
+      s.time += dt;
       if (s.milestoneFlash > 0) s.milestoneFlash = Math.max(0, s.milestoneFlash - dt * 1.6);
+      if (s.flash > 0) s.flash = Math.max(0, s.flash - dt * 3);
       if (s.shake > 0) s.shake = Math.max(0, s.shake - dt);
-      updateStars(dt);
-      updateDust(dt);
+
+      // الجسيمات
+      for (const p of s.particles) {
+        if (p.life <= 0) continue;
+        p.life -= dt;
+        p.x += p.vx * dt;
+        p.y += p.vy * dt;
+      }
+
+      // سرعة تمرير العالم: تتأقلم بنعومة بين الانتظار/اللعب/الخسارة
+      const target =
+        s.phase === "active" ? s.speed : s.phase === "ready" ? s.baseSpeed * 0.4 : 0;
+      s.scrollSpeed += (target - s.scrollSpeed) * (1 - Math.exp(-dt * 5));
+      s.scroll += s.scrollSpeed * dt;
+
+      for (const star of s.stars) {
+        star.y += (s.scrollSpeed * (star.layer ? 0.12 : 0.05) + 8) * dt;
+        if (star.y > s.H + 4) {
+          star.y = -4;
+          star.x = Math.random() * s.W;
+        }
+      }
+
+      // اللاعب ينزلق للمسار بشكل مستقل عن الفريمات (نفس الإحساس على 60 و 120 هرتز)
+      const tx = laneX(s.lane);
+      s.px += (tx - s.px) * (1 - Math.exp(-dt * 20));
 
       if (s.phase !== "active") return;
 
       s.elapsed += dt;
-      s.speed = Math.min(MAX_SPEED, BASE_SPEED + s.elapsed * SPEED_RAMP);
-      s.score += dt * (s.speed / 38);
+      const progress = clamp(s.elapsed / RAMP_SECONDS, 0, 1);
+      s.speed = lerp(s.baseSpeed, s.maxSpeed, progress);
 
-      const prevMilestone = Math.floor((s.score - dt * (s.speed / 38)) / 100);
+      // نفس اقتصاد النقاط القديم (6.6 → 20 نقطة بالثانية)
+      const rate = 6.6 + progress * 13.4;
+      const prevMilestone = Math.floor(s.score / 100);
+      s.score += dt * rate;
       const currMilestone = Math.floor(s.score / 100);
       if (currMilestone > prevMilestone && currMilestone > 0) {
         s.milestoneFlash = 1;
-        s.milestoneText = t("runnerGame.milestone", { n: currMilestone * 100 });
-        sfx("milestone");
+        s.milestoneText = tRef.current("runnerGame.milestone", { n: currMilestone * 100 });
+        audio.sfx("milestone");
       }
 
-      if (!s.grounded) {
-        s.playerVy += GRAVITY * dt;
-        s.playerY += s.playerVy * dt;
-        if (s.playerY >= s.groundY - s.playerH) {
-          s.playerY = s.groundY - s.playerH;
-          s.playerVy = 0;
-          s.grounded = true;
-          spawnDust(s.playerX + s.playerW * 0.3, s.groundY - 2);
+      const stepIdx = Math.floor(progress * 20);
+      if (stepIdx !== s.intensityStep) {
+        s.intensityStep = stepIdx;
+        audio.setIntensity(progress);
+      }
+
+      // القفز
+      if (s.jumpT >= 0) {
+        s.jumpT += dt;
+        if (s.jumpT >= JUMP_DUR) {
+          s.jumpT = -1;
+          s.z = 0;
+          audio.sfx("land");
+          for (let i = 0; i < 4; i += 1) {
+            emit(s.px, s.py + s.ph * 0.4, (Math.random() - 0.5) * 120, 40 + Math.random() * 50, 0.3, 2.5, 0);
+          }
+          if (s.jumpBuffer > 0) startJump();
+        } else {
+          s.z = Math.sin((Math.PI * s.jumpT) / JUMP_DUR);
         }
       }
+      if (s.jumpBuffer > 0) s.jumpBuffer -= dt;
 
-      s.spawnTimer -= dt;
-      if (s.spawnTimer <= 0) {
-        spawnObstacle();
-        const interval = clamp(1.5 - s.elapsed * 0.011, 0.6, 1.5);
-        s.spawnTimer = interval * (0.82 + Math.random() * 0.36);
+      // ذيل خلف اللاعب
+      s.trailTimer -= dt;
+      if (s.trailTimer <= 0) {
+        s.trailTimer = 0.03;
+        emit(
+          s.px + (Math.random() - 0.5) * s.pw * 0.5,
+          s.py + s.ph * 0.45,
+          (Math.random() - 0.5) * 20,
+          s.speed * 0.35,
+          0.32,
+          2 + Math.random() * 2,
+          1
+        );
       }
 
+      // توليد الصفوف حسب المسافة
+      s.rowDist += s.speed * dt;
+      while (s.rowDist >= s.nextGap) {
+        const overshoot = s.rowDist - s.nextGap;
+        s.rowDist -= s.nextGap;
+        spawnRow(overshoot);
+      }
+
+      // تحريك العوائق + التصادم (بدون filter عشان ما نولّد garbage كل فريم)
       let hit = false;
-      s.obstacles = s.obstacles.filter((ob) => {
-        ob.x -= s.speed * dt;
-        ob.spin += dt * 4;
+      let w = 0;
+      const obs = s.obstacles;
+      for (let i = 0; i < obs.length; i += 1) {
+        const ob = obs[i];
+        ob.y += s.speed * dt;
 
-        if (
-          !hit &&
-          rectHit(s.playerX, s.playerY, s.playerW, s.playerH, ob.x, ob.y, ob.w, ob.h)
-        ) {
-          hit = true;
+        if (ob.kind === "drone") {
+          ob.phase += dt * 3.2;
+          ob.x = laneX(ob.lane) + Math.sin(ob.phase) * s.laneW * 0.22;
         }
 
-        return ob.x + ob.w > -20;
-      });
+        if (!hit && collide(ob)) hit = true;
+
+        if (!ob.passed && ob.y - ob.h / 2 > s.py + s.ph / 2) {
+          ob.passed = true;
+          if (
+            ob.kind !== "barrier" &&
+            Math.abs(ob.x - s.px) < s.laneW * 0.8 &&
+            s.time - s.lastNear > 0.25
+          ) {
+            s.lastNear = s.time;
+            audio.sfx("near");
+          }
+        }
+
+        if (ob.y - ob.h / 2 < s.H + 40) obs[w++] = ob;
+      }
+      obs.length = w;
 
       if (hit) {
         finishRun();
         return;
       }
 
-      setHud((prev) => {
-        const scoreInt = Math.floor(s.score);
-        if (scoreInt === prev.score) return prev;
-        return { score: scoreInt, best: Math.max(prev.best, scoreInt) };
-      });
-    };
-
-    const drawBackground = () => {
-      const gradient = ctx.createLinearGradient(0, 0, 0, s.height);
-      gradient.addColorStop(0, "#120a26");
-      gradient.addColorStop(0.55, "#0a0718");
-      gradient.addColorStop(1, "#04030c");
-      ctx.fillStyle = gradient;
-      ctx.fillRect(0, 0, s.width, s.height);
-
-      for (const star of s.stars) {
-        ctx.save();
-        ctx.globalAlpha = star.alpha;
-        ctx.fillStyle = "#e7dcff";
-        ctx.beginPath();
-        ctx.arc(star.x, star.y, star.r, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.restore();
-      }
-
-      // خط الأرض المضيء + شبكة متحركة تعطي إحساس بالسرعة
-      ctx.save();
-      ctx.strokeStyle = "rgba(154,110,255,.55)";
-      ctx.lineWidth = 2;
-      ctx.shadowColor = "rgba(154,110,255,.7)";
-      ctx.shadowBlur = 10;
-      ctx.beginPath();
-      ctx.moveTo(0, s.groundY + 2);
-      ctx.lineTo(s.width, s.groundY + 2);
-      ctx.stroke();
-      ctx.restore();
-
-      const dashOffset = ((s.elapsed * s.speed) % 46) - 46;
-      ctx.save();
-      ctx.strokeStyle = "rgba(154,110,255,.22)";
-      ctx.lineWidth = 2;
-      for (let x = dashOffset; x < s.width; x += 46) {
-        ctx.beginPath();
-        ctx.moveTo(x, s.groundY + 2);
-        ctx.lineTo(x - 22, s.height);
-        ctx.stroke();
-      }
-      ctx.restore();
-    };
-
-    const drawPlayer = () => {
-      const x = s.playerX;
-      const y = s.playerY;
-      const w = s.playerW;
-      const h = s.playerH;
-
-      ctx.save();
-      ctx.globalAlpha = 0.5;
-      ctx.fillStyle = "rgba(124,240,255,.5)";
-      ctx.beginPath();
-      ctx.ellipse(x + w / 2, s.groundY + 4, w * 0.42, 6, 0, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.restore();
-
-      ctx.save();
-      const grad = ctx.createLinearGradient(x, y, x + w, y + h);
-      grad.addColorStop(0, "#bff2ff");
-      grad.addColorStop(0.5, "#7cf0ff");
-      grad.addColorStop(1, "#4a8cff");
-      ctx.fillStyle = grad;
-      ctx.shadowColor = "rgba(124,240,255,.65)";
-      ctx.shadowBlur = 14;
-
-      const radius = h > 30 ? 12 : 9;
-      const rr = Math.min(radius, w / 2, h / 2);
-      ctx.beginPath();
-      ctx.moveTo(x + rr, y);
-      ctx.arcTo(x + w, y, x + w, y + h, rr);
-      ctx.arcTo(x + w, y + h, x, y + h, rr);
-      ctx.arcTo(x, y + h, x, y, rr);
-      ctx.arcTo(x, y, x + w, y, rr);
-      ctx.closePath();
-      ctx.fill();
-
-      ctx.shadowBlur = 0;
-      ctx.fillStyle = "rgba(10,20,40,.55)";
-      ctx.beginPath();
-      ctx.arc(x + w * 0.68, y + h * 0.32, Math.max(2, w * 0.07), 0, Math.PI * 2);
-      ctx.fill();
-      ctx.restore();
-    };
-
-    const drawObstacle = (ob: Obstacle) => {
-      ctx.save();
-      if (ob.kind === "drone") {
-        const cx = ob.x + ob.w / 2;
-        const cy = ob.y + ob.h / 2;
-        ctx.translate(cx, cy);
-        ctx.fillStyle = "#ff9fd6";
-        ctx.shadowColor = "rgba(255,120,200,.7)";
-        ctx.shadowBlur = 12;
-        ctx.beginPath();
-        ctx.ellipse(0, 0, ob.w / 2, ob.h / 2, 0, 0, Math.PI * 2);
-        ctx.fill();
-
-        ctx.rotate(ob.spin);
-        ctx.strokeStyle = "rgba(255,255,255,.85)";
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.moveTo(-ob.w * 0.75, 0);
-        ctx.lineTo(ob.w * 0.75, 0);
-        ctx.stroke();
-      } else {
-        const grad = ctx.createLinearGradient(ob.x, ob.y, ob.x, ob.y + ob.h);
-        grad.addColorStop(0, "#ffd0a0");
-        grad.addColorStop(1, "#ff6b4a");
-        ctx.fillStyle = grad;
-        ctx.shadowColor = "rgba(255,120,80,.6)";
-        ctx.shadowBlur = 10;
-        ctx.beginPath();
-        ctx.moveTo(ob.x + ob.w / 2, ob.y);
-        ctx.lineTo(ob.x + ob.w, ob.y + ob.h);
-        ctx.lineTo(ob.x, ob.y + ob.h);
-        ctx.closePath();
-        ctx.fill();
-      }
-      ctx.restore();
-    };
-
-    const drawDust = () => {
-      for (const d of s.dust) {
-        ctx.save();
-        ctx.globalAlpha = clamp(d.life * 2.4, 0, 0.6);
-        ctx.fillStyle = "#cddcef";
-        ctx.beginPath();
-        ctx.arc(d.x, d.y, d.size, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.restore();
+      const si = Math.floor(s.score);
+      if (si !== s.scoreInt) {
+        s.scoreInt = si;
+        scoreRef.current = si;
+        if (scoreElRef.current) scoreElRef.current.textContent = String(si);
+        if (si > s.bestShown) {
+          s.bestShown = si;
+          if (bestElRef.current) bestElRef.current.textContent = String(si);
+        }
       }
     };
 
-    const roundRect = (
-      context: CanvasRenderingContext2D,
-      x: number,
-      y: number,
-      width: number,
-      height: number,
-      radius: number
-    ) => {
-      const corner = Math.min(radius, width / 2, height / 2);
-      context.beginPath();
-      context.moveTo(x + corner, y);
-      context.arcTo(x + width, y, x + width, y + height, corner);
-      context.arcTo(x + width, y + height, x, y + height, corner);
-      context.arcTo(x, y + height, x, y, corner);
-      context.arcTo(x, y, x + width, y, corner);
-      context.closePath();
+    /* ---------------- drawing ---------------- */
+
+    const drawSprite = (sp: Sprite | null, cx: number, cy: number, w: number, h: number) => {
+      if (!sp) return;
+      const kx = w / sp.w;
+      const ky = h / sp.h;
+      const dw = (sp.w + sp.pad * 2) * kx;
+      const dh = (sp.h + sp.pad * 2) * ky;
+      ctx.drawImage(sp.cv, cx - dw / 2, cy - dh / 2, dw, dh);
     };
 
-    const drawMilestone = () => {
-      if (s.milestoneFlash <= 0) return;
-      const alpha = clamp(s.milestoneFlash, 0, 1);
-      ctx.save();
-      ctx.globalAlpha = alpha;
-      ctx.fillStyle = "#ffe27a";
-      ctx.font = "800 20px Inter, system-ui, sans-serif";
-      ctx.textAlign = "center";
-      ctx.fillText(s.milestoneText, s.width / 2, s.height * 0.22);
-      ctx.restore();
+    const fitText = (text: string, maxWidth: number, weight: string, size: number) => {
+      let px = size;
+      ctx.font = `${weight} ${px}px Inter, system-ui, sans-serif`;
+      while (px > 9 && ctx.measureText(text).width > maxWidth) {
+        px -= 0.5;
+        ctx.font = `${weight} ${px}px Inter, system-ui, sans-serif`;
+      }
     };
 
-    const drawReadyPrompt = () => {
-      if (s.phase !== "ready") return;
-      const boxW = Math.min(s.width - 32, 340);
-      const boxH = 96;
-      const boxX = (s.width - boxW) / 2;
-      const boxY = s.height * 0.28;
+    const drawPrompt = (title: string, sub: string) => {
+      const boxW = Math.min(s.W - 32, 340);
+      const boxH = sub ? 96 : 64;
+      const boxX = (s.W - boxW) / 2;
+      const boxY = s.H * 0.26;
 
-      ctx.save();
-      ctx.fillStyle = "rgba(10,8,20,.72)";
+      ctx.fillStyle = "rgba(10,8,20,.74)";
       ctx.strokeStyle = "rgba(154,110,255,.35)";
       ctx.lineWidth = 1.5;
-      roundRect(ctx, boxX, boxY, boxW, boxH, 22);
+      roundRectPath(ctx, boxX, boxY, boxW, boxH, 22);
       ctx.fill();
       ctx.stroke();
 
-      ctx.fillStyle = "#f1e9ff";
-      ctx.font = "700 17px Inter, system-ui, sans-serif";
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-      ctx.fillText(t("runnerGame.tapToStart"), s.width / 2, boxY + 34);
+      ctx.fillStyle = "#f1e9ff";
+      fitText(title, boxW - 28, "700", 17);
+      ctx.fillText(title, s.W / 2, boxY + (sub ? 34 : boxH / 2));
 
-      ctx.fillStyle = "#b9a8e0";
-      ctx.font = "600 12.5px Inter, system-ui, sans-serif";
-      ctx.fillText(t("runnerGame.controlsHint"), s.width / 2, boxY + 62);
-      ctx.restore();
+      if (sub) {
+        ctx.fillStyle = "#b9a8e0";
+        fitText(sub, boxW - 28, "600", 12.5);
+        ctx.fillText(sub, s.W / 2, boxY + 62);
+      }
     };
 
     const draw = () => {
-      drawBackground();
+      if (!art.bg) return;
+      ctx.drawImage(art.bg, 0, 0, s.W, s.H);
 
-      if (s.shake > 0) {
-        const sx = (Math.random() - 0.5) * 7 * s.shake;
-        const sy = (Math.random() - 0.5) * 7 * s.shake;
+      // نجوم (دفعة وحدة لكل طبقة)
+      const streak = Math.min(s.scrollSpeed * 0.012, 12);
+      ctx.fillStyle = "rgba(231,220,255,.35)";
+      for (const st of s.stars) if (st.layer === 0) ctx.fillRect(st.x, st.y, st.r, st.r + streak * 0.5);
+      ctx.fillStyle = "rgba(231,220,255,.65)";
+      for (const st of s.stars) if (st.layer === 1) ctx.fillRect(st.x, st.y, st.r, st.r + streak);
+
+      // شبكة المسار + خطوط الفصل تعطي إحساس السرعة
+      const gs = s.laneW * 0.9;
+      const off = s.scroll % gs;
+      ctx.strokeStyle = "rgba(154,110,255,.11)";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      for (let y = off - gs; y < s.H; y += gs) {
+        ctx.moveTo(s.trackX, y);
+        ctx.lineTo(s.trackX + s.trackW, y);
+      }
+      ctx.stroke();
+
+      const dash = 26;
+      ctx.strokeStyle = "rgba(154,110,255,.38)";
+      ctx.lineWidth = 2;
+      ctx.setLineDash([dash, dash]);
+      ctx.lineDashOffset = -(s.scroll % (dash * 2));
+      ctx.beginPath();
+      for (let l = 1; l < LANES; l += 1) {
+        const x = s.trackX + s.laneW * l;
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, s.H);
+      }
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // العالم (مع الاهتزاز)
+      const shaking = s.shake > 0;
+      if (shaking) {
         ctx.save();
-        ctx.translate(sx, sy);
+        ctx.translate((Math.random() - 0.5) * 9 * s.shake, (Math.random() - 0.5) * 9 * s.shake);
       }
 
-      drawDust();
-      for (const ob of s.obstacles) drawObstacle(ob);
-      drawPlayer();
+      for (const ob of s.obstacles) {
+        if (ob.kind === "crystal") {
+          drawSprite(art.crystal, ob.x, ob.y, ob.w, ob.h);
+        } else if (ob.kind === "barrier") {
+          drawSprite(art.barrier, ob.x, ob.y, ob.w, ob.h);
+        } else {
+          drawSprite(art.drone, ob.x, ob.y, ob.w, ob.h);
+          ctx.save();
+          ctx.translate(ob.x, ob.y);
+          ctx.rotate(ob.phase * 3);
+          ctx.strokeStyle = "rgba(255,255,255,.85)";
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(-ob.w * 0.75, 0);
+          ctx.lineTo(ob.w * 0.75, 0);
+          ctx.stroke();
+          ctx.restore();
+        }
+      }
 
-      if (s.shake > 0) ctx.restore();
+      // الجسيمات
+      for (const p of s.particles) {
+        if (p.life <= 0) continue;
+        ctx.globalAlpha = clamp(p.life / p.max, 0, 1) * 0.75;
+        ctx.fillStyle = PARTICLE_COLORS[p.color];
+        ctx.fillRect(p.x - p.size / 2, p.y - p.size / 2, p.size, p.size);
+      }
+      ctx.globalAlpha = 1;
 
-      drawMilestone();
-      drawReadyPrompt();
-    };
+      // اللاعب: القفز = تكبير + ظل يبعد (إحساس ارتفاع). عند الخسارة يختفي ويتحول لانفجار
+      if (s.phase !== "over") {
+        const lift = s.z * s.laneW * 0.42;
+        const scale = 1 + s.z * 0.28;
 
-    const resize = () => {
-      const parent = canvas.parentElement;
-      const width = parent?.clientWidth || window.innerWidth;
-      const height = parent?.clientHeight || window.innerHeight;
-      const dpr = window.devicePixelRatio || 1;
+        ctx.globalAlpha = 0.38 - s.z * 0.18;
+        ctx.fillStyle = "#000";
+        ctx.beginPath();
+        ctx.ellipse(s.px, s.py + s.ph * 0.22, s.pw * 0.5 * (1 - s.z * 0.25), s.pw * 0.2, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = 1;
 
-      s.width = width;
-      s.height = height;
-      s.dpr = dpr;
+        const tilt = clamp((laneX(s.lane) - s.px) / s.laneW, -1, 1) * 0.3;
+        ctx.save();
+        ctx.translate(s.px, s.py - lift);
+        ctx.rotate(tilt);
+        drawSprite(art.player, 0, 0, s.pw * scale, s.ph * scale);
+        ctx.restore();
+      }
 
-      canvas.width = Math.floor(width * dpr);
-      canvas.height = Math.floor(height * dpr);
-      canvas.style.width = `${width}px`;
-      canvas.style.height = `${height}px`;
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      if (shaking) ctx.restore();
 
-      if (s.stars.length === 0) s.stars = makeStars(width, height);
+      if (art.fog) ctx.drawImage(art.fog, 0, 0, s.W, Math.ceil(s.H * 0.26));
 
-      s.groundY = height - 78;
-      s.playerX = width * PLAYER_X_RATIO;
-      if (s.phase === "ready" || s.playerY === 0) {
-        s.playerY = s.groundY - s.playerH;
+      if (s.flash > 0) {
+        ctx.fillStyle = `rgba(255,255,255,${s.flash * 0.45})`;
+        ctx.fillRect(0, 0, s.W, s.H);
+      }
+
+      if (s.milestoneFlash > 0) {
+        ctx.globalAlpha = clamp(s.milestoneFlash, 0, 1);
+        ctx.fillStyle = "#ffe27a";
+        ctx.font = "800 22px Inter, system-ui, sans-serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(s.milestoneText, s.W / 2, s.H * 0.2);
+        ctx.globalAlpha = 1;
+      }
+
+      if (s.paused) drawPrompt(tRef.current("runnerGame.resume"), "");
+      else if (s.phase === "ready") {
+        drawPrompt(tRef.current("runnerGame.tapToStart"), tRef.current("runnerGame.controlsHint"));
       }
     };
 
-    let holdTimer: ReturnType<typeof setTimeout> | null = null;
+    /* ---------------- input ---------------- */
 
-    const onPointerDown = async (event: PointerEvent) => {
+    let ptrId = -1;
+    let startX = 0;
+    let startY = 0;
+    let startT = 0;
+    let gestureUsed = false;
+
+    const onPointerDown = (event: PointerEvent) => {
       event.preventDefault();
+      audio.unlock(); // لازم يكون متزامن داخل الضغطة
+
+      if (s.paused) {
+        resumeRun();
+        return;
+      }
       if (s.phase === "ready") {
-        await startRun();
+        startRun();
         return;
       }
       if (s.phase === "over") return;
 
-      s.pointerDown = true;
-      s.duckHoldFired = false;
-      s.pointerDownAt = performance.now();
-
-      if (holdTimer) clearTimeout(holdTimer);
-      holdTimer = setTimeout(() => {
-        if (s.pointerDown && s.grounded) {
-          s.duckHoldFired = true;
-          setDuck(true);
-        }
-      }, HOLD_TO_DUCK_MS);
+      ptrId = event.pointerId;
+      startX = event.clientX;
+      startY = event.clientY;
+      startT = performance.now();
+      gestureUsed = false;
+      try {
+        canvas.setPointerCapture(event.pointerId);
+      } catch {
+        /* ignore */
+      }
     };
 
-    const onPointerUp = () => {
-      if (holdTimer) {
-        clearTimeout(holdTimer);
-        holdTimer = null;
-      }
-      if (s.pointerDown && !s.duckHoldFired) {
-        doJump();
-      }
-      s.pointerDown = false;
-      setDuck(false);
+    // السحب يشتغل فوراً لما الإصبع يتجاوز الحد (بدون ما تنتظر ترفع إصبعك)
+    const onPointerMove = (event: PointerEvent) => {
+      if (event.pointerId !== ptrId) return;
+      const dx = event.clientX - startX;
+      const dy = event.clientY - startY;
+      const adx = Math.abs(dx);
+      const ady = Math.abs(dy);
+      if (Math.max(adx, ady) < SWIPE_PX) return;
+
+      gestureUsed = true;
+      if (adx > ady) moveLane(dx > 0 ? 1 : -1);
+      else if (dy < 0) doJump();
+
+      // نعيد نقطة البداية عشان تقدر تكمل السحب وتبدّل أكثر من مسار بنفس اللمسة
+      startX = event.clientX;
+      startY = event.clientY;
+    };
+
+    const onPointerUp = (event: PointerEvent) => {
+      if (event.pointerId !== ptrId) return;
+      ptrId = -1;
+      if (!gestureUsed && performance.now() - startT < TAP_MAX_MS) doJump();
     };
 
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.code === "Space" || event.code === "ArrowUp") {
+      const k = event.code;
+      if (k === "ArrowLeft" || k === "KeyA") {
         event.preventDefault();
-        if (s.phase === "ready") {
-          startRun();
-        } else {
-          doJump();
-        }
-      } else if (event.code === "ArrowDown") {
+        audio.unlock();
+        if (!event.repeat) moveLane(-1);
+      } else if (k === "ArrowRight" || k === "KeyD") {
         event.preventDefault();
-        setDuck(true);
+        audio.unlock();
+        if (!event.repeat) moveLane(1);
+      } else if (k === "ArrowUp" || k === "KeyW" || k === "Space") {
+        event.preventDefault();
+        audio.unlock();
+        if (s.paused) resumeRun();
+        else if (s.phase === "ready") startRun();
+        else if (!event.repeat) doJump();
       }
     };
 
-    const onKeyUp = (event: KeyboardEvent) => {
-      if (event.code === "ArrowDown") {
-        setDuck(false);
+    const onVisibility = () => {
+      if (document.hidden) pauseRun();
+    };
+
+    /* ---------------- loop ---------------- */
+
+    const frame = (time: number) => {
+      raf = requestAnimationFrame(frame);
+      if (!last) last = time;
+      let dt = (time - last) / 1000;
+      last = time;
+      if (dt <= 0) return;
+      // رجعنا من تبويب ثاني/تهنيج: لا نقفز بالزمن
+      if (dt > 0.1) dt = 1 / 60;
+      dt = Math.min(dt, 0.05);
+
+      if (!s.paused) {
+        // dt الفعلي للفريم يتقسّم لخطوات متساوية: حركة ناعمة بدون jitter + تصادم دقيق
+        const steps = Math.max(1, Math.ceil(dt / MAX_STEP));
+        const h = dt / steps;
+        for (let i = 0; i < steps; i += 1) update(h);
       }
+      draw();
     };
 
     resize();
-    resetRun();
+    s.speed = s.baseSpeed;
+    s.px = laneX(s.lane);
 
-    window.addEventListener("resize", resize);
+    const ro = new ResizeObserver(resize);
+    if (canvas.parentElement) ro.observe(canvas.parentElement);
+
     canvas.addEventListener("pointerdown", onPointerDown);
-    window.addEventListener("pointerup", onPointerUp);
-    window.addEventListener("pointercancel", onPointerUp);
+    canvas.addEventListener("pointermove", onPointerMove);
+    canvas.addEventListener("pointerup", onPointerUp);
+    canvas.addEventListener("pointercancel", onPointerUp);
+    canvas.addEventListener("contextmenu", (e) => e.preventDefault());
     window.addEventListener("keydown", onKeyDown);
-    window.addEventListener("keyup", onKeyUp);
+    document.addEventListener("visibilitychange", onVisibility);
 
-    rafRef.current = requestAnimationFrame(function loop(time: number) {
-      if (!lastTimeRef.current) lastTimeRef.current = time;
-      const dt = Math.min(0.033, (time - lastTimeRef.current) / 1000);
-      lastTimeRef.current = time;
-
-      update(dt);
-      draw();
-
-      rafRef.current = requestAnimationFrame(loop);
-    });
+    raf = requestAnimationFrame(frame);
 
     return () => {
-      window.removeEventListener("resize", resize);
+      cancelAnimationFrame(raf);
+      ro.disconnect();
       canvas.removeEventListener("pointerdown", onPointerDown);
-      window.removeEventListener("pointerup", onPointerUp);
-      window.removeEventListener("pointercancel", onPointerUp);
+      canvas.removeEventListener("pointermove", onPointerMove);
+      canvas.removeEventListener("pointerup", onPointerUp);
+      canvas.removeEventListener("pointercancel", onPointerUp);
       window.removeEventListener("keydown", onKeyDown);
-      window.removeEventListener("keyup", onKeyUp);
-      if (holdTimer) clearTimeout(holdTimer);
-      if (rafRef.current) cancelAnimationFrame(rafRef.current);
-      lastTimeRef.current = 0;
+      document.removeEventListener("visibilitychange", onVisibility);
+      if (resultTimer) clearTimeout(resultTimer);
+      tg?.enableVerticalSwipes?.();
+      audio.dispose();
+      audioRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const handleBack = () => {
+    onExit(
+      result ? result.coins : coinsForScore(scoreRef.current),
+      result ? result.score : scoreRef.current
+    );
+  };
+
+  const toggleMute = () => {
+    const next = audioRef.current?.toggleMute();
+    if (typeof next === "boolean") setMuted(next);
+  };
+
   return (
-    <section className="game-shell">
+    <section className="game-shell runner-shell">
       <canvas ref={canvasRef} className="game-canvas" />
 
       <div className="game-hud">
-        <button
-          className="hud-back"
-          onClick={() =>
-            onExit(result ? result.coins : coinsForScore(hud.score), result?.score ?? hud.score)
-          }
-          aria-label={t("gameCanvas.backToLobby")}
-        >
+        <button className="hud-back" onClick={handleBack} aria-label={t("gameCanvas.backToLobby")}>
           <UiIcons name="back" className="hud-back-icon" />
+        </button>
+
+        <button
+          className="hud-mute"
+          onClick={toggleMute}
+          aria-label={t("runnerGame.sound")}
+          aria-pressed={!muted}
+        >
+          <svg viewBox="0 0 24 24" className="hud-mute-icon" aria-hidden="true">
+            <path d="M4 9.5v5h3.5L12 18.5v-13L7.5 9.5H4Z" fill="currentColor" />
+            {muted ? (
+              <path
+                d="m15.5 9.5 5 5m0-5-5 5"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                fill="none"
+              />
+            ) : (
+              <path
+                d="M15.5 9a4 4 0 0 1 0 6m2.4-8.6a7.5 7.5 0 0 1 0 11.2"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                fill="none"
+              />
+            )}
+          </svg>
         </button>
 
         <div className="hud-row">
           <div className="hud-chip gold">
             <small>{t("runnerGame.score")}</small>
-            <strong>{hud.score}</strong>
+            <strong ref={scoreElRef}>0</strong>
           </div>
 
           <div className="hud-chip cyan">
             <small>{t("runnerGame.best")}</small>
-            <strong>{hud.best}</strong>
+            <strong ref={bestElRef}>{initialBest}</strong>
           </div>
         </div>
 

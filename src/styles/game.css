@@ -182,6 +182,54 @@
   font-size:16px;
 }
 
+/* ---------------- Comet Run: أزرار HUD + أداء ---------------- */
+
+.hud-mute{
+  position:absolute;
+  top:14px;
+  inset-inline-end:14px;
+  pointer-events:auto;
+  width:42px;
+  height:42px;
+  padding:0;
+  border-radius:14px;
+  background:rgba(15,23,40,.74);
+  border:1px solid rgba(255,255,255,.06);
+  color:#eaf3ff;
+  display:grid;
+  place-items:center;
+  box-shadow:0 10px 24px rgba(0,0,0,.26);
+  backdrop-filter:blur(18px);
+}
+
+.hud-mute-icon{
+  width:20px;
+  height:20px;
+}
+
+.game-canvas{
+  -webkit-tap-highlight-color:transparent;
+  -webkit-touch-callout:none;
+}
+
+/* الـ backdrop-filter فوق canvas متحرك يعيد حساب البلور كل فريم = تقطيع بالأندرويد.
+   بلعبة الجري نستبدله بخلفية معتمة أكثر (نفس الشكل تقريباً بدون تكلفة). */
+.runner-shell .hud-back,
+.runner-shell .hud-mute,
+.runner-shell .hud-chip,
+.runner-shell .hud-status,
+.runner-shell .game-overlay{
+  backdrop-filter:none;
+  -webkit-backdrop-filter:none;
+}
+
+.runner-shell .hud-back,
+.runner-shell .hud-mute,
+.runner-shell .hud-chip,
+.runner-shell .hud-status{
+  background:rgba(15,23,40,.88);
+}
+
 @media (max-width: 420px){
   .game-hud{
     padding:12px;
