@@ -1,0 +1,46 @@
+
+.topbar{
+  position:fixed;
+  top:0;
+  left:0;
+  right:0;
+  z-index:30;
+  min-height:var(--header-h);
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  padding:8px 13px;
+  background:rgba(4,8,10,.88);
+  border-bottom:1px solid rgba(255,255,255,.055);
+  box-shadow:0 10px 28px rgba(0,0,0,.22);
+  backdrop-filter:blur(18px);
+  -webkit-backdrop-filter:blur(18px);
+  transform:translateZ(0);
+}
+.topbar-left{min-width:0;display:flex;flex-direction:column;gap:4px}
+.topbar-kicker{margin:0;color:#77908b;font-size:9px;letter-spacing:2.8px;font-weight:900;text-transform:uppercase}
+.topbar-row{display:flex;align-items:center;gap:7px;min-width:0}
+.page-chip{display:inline-flex;align-items:center;min-height:23px;padding:0 9px;border-radius:999px;background:rgba(84,230,212,.055);border:1px solid rgba(84,230,212,.11);color:#d7eee9;font-size:9px;font-weight:900;letter-spacing:1.15px;text-transform:uppercase}
+.topbar-sub{color:#586b67;font-size:9.5px;white-space:nowrap}
+.topbar-stats{display:flex;align-items:center;gap:6px;flex:none}
+.stat-pill{display:flex;align-items:center;gap:6px;min-width:84px;padding:6px 8px;border-radius:12px;background:rgba(12,18,20,.80);border:1px solid rgba(255,255,255,.06);box-shadow:inset 0 1px rgba(255,255,255,.025)}
+.stat-icon{width:16px;height:16px;flex:none}
+.coins-icon{color:var(--gold-1)}
+.usdt-icon{color:var(--blue-2)}
+.stat-pill small{display:block;color:#657774;font-size:7px;line-height:1;text-transform:uppercase;letter-spacing:1px}
+.stat-pill strong{display:block;margin-top:2px;color:#edf6f4;font-size:11.5px;line-height:1}
+@media(max-width:680px){
+  .topbar{padding:8px 10px}
+  .topbar-sub{display:none}
+  .stat-pill{min-width:auto;padding:6px 7px}
+  .stat-pill small{font-size:6.5px}
+  .stat-pill strong{font-size:10.5px}
+}
+@media(max-width:380px){
+  .topbar-kicker{font-size:8px}
+  .page-chip{font-size:8px;padding:0 8px}
+  .stat-pill{gap:5px;padding:5px 6px}
+  .stat-icon{width:15px;height:15px}
+  .stat-pill strong{font-size:9.5px}
+}

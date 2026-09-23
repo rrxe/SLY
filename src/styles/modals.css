@@ -1,0 +1,1516 @@
+.modal-backdrop{
+  position:fixed;
+  inset:0;
+  z-index:120;
+  display:grid;
+  place-items:center;
+  padding:18px;
+  background:rgba(0,0,0,.78);
+}
+
+.modal-card{
+  width:min(92vw, 460px);
+  border-radius:var(--radius-xl);
+  background:#141b1c;
+  border:1px solid rgba(255,255,255,.06);
+  box-shadow:var(--shadow-1);
+  padding:18px;
+  display:flex;
+  flex-direction:column;
+  gap:14px;
+}
+
+.modal-head{
+  display:flex;
+  justify-content:space-between;
+  gap:12px;
+  align-items:flex-start;
+}
+
+.modal-head p{
+  margin:0;
+  color:var(--blue-1);
+  font-size:11px;
+  letter-spacing:4px;
+  font-weight:700;
+  text-transform:uppercase;
+}
+
+.modal-head h2{
+  margin:6px 0 0;
+  color:var(--text);
+  font-size:clamp(22px, 5vw, 28px);
+  line-height:1;
+}
+
+.modal-close{
+  width:40px;
+  height:40px;
+  border:none;
+  border-radius:var(--radius-md);
+  background:rgba(255,255,255,.05);
+  color:var(--text);
+  display:grid;
+  place-items:center;
+}
+
+.modal-close-icon{
+  width:18px;
+  height:18px;
+}
+
+.exchange-hero{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  padding:14px;
+  border-radius:var(--radius-lg);
+  background:#0d1213;
+  border:1px solid rgba(255,255,255,.05);
+}
+
+.exchange-orb{
+  width:18px;
+  height:18px;
+  border-radius:50%;
+  background:linear-gradient(180deg, #54e6d4, #2fbfae);
+  flex:0 0 auto;
+}
+
+.exchange-hero span{
+  display:block;
+  color:var(--muted);
+  font-size:11px;
+  letter-spacing:2px;
+  text-transform:uppercase;
+  margin-bottom:4px;
+}
+
+.exchange-hero strong{
+  display:block;
+  color:var(--text);
+  font-size:14px;
+  line-height:1.5;
+}
+
+.exchange-field{
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+}
+
+.exchange-field > span{
+  color:var(--muted);
+  font-size:11px;
+  letter-spacing:3px;
+  text-transform:uppercase;
+  font-weight:700;
+}
+
+.exchange-input-row{
+  display:flex;
+  gap:10px;
+  align-items:center;
+}
+
+.exchange-input-row input{
+  flex:1;
+  height:52px;
+  border-radius:var(--radius-md);
+  border:1px solid rgba(255,255,255,.06);
+  background:#0d1213;
+  color:var(--text);
+  padding:0 14px;
+  font-size:16px;
+  outline:none;
+}
+
+.exchange-input-row input::placeholder{
+  color:var(--muted-2);
+}
+
+.exchange-max{
+  height:52px;
+  padding:0 16px;
+  border:none;
+  border-radius:var(--radius-md);
+  background:rgba(84,230,212,.12);
+  color:var(--blue-0);
+  font-weight:800;
+  letter-spacing:1px;
+}
+
+.exchange-preview{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:10px;
+}
+
+.exchange-preview > div{
+  padding:14px;
+  border-radius:var(--radius-lg);
+  background:#0d1213;
+  border:1px solid rgba(255,255,255,.05);
+}
+
+.exchange-preview span{
+  display:block;
+  color:var(--muted);
+  font-size:11px;
+  letter-spacing:2px;
+  text-transform:uppercase;
+  margin-bottom:6px;
+}
+
+.exchange-preview strong{
+  display:block;
+  color:var(--text);
+  font-size:16px;
+  line-height:1.2;
+}
+
+.exchange-note{
+  padding:12px 14px;
+  border-radius:var(--radius-lg);
+  background:rgba(255,255,255,.03);
+  border:1px solid rgba(255,255,255,.05);
+}
+
+.exchange-note p{
+  margin:0;
+  color:var(--muted);
+  font-size:13px;
+  line-height:1.7;
+}
+
+.modal-actions{
+  display:grid;
+  grid-template-columns:1fr 1.4fr;
+  gap:10px;
+}
+
+.modal-button{
+  height:50px;
+  border:none;
+  border-radius:var(--radius-md);
+  font-size:14px;
+  font-weight:800;
+  letter-spacing:.4px;
+}
+
+.modal-button.ghost{
+  background:#141b1c;
+  color:var(--blue-0);
+  border:1px solid rgba(255,255,255,.06);
+}
+
+.modal-button.primary{
+  background:linear-gradient(180deg, #54e6d4 0%, #2fbfae 100%);
+  color:#06201c;
+}
+
+.modal-button:disabled{
+  opacity:.6;
+  cursor:not-allowed;
+}
+
+@media (max-width: 420px){
+  .modal-card{
+    padding:14px;
+    border-radius:var(--radius-lg);
+  }
+
+  .exchange-preview{
+    grid-template-columns:1fr;
+  }
+
+  .modal-actions{
+    grid-template-columns:1fr;
+  }
+}
+
+.withdraw-method-row{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:10px;
+}
+
+.withdraw-method-btn{
+  height:44px;
+  border-radius:var(--radius-md);
+  border:1px solid rgba(255,255,255,.08);
+  background:#0d1213;
+  color:var(--muted);
+  font-size:12.5px;
+  font-weight:800;
+  cursor:pointer;
+  transition:.18s;
+}
+
+.withdraw-method-btn.active{
+  border-color:rgba(84,230,212,.4);
+  background:rgba(84,230,212,.10);
+  color:var(--blue-0);
+}
+
+.withdraw-bnb-note{
+  padding:12px 14px;
+  border-radius:var(--radius-lg);
+  background:#0d1213;
+  border:1px solid rgba(255,255,255,.05);
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+}
+
+.withdraw-bnb-note span{
+  color:var(--muted);
+  font-size:11px;
+  letter-spacing:1px;
+  text-transform:uppercase;
+}
+
+.withdraw-bnb-note strong{
+  color:#54e6d4;
+  font-size:14px;
+  font-family:"SFMono-Regular", Consolas, monospace;
+}
+
+.withdraw-bnb-warning{
+  color:#ff9b9b;
+  font-size:12.5px;
+  line-height:1.5;
+}
+
+.withdraw-method-row{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:10px;
+}
+
+.withdraw-method-btn{
+  height:44px;
+  border-radius:var(--radius-md);
+  border:1px solid rgba(255,255,255,.08);
+  background:#0d1213;
+  color:var(--muted);
+  font-size:12.5px;
+  font-weight:800;
+  cursor:pointer;
+  transition:.18s;
+}
+
+.withdraw-method-btn.active{
+  border-color:rgba(84,230,212,.4);
+  background:rgba(84,230,212,.10);
+  color:var(--blue-0);
+}
+
+.withdraw-bnb-note{
+  padding:12px 14px;
+  border-radius:var(--radius-lg);
+  background:#0d1213;
+  border:1px solid rgba(255,255,255,.05);
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+}
+
+.withdraw-bnb-note span{
+  color:var(--muted);
+  font-size:11px;
+  letter-spacing:1px;
+  text-transform:uppercase;
+}
+
+.withdraw-bnb-note strong{
+  color:#54e6d4;
+  font-size:14px;
+  font-family:"SFMono-Regular", Consolas, monospace;
+}
+
+.withdraw-bnb-warning{
+  color:#ff9b9b;
+  font-size:12.5px;
+  line-height:1.5;
+}
+
+.withdraw-cooldown-note{
+  padding:14px;
+  border-radius:var(--radius-lg);
+  background:rgba(255,107,107,.08);
+  border:1px solid rgba(255,107,107,.20);
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+  text-align:center;
+}
+
+.withdraw-cooldown-note span{
+  color:var(--muted);
+  font-size:11px;
+  letter-spacing:1px;
+  text-transform:uppercase;
+}
+
+.withdraw-cooldown-note strong{
+  color:#ff9b9b;
+  font-size:20px;
+  font-weight:800;
+  font-family:"SFMono-Regular", Consolas, monospace;
+}
+
+.withdraw-ads-gate{
+  padding:14px;
+  border-radius:var(--radius-lg);
+  background:#0d1213;
+  border:1px solid rgba(255,255,255,.06);
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+}
+
+.withdraw-ads-gate-top{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+}
+
+.withdraw-ads-gate-top span{
+  color:var(--muted);
+  font-size:12.5px;
+}
+
+.withdraw-ads-gate-top strong{
+  color:#54e6d4;
+  font-size:15px;
+  font-weight:800;
+}
+
+.withdraw-ads-progress{
+  height:7px;
+  border-radius:999px;
+  background:#1b2324;
+  overflow:hidden;
+}
+
+.withdraw-ads-progress span{
+  display:block;
+  height:100%;
+  background:linear-gradient(90deg,#54e6d4,#2fbfae);
+  transition:width .25s ease;
+}
+
+.withdraw-watch-ad-btn{
+  height:42px;
+  border:none;
+  border-radius:var(--radius-md);
+  background:linear-gradient(135deg,#54e6d4,#2fbfae);
+  color:#06201c;
+  font-size:13.5px;
+  font-weight:800;
+  cursor:pointer;
+}
+
+.withdraw-watch-ad-btn:disabled{
+  opacity:.6;
+  cursor:not-allowed;
+}
+
+.modal-card{
+  max-height: calc(100vh - 36px);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+}
+
+/* ---------------- Runner leaderboard modal ---------------- */
+
+.runner-lb-status{
+  padding: 26px 10px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 13.5px;
+}
+
+.runner-lb-list{
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.runner-lb-row{
+  display: grid;
+  grid-template-columns: 40px 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  background: var(--panel);
+  border: 1px solid var(--line);
+}
+
+.runner-lb-rank{
+  font-weight: 800;
+  color: var(--muted-2);
+  font-size: 13px;
+}
+
+.runner-lb-name{
+  font-weight: 700;
+  color: var(--text);
+  font-size: 13.5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.runner-lb-score{
+  font-weight: 800;
+  color: var(--gold-0);
+  font-size: 14px;
+}
+
+.runner-lb-row-me{
+  border-color: rgba(124, 240, 255, 0.4);
+  background: rgba(124, 240, 255, 0.08);
+}
+
+.runner-lb-row-me .runner-lb-rank{
+  color: #7cf0ff;
+}
+
+.runner-lb-row-detached{
+  margin-top: 4px;
+  border-style: dashed;
+}
+
+/* Modal refinement: bottom-sheet feel, tighter spacing, same SLY palette. */
+.modal-backdrop{place-items:end center;padding:10px;background:rgba(0,0,0,.72);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px)}
+.modal-card{width:min(100%,480px);max-height:min(84dvh,760px);border-radius:25px 25px 18px 18px;padding:16px;gap:12px;background:linear-gradient(155deg,#10191b,#071011 76%);border-color:rgba(255,255,255,.075);box-shadow:0 -10px 50px rgba(0,0,0,.48),inset 0 1px rgba(255,255,255,.035);animation:modal-sheet-in .24s ease both}
+.modal-card::before{content:"";width:42px;height:3px;border-radius:999px;background:rgba(255,255,255,.13);align-self:center;margin:-6px 0 1px}
+@keyframes modal-sheet-in{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:translateY(0)}}
+.modal-head p{font-size:10px;color:var(--blue-1);letter-spacing:3px}
+.modal-head h2{font-size:27px;letter-spacing:-.8px}
+.modal-close{width:42px;height:42px;border-radius:14px;background:rgba(255,255,255,.045);border:1px solid rgba(255,255,255,.05)}
+.exchange-hero,.exchange-preview>div,.exchange-note,.withdraw-ads-gate,.withdraw-bnb-note{background:rgba(6,12,14,.66);border-color:rgba(255,255,255,.055)}
+.exchange-hero{padding:13px}
+.exchange-field{gap:7px}
+.exchange-field>span{font-size:9px;letter-spacing:2.4px}
+.exchange-input-row input{height:49px;background:#060c0e;border-color:rgba(255,255,255,.065);font-size:15px}
+.exchange-max{height:49px;border:1px solid rgba(84,230,212,.09);background:rgba(84,230,212,.065);color:#c9f8f2}
+.exchange-preview{gap:8px}
+.exchange-preview>div{padding:12px;border-radius:15px}
+.exchange-preview span{font-size:9px;letter-spacing:1.7px}
+.exchange-preview strong{font-size:15px}
+.exchange-note{padding:11px 12px}
+.exchange-note p{font-size:12px;line-height:1.6}
+.withdraw-ads-gate{padding:12px}
+.withdraw-ads-gate-top span{font-size:11px}
+.withdraw-ads-gate-top strong{font-size:14px}
+.withdraw-ads-progress{height:6px}
+.withdraw-watch-ad-btn{height:40px;font-size:12.5px}
+.withdraw-method-btn{height:43px;background:#060c0e;border-color:rgba(255,255,255,.06);font-size:11.5px}
+.withdraw-method-btn.active{background:rgba(84,230,212,.07);border-color:rgba(84,230,212,.27)}
+.modal-actions{gap:8px}
+.modal-button{height:48px;border-radius:14px;font-size:13px}
+.modal-button.ghost{background:rgba(255,255,255,.025)}
+.modal-button.primary{background:linear-gradient(135deg,var(--blue-2),var(--blue-3));box-shadow:0 10px 24px rgba(84,230,212,.11)}
+@media(max-width:420px){.modal-backdrop{padding:7px}.modal-card{max-height:88dvh;padding:14px;border-radius:23px 23px 16px 16px}.modal-head h2{font-size:25px}.exchange-preview{grid-template-columns:1fr 1fr}.modal-actions{grid-template-columns:1fr 1.35fr}}
+
+.modal-card.exchange-modal{
+  max-height:min(80dvh,700px);
+}
+
+@media(max-width:420px){
+  .modal-card.exchange-modal{max-height:82dvh}
+}
+
+
+/* SLYMintX compact financial modals */
+.modal-backdrop{
+  align-items:flex-end;
+  padding:10px 10px calc(10px + env(safe-area-inset-bottom));
+  background:rgba(1,4,7,.80);
+  backdrop-filter:blur(15px) saturate(110%);
+  -webkit-backdrop-filter:blur(15px) saturate(110%);
+}
+.modal-card{
+  width:min(100%,430px);
+  max-height:min(88dvh,760px);
+  overflow:auto;
+  border-radius:26px 26px 20px 20px;
+  padding:15px;
+  gap:11px;
+  background:linear-gradient(155deg,rgba(15,23,25,.985),rgba(6,11,13,.995));
+  border:1px solid rgba(255,255,255,.085);
+  box-shadow:0 -10px 70px rgba(0,0,0,.55),0 30px 90px rgba(0,0,0,.28),inset 0 1px rgba(255,255,255,.055);
+  transform:translateY(0);
+}
+.modal-card::before{
+  content:"";width:44px;height:3px;border-radius:99px;margin:0 auto 1px;
+  background:linear-gradient(90deg,rgba(84,230,212,.32),#54e6d4,#e3c071,rgba(227,192,113,.22));
+  box-shadow:0 0 12px rgba(84,230,212,.12);
+}
+.modal-head{align-items:center;margin-bottom:2px;padding:0 1px 11px;border-bottom:1px solid rgba(255,255,255,.055)}
+.modal-head p{font-size:9px;letter-spacing:3px;color:#83cfc4;margin-bottom:3px}
+.modal-head h2{font-size:25px;letter-spacing:-.9px}
+.modal-close{width:42px;height:42px;border-radius:14px;background:rgba(255,255,255,.035);border:1px solid rgba(255,255,255,.065)}
+.modal-close-icon{width:18px;height:18px}
+.exchange-hero{padding:12px 13px;border-radius:17px;background:linear-gradient(145deg,rgba(12,24,24,.90),rgba(7,13,15,.96));border-color:rgba(84,230,212,.09)}
+.exchange-orb{width:20px;height:20px;box-shadow:0 0 18px rgba(84,230,212,.18)}
+.exchange-hero span,.exchange-preview span,.withdraw-ads-gate-top span,.exchange-field>span{font-size:9px;letter-spacing:2.2px;font-weight:800;color:#6f8580}
+.exchange-hero strong{font-size:14px}
+.exchange-field{gap:7px}
+.exchange-input-row{gap:7px}
+.exchange-input-row input{height:50px;border-radius:15px;background:#080f11;border-color:rgba(255,255,255,.065);font-size:15px}
+.exchange-max{height:50px;min-width:72px;padding:0 14px;border-radius:15px;background:rgba(84,230,212,.09);border:1px solid rgba(84,230,212,.12);color:#c5f9f3}
+.exchange-preview{gap:7px}
+.exchange-preview>div{padding:12px 13px;border-radius:16px;background:rgba(255,255,255,.022);border-color:rgba(255,255,255,.05)}
+.exchange-preview strong{font-size:15px}
+.exchange-note{padding:11px 12px;border-radius:15px;background:rgba(255,255,255,.022);border-color:rgba(255,255,255,.045)}
+.exchange-note p{font-size:11px;line-height:1.55;color:#788d89}
+.modal-actions{position:sticky;bottom:-15px;margin:1px -15px -15px;padding:10px 15px 15px;background:linear-gradient(180deg,rgba(6,11,13,.05),rgba(6,11,13,.98) 44%);backdrop-filter:blur(9px);z-index:3}
+.modal-button{height:50px;border-radius:15px;font-size:12.5px}
+.modal-button.ghost{background:rgba(255,255,255,.025);border-color:rgba(255,255,255,.065);color:#a6b8b3}
+.modal-button.primary{box-shadow:0 10px 25px rgba(84,230,212,.11)}
+
+.withdraw-ads-gate{padding:12px;border-radius:18px;background:linear-gradient(145deg,rgba(13,28,29,.84),rgba(6,13,15,.95));border:1px solid rgba(84,230,212,.11);box-shadow:inset 0 1px rgba(255,255,255,.03)}
+.withdraw-ads-gate-top{display:flex;align-items:center;justify-content:space-between;gap:9px}
+.withdraw-ads-gate-top strong{font-size:17px;color:#6fe4d8;letter-spacing:.3px}
+.withdraw-ads-progress{height:6px;margin:9px 0 9px;border-radius:99px;background:#172122;overflow:hidden}
+.withdraw-ads-progress span{display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,#54e6d4,#72dacd);box-shadow:0 0 11px rgba(84,230,212,.18)}
+.withdraw-watch-ad-btn{width:100%;height:43px;border:1px solid rgba(84,230,212,.13);border-radius:13px;background:rgba(84,230,212,.07);color:#d7fffa;font-size:12px;font-weight:900}
+.withdraw-watch-ad-btn:disabled{opacity:.72}
+.withdraw-method-row{gap:7px}
+.withdraw-method-btn{height:47px;border-radius:15px;background:#080f11;border-color:rgba(255,255,255,.06);font-size:11px}
+.withdraw-method-btn.active{background:linear-gradient(180deg,rgba(84,230,212,.11),rgba(84,230,212,.035));border-color:rgba(84,230,212,.27);color:#ddfff9;box-shadow:inset 0 0 18px rgba(84,230,212,.025)}
+.withdraw-method-row .withdraw-method-btn:last-child.active{border-color:rgba(227,192,113,.27);background:linear-gradient(180deg,rgba(227,192,113,.10),rgba(227,192,113,.025));color:#f5e6c0}
+@media(max-width:420px){
+  .modal-backdrop{padding:7px 7px calc(7px + env(safe-area-inset-bottom))}
+  .modal-card{width:100%;max-height:90dvh;border-radius:24px 24px 18px 18px;padding:14px;gap:10px}
+  .modal-head h2{font-size:23px}
+  .exchange-preview{grid-template-columns:1fr 1fr}
+  .modal-actions{margin-left:-14px;margin-right:-14px;margin-bottom:-14px;padding-left:14px;padding-right:14px;padding-bottom:14px}
+}
+
+
+/* SLYMintX final compact no-scroll financial modals */
+
+.modal-backdrop{
+  overflow:hidden;
+  overscroll-behavior:contain;
+  padding:8px 8px calc(8px + env(safe-area-inset-bottom));
+}
+
+.modal-card.exchange-modal{
+  width:min(100%,430px);
+  max-height:calc(100dvh - 16px);
+  overflow:hidden;
+  padding:12px;
+  gap:8px;
+  border-radius:22px;
+}
+
+.modal-card.exchange-modal::before{
+  width:40px;
+  height:3px;
+  margin:-1px auto 0;
+}
+
+.modal-card.exchange-modal .modal-head{
+  margin-bottom:0;
+  padding-bottom:8px;
+}
+
+.modal-card.exchange-modal .modal-head h2{
+  font-size:22px;
+}
+
+.modal-card.exchange-modal .modal-close{
+  width:36px;
+  height:36px;
+  border-radius:12px;
+}
+
+.modal-card.exchange-modal .exchange-hero{
+  padding:9px 11px;
+  min-height:48px;
+  border-radius:14px;
+}
+
+.modal-card.exchange-modal .exchange-hero strong{
+  font-size:12.5px;
+}
+
+.modal-card.exchange-modal .exchange-field{
+  gap:5px;
+}
+
+.modal-card.exchange-modal .exchange-field>span{
+  font-size:8px;
+  letter-spacing:1.8px;
+}
+
+.modal-card.exchange-modal .exchange-input-row{
+  gap:6px;
+}
+
+.modal-card.exchange-modal .exchange-input-row input,
+.modal-card.exchange-modal .exchange-max{
+  height:44px;
+  border-radius:13px;
+}
+
+.modal-card.exchange-modal .exchange-input-row input{
+  font-size:14px;
+}
+
+.modal-card.exchange-modal .exchange-max{
+  min-width:64px;
+  padding:0 11px;
+  font-size:11px;
+}
+
+.modal-card.exchange-modal .exchange-preview{
+  gap:6px;
+}
+
+.modal-card.exchange-modal .exchange-preview>div{
+  padding:9px 10px;
+  border-radius:13px;
+}
+
+.modal-card.exchange-modal .exchange-preview span{
+  margin-bottom:3px;
+  font-size:8px;
+  letter-spacing:1.4px;
+}
+
+.modal-card.exchange-modal .exchange-preview strong{
+  font-size:13px;
+}
+
+.modal-card.exchange-modal .exchange-note{
+  padding:8px 10px;
+  border-radius:13px;
+}
+
+.modal-card.exchange-modal .exchange-note p{
+  font-size:10px;
+  line-height:1.42;
+}
+
+.modal-card.exchange-modal .withdraw-ads-gate{
+  padding:9px 10px;
+  gap:7px;
+  border-radius:15px;
+}
+
+.modal-card.exchange-modal .withdraw-ads-gate-top span{
+  font-size:9.5px;
+}
+
+.modal-card.exchange-modal .withdraw-ads-gate-top strong{
+  font-size:14px;
+}
+
+.modal-card.exchange-modal .withdraw-ads-progress{
+  height:5px;
+  margin:6px 0;
+}
+
+.modal-card.exchange-modal .withdraw-watch-ad-btn{
+  height:37px;
+  border-radius:11px;
+  font-size:11px;
+}
+
+.modal-card.exchange-modal .withdraw-method-row{
+  gap:6px;
+}
+
+.modal-card.exchange-modal .withdraw-method-btn{
+  height:40px;
+  border-radius:13px;
+  font-size:10px;
+}
+
+.modal-card.exchange-modal .modal-actions{
+  position:static;
+  margin:0;
+  padding:5px 0 0;
+  background:none;
+  backdrop-filter:none;
+  -webkit-backdrop-filter:none;
+}
+
+.modal-card.exchange-modal .modal-button{
+  height:44px;
+  border-radius:13px;
+  font-size:11.5px;
+}
+
+@media(max-width:600px){
+  .modal-card.exchange-modal{
+    max-height:calc(100dvh - 14px);
+  }
+}
+
+@media(max-height:720px) and (max-width:600px){
+  .modal-card.exchange-modal{
+    padding:10px;
+    gap:6px;
+    border-radius:20px;
+  }
+
+  .modal-card.exchange-modal .modal-head{
+    padding-bottom:6px;
+  }
+
+  .modal-card.exchange-modal .modal-head h2{
+    font-size:20px;
+  }
+
+  .modal-card.exchange-modal .exchange-hero{
+    padding:7px 9px;
+    min-height:42px;
+  }
+
+  .modal-card.exchange-modal .exchange-input-row input,
+  .modal-card.exchange-modal .exchange-max{
+    height:40px;
+  }
+
+  .modal-card.exchange-modal .exchange-preview>div{
+    padding:7px 9px;
+  }
+
+  .modal-card.exchange-modal .exchange-note{
+    padding:7px 9px;
+  }
+
+  .modal-card.exchange-modal .withdraw-ads-gate{
+    padding:7px 9px;
+  }
+
+  .modal-card.exchange-modal .withdraw-watch-ad-btn{
+    height:34px;
+  }
+
+  .modal-card.exchange-modal .withdraw-method-btn{
+    height:37px;
+  }
+
+  .modal-card.exchange-modal .modal-button{
+    height:41px;
+  }
+}
+
+
+/* SLYMintX financial windows v5 */
+
+.modal-backdrop{
+  z-index:120;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:
+    10px
+    10px
+    calc(10px + env(safe-area-inset-bottom));
+  overflow:hidden;
+  overscroll-behavior:none;
+  background:rgba(0,0,0,.70);
+  backdrop-filter:blur(11px) saturate(105%);
+  -webkit-backdrop-filter:blur(11px) saturate(105%);
+}
+
+.modal-card.exchange-modal{
+  width:min(100%,430px);
+  max-height:calc(100dvh - 20px);
+  overflow:hidden;
+  flex:0 1 auto;
+  padding:18px;
+  gap:11px;
+  border-radius:27px;
+  background:
+    radial-gradient(
+      circle at 94% 0%,
+      rgba(84,230,212,.07),
+      transparent 27%
+    ),
+    radial-gradient(
+      circle at 5% 100%,
+      rgba(227,192,113,.035),
+      transparent 24%
+    ),
+    linear-gradient(
+      155deg,
+      #131d1f 0%,
+      #0c1416 56%,
+      #070d0f 100%
+    );
+  border:1px solid rgba(255,255,255,.09);
+  box-shadow:
+    0 28px 90px rgba(0,0,0,.65),
+    0 0 45px rgba(84,230,212,.035),
+    inset 0 1px rgba(255,255,255,.055);
+  transform:translateZ(0);
+  contain:layout paint;
+}
+
+.modal-card.exchange-modal::before{
+  content:"";
+  width:48px;
+  height:3px;
+  border-radius:999px;
+  align-self:center;
+  margin:-3px auto 1px;
+  background:
+    linear-gradient(
+      90deg,
+      rgba(84,230,212,.15),
+      #54e6d4 40%,
+      #e3c071 62%,
+      rgba(227,192,113,.15)
+    );
+  box-shadow:0 0 13px rgba(84,230,212,.10);
+}
+
+.modal-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  margin:0;
+  padding:0 0 12px;
+  border-bottom:1px solid rgba(255,255,255,.055);
+}
+
+.modal-head p{
+  margin:0 0 4px;
+  color:#83cfc4;
+  font-size:9px;
+  line-height:1;
+  letter-spacing:2.6px;
+  font-weight:900;
+}
+
+.modal-head h2{
+  margin:0;
+  color:var(--text);
+  font-size:26px;
+  line-height:1;
+  letter-spacing:-.75px;
+}
+
+.modal-close{
+  width:40px;
+  height:40px;
+  flex:none;
+  border-radius:13px;
+  background:rgba(255,255,255,.035);
+  border:1px solid rgba(255,255,255,.07);
+  transition:
+    transform .18s ease,
+    background .18s ease,
+    border-color .18s ease;
+}
+
+.modal-close:active{
+  transform:scale(.94);
+}
+
+.modal-card.withdrawal-modal{
+  border-color:rgba(84,230,212,.14);
+}
+
+.modal-card.withdrawal-modal::before{
+  background:
+    linear-gradient(
+      90deg,
+      rgba(84,230,212,.12),
+      #54e6d4,
+      #8fede0,
+      rgba(84,230,212,.12)
+    );
+}
+
+.modal-card.exchange-sheet{
+  border-color:rgba(227,192,113,.14);
+}
+
+.modal-card.exchange-sheet::before{
+  background:
+    linear-gradient(
+      90deg,
+      rgba(227,192,113,.12),
+      #54e6d4,
+      #e3c071,
+      rgba(227,192,113,.12)
+    );
+}
+
+
+/* ============================================================
+   WITHDRAWAL
+   ============================================================ */
+
+.withdrawal-modal .withdraw-ads-gate{
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+  padding:13px;
+  border-radius:18px;
+  background:
+    linear-gradient(
+      145deg,
+      rgba(14,30,31,.88),
+      rgba(6,14,16,.97)
+    );
+  border:1px solid rgba(84,230,212,.105);
+  box-shadow:
+    inset 0 1px rgba(255,255,255,.025);
+}
+
+.withdrawal-modal .withdraw-ads-gate-top{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  min-height:22px;
+}
+
+.withdrawal-modal .withdraw-ads-gate-top span{
+  color:#91a49f;
+  font-size:11px;
+  font-weight:700;
+}
+
+.withdrawal-modal .withdraw-ads-gate-top strong{
+  color:#74e8dc;
+  font-size:17px;
+  letter-spacing:.35px;
+}
+
+.withdrawal-modal .withdraw-ads-progress{
+  height:6px;
+  margin:0;
+  border-radius:999px;
+  background:#172425;
+  overflow:hidden;
+}
+
+.withdrawal-modal .withdraw-watch-ad-btn{
+  width:100%;
+  height:42px;
+  border-radius:13px;
+  border:1px solid rgba(84,230,212,.13);
+  background:
+    linear-gradient(
+      135deg,
+      rgba(84,230,212,.14),
+      rgba(84,230,212,.045)
+    );
+  color:#ddfffa;
+  font-size:12px;
+  font-weight:900;
+  box-shadow:
+    inset 0 1px rgba(255,255,255,.02);
+}
+
+.withdrawal-modal .withdraw-method-row{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:8px;
+}
+
+.withdrawal-modal .withdraw-method-btn{
+  height:46px;
+  border-radius:14px;
+  background:#080f11;
+  border:1px solid rgba(255,255,255,.065);
+  color:#7e928c;
+  font-size:11.5px;
+  font-weight:800;
+}
+
+.withdrawal-modal .withdraw-method-btn.active{
+  color:#e5fffb;
+  border-color:rgba(84,230,212,.30);
+  background:
+    linear-gradient(
+      180deg,
+      rgba(84,230,212,.115),
+      rgba(84,230,212,.03)
+    );
+  box-shadow:
+    inset 0 0 18px rgba(84,230,212,.025);
+}
+
+.withdrawal-modal
+.withdraw-method-row
+.withdraw-method-btn:last-child.active{
+  color:#f6e8c2;
+  border-color:rgba(227,192,113,.29);
+  background:
+    linear-gradient(
+      180deg,
+      rgba(227,192,113,.10),
+      rgba(227,192,113,.025)
+    );
+}
+
+.withdrawal-modal .exchange-field{
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+}
+
+.withdrawal-modal .exchange-field>span{
+  color:#728680;
+  font-size:8px;
+  letter-spacing:2px;
+  font-weight:900;
+}
+
+.withdrawal-modal .exchange-input-row{
+  display:flex;
+  gap:7px;
+}
+
+.withdrawal-modal .exchange-input-row input{
+  flex:1;
+  min-width:0;
+  height:49px;
+  border-radius:15px;
+  padding:0 13px;
+  background:#060d0f;
+  border:1px solid rgba(255,255,255,.065);
+  color:var(--text);
+  font-size:14px;
+}
+
+.withdrawal-modal .exchange-input-row input:focus{
+  border-color:rgba(84,230,212,.25);
+  box-shadow:
+    0 0 0 1px rgba(84,230,212,.10),
+    0 0 22px rgba(84,230,212,.06);
+}
+
+.withdrawal-modal .exchange-max{
+  height:49px;
+  min-width:69px;
+  padding:0 13px;
+  border-radius:15px;
+  background:rgba(84,230,212,.07);
+  border:1px solid rgba(84,230,212,.11);
+  color:#c8f8f2;
+  font-size:10px;
+  font-weight:900;
+}
+
+.withdrawal-modal .exchange-preview{
+  display:grid;
+  grid-template-columns:1fr;
+  gap:0;
+}
+
+.withdrawal-modal .exchange-preview>div{
+  min-height:60px;
+  padding:11px 13px;
+  border-radius:16px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  background:rgba(255,255,255,.022);
+  border:1px solid rgba(255,255,255,.055);
+}
+
+.withdrawal-modal .exchange-preview span{
+  margin:0;
+  color:#71847f;
+  font-size:8px;
+  letter-spacing:1.8px;
+  font-weight:900;
+}
+
+.withdrawal-modal .exchange-preview strong{
+  color:#e7f5f1;
+  font-size:16px;
+  font-weight:850;
+}
+
+.withdrawal-modal .exchange-note{
+  min-height:50px;
+  padding:10px 12px;
+  border-radius:15px;
+  background:rgba(255,255,255,.02);
+  border:1px solid rgba(255,255,255,.045);
+}
+
+.withdrawal-modal .exchange-note p{
+  margin:0;
+  color:#7f918d;
+  font-size:10px;
+  line-height:1.5;
+}
+
+.withdrawal-modal .exchange-note p+p{
+  margin-top:4px !important;
+}
+
+.withdrawal-modal .modal-actions{
+  position:static;
+  display:grid;
+  grid-template-columns:.78fr 1.5fr;
+  gap:8px;
+  margin:0;
+  padding:2px 0 0;
+  background:none;
+  backdrop-filter:none;
+  -webkit-backdrop-filter:none;
+}
+
+.withdrawal-modal .modal-button{
+  height:48px;
+  border-radius:14px;
+  font-size:11.5px;
+}
+
+
+/* ============================================================
+   EXCHANGE
+   ============================================================ */
+
+.exchange-sheet .exchange-hero{
+  min-height:63px;
+  padding:12px 13px;
+  display:flex;
+  align-items:center;
+  gap:11px;
+  border-radius:17px;
+  background:
+    linear-gradient(
+      145deg,
+      rgba(29,26,18,.62),
+      rgba(8,14,16,.95)
+    );
+  border:1px solid rgba(227,192,113,.11);
+}
+
+.exchange-sheet .exchange-orb{
+  position:relative;
+  width:31px;
+  height:31px;
+  flex:none;
+  border-radius:11px;
+  background:
+    radial-gradient(
+      circle at 33% 29%,
+      #ecfffb 0 7%,
+      #54e6d4 8% 30%,
+      #236d65 31% 62%,
+      #0b1717 63%
+    );
+  border:1px solid rgba(84,230,212,.20);
+  box-shadow:
+    0 0 22px rgba(84,230,212,.09),
+    inset -5px -6px 10px rgba(0,0,0,.48);
+}
+
+.exchange-sheet .exchange-orb::after{
+  content:"";
+  position:absolute;
+  inset:-5px;
+  border:1px solid rgba(227,192,113,.18);
+  border-radius:50%;
+  transform:rotate(-25deg);
+}
+
+.exchange-sheet .exchange-hero span{
+  display:block;
+  margin:0 0 3px;
+  color:#80918b;
+  font-size:8px;
+  letter-spacing:2px;
+  font-weight:900;
+}
+
+.exchange-sheet .exchange-hero strong{
+  display:block;
+  color:#f0f7f3;
+  font-size:13px;
+  line-height:1.35;
+}
+
+.exchange-sheet .exchange-field{
+  gap:6px;
+}
+
+.exchange-sheet .exchange-field>span{
+  color:#758982;
+  font-size:8px;
+  letter-spacing:2px;
+  font-weight:900;
+}
+
+.exchange-sheet .exchange-input-row{
+  gap:7px;
+}
+
+.exchange-sheet .exchange-input-row input{
+  flex:1;
+  min-width:0;
+  height:51px;
+  border-radius:15px;
+  background:#060d0f;
+  border:1px solid rgba(255,255,255,.065);
+  color:var(--text);
+  font-size:16px;
+  font-weight:700;
+}
+
+.exchange-sheet .exchange-input-row input:focus{
+  border-color:rgba(84,230,212,.24);
+  box-shadow:
+    0 0 0 1px rgba(84,230,212,.09),
+    0 0 22px rgba(84,230,212,.055);
+}
+
+.exchange-sheet .exchange-max{
+  height:51px;
+  min-width:70px;
+  border-radius:15px;
+  background:rgba(84,230,212,.075);
+  border:1px solid rgba(84,230,212,.12);
+  color:#cdfbf4;
+  font-size:10px;
+  font-weight:900;
+}
+
+.exchange-sheet .exchange-preview{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:8px;
+}
+
+.exchange-sheet .exchange-preview>div{
+  min-height:76px;
+  padding:11px 12px;
+  border-radius:16px;
+  background:rgba(255,255,255,.023);
+  border:1px solid rgba(255,255,255,.05);
+}
+
+.exchange-sheet .exchange-preview span{
+  display:block;
+  margin:0 0 6px;
+  color:#70837d;
+  font-size:8px;
+  letter-spacing:1.6px;
+  font-weight:900;
+}
+
+.exchange-sheet .exchange-preview strong{
+  font-size:15px;
+  color:#eef8f4;
+}
+
+.exchange-sheet .exchange-note{
+  min-height:48px;
+  padding:10px 12px;
+  border-radius:15px;
+  background:rgba(255,255,255,.02);
+  border:1px solid rgba(255,255,255,.045);
+}
+
+.exchange-sheet .exchange-note p{
+  margin:0;
+  color:#7e908b;
+  font-size:10px;
+  line-height:1.48;
+}
+
+.exchange-sheet .modal-actions{
+  position:static;
+  display:grid;
+  grid-template-columns:.78fr 1.5fr;
+  gap:8px;
+  margin:0;
+  padding:2px 0 0;
+  background:none;
+  backdrop-filter:none;
+  -webkit-backdrop-filter:none;
+}
+
+.exchange-sheet .modal-button{
+  height:49px;
+  border-radius:14px;
+  font-size:11.5px;
+}
+
+.exchange-sheet .modal-button.primary{
+  box-shadow:0 12px 25px rgba(84,230,212,.10);
+}
+
+
+/* ============================================================
+   HARD NO-SCROLL
+   ============================================================ */
+
+.modal-card.exchange-modal{
+  overflow:hidden !important;
+  overscroll-behavior:none;
+  scrollbar-width:none;
+  -ms-overflow-style:none;
+}
+
+.modal-card.exchange-modal::-webkit-scrollbar{
+  display:none;
+}
+
+.modal-card.exchange-modal input,
+.modal-card.exchange-modal textarea{
+  overscroll-behavior:none;
+}
+
+@media(max-width:420px){
+  .modal-backdrop{
+    padding:
+      7px
+      7px
+      calc(7px + env(safe-area-inset-bottom));
+  }
+
+  .modal-card.exchange-modal{
+    width:100%;
+    max-height:calc(100dvh - 14px);
+    padding:15px;
+    gap:9px;
+    border-radius:24px;
+  }
+
+  .modal-head{
+    padding-bottom:10px;
+  }
+
+  .modal-head h2{
+    font-size:23px;
+  }
+
+  .withdrawal-modal .withdraw-ads-gate{
+    padding:11px;
+    gap:7px;
+  }
+
+  .withdrawal-modal .withdraw-watch-ad-btn{
+    height:40px;
+  }
+
+  .withdrawal-modal .withdraw-method-btn{
+    height:44px;
+  }
+
+  .withdrawal-modal .exchange-input-row input{
+    height:47px;
+  }
+
+  .withdrawal-modal .exchange-max{
+    height:47px;
+  }
+
+  .withdrawal-modal .exchange-preview>div{
+    min-height:55px;
+    padding:9px 11px;
+  }
+
+  .withdrawal-modal .exchange-note{
+    min-height:45px;
+    padding:9px 11px;
+  }
+
+  .withdrawal-modal .modal-button,
+  .exchange-sheet .modal-button{
+    height:46px;
+  }
+
+  .exchange-sheet .exchange-hero{
+    min-height:58px;
+    padding:10px 11px;
+  }
+
+  .exchange-sheet .exchange-orb{
+    width:28px;
+    height:28px;
+  }
+
+  .exchange-sheet .exchange-preview{
+    grid-template-columns:1fr 1fr;
+  }
+
+  .exchange-sheet .exchange-preview>div{
+    min-height:70px;
+    padding:10px 11px;
+  }
+
+  .exchange-sheet .exchange-note{
+    min-height:44px;
+    padding:9px 11px;
+  }
+}
+
+@media(max-height:700px) and (max-width:420px){
+  .modal-card.exchange-modal{
+    padding:12px;
+    gap:7px;
+  }
+
+  .modal-head{
+    padding-bottom:8px;
+  }
+
+  .modal-head h2{
+    font-size:21px;
+  }
+
+  .withdrawal-modal .withdraw-ads-gate{
+    padding:9px 10px;
+  }
+
+  .withdrawal-modal .withdraw-watch-ad-btn{
+    height:36px;
+  }
+
+  .withdrawal-modal .withdraw-method-btn{
+    height:40px;
+  }
+
+  .withdrawal-modal .exchange-input-row input,
+  .withdrawal-modal .exchange-max{
+    height:43px;
+  }
+
+  .withdrawal-modal .exchange-preview>div{
+    min-height:50px;
+  }
+
+  .withdrawal-modal .exchange-note{
+    min-height:42px;
+  }
+
+  .withdrawal-modal .modal-button,
+  .exchange-sheet .modal-button{
+    height:42px;
+  }
+
+  .exchange-sheet .exchange-hero{
+    min-height:50px;
+  }
+
+  .exchange-sheet .exchange-preview>div{
+    min-height:62px;
+  }
+}

@@ -1,0 +1,40 @@
+.referrals-page{display:flex;flex-direction:column;gap:13px;padding:6px 0 22px;animation:referral-enter .28s ease both}
+@keyframes referral-enter{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.referrals-head{position:relative;min-height:125px;padding:3px 3px 0;overflow:hidden}
+.referrals-kicker{display:inline-block;color:#9d8ad1;font-size:10px;font-weight:900;letter-spacing:2.5px;text-transform:uppercase}
+.referrals-head h1{margin:6px 0 5px;font-size:31px;line-height:1;letter-spacing:-1.1px}
+.referrals-head p{max-width:38ch;color:var(--muted);font-size:12px;line-height:1.55;margin:0}
+.referrals-orbit{position:absolute;right:-54px;top:-42px;width:170px;height:170px;border:1px solid rgba(178,140,255,.12);border-radius:50%;box-shadow:0 0 60px rgba(178,140,255,.045);animation:referral-orbit 12s linear infinite}
+.referrals-orbit::after{content:"";position:absolute;left:18px;top:65px;width:118px;height:31px;border:1px solid rgba(227,192,113,.13);border-radius:50%;transform:rotate(-18deg)}
+@keyframes referral-orbit{to{transform:rotate(360deg)}}
+.referrals-stats{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.referral-stat-card,.referral-link-card,.referral-flow-card{border:1px solid rgba(255,255,255,.06);border-radius:20px;background:linear-gradient(145deg,rgba(14,21,23,.92),rgba(6,11,13,.96));box-shadow:var(--shadow-2)}
+.referral-stat-card{position:relative;padding:13px;overflow:hidden}
+.referral-stat-card::after{content:"";position:absolute;right:-30px;bottom:-50px;width:90px;height:90px;border-radius:50%;border:1px solid rgba(255,255,255,.035)}
+.referral-stat-icon{width:31px;height:31px;display:grid;place-items:center;border-radius:10px;color:var(--blue-2);background:rgba(84,230,212,.055);border:1px solid rgba(84,230,212,.08);margin-bottom:10px}
+.referral-stat-icon.gold{color:var(--gold-1);background:rgba(227,192,113,.045);border-color:rgba(227,192,113,.09)}
+.referral-stat-icon svg{width:16px;height:16px}
+.referral-stat-card span{display:block;color:#6f827d;font-size:8.5px;text-transform:uppercase;letter-spacing:1.3px;font-weight:800}
+.referral-stat-card strong{display:block;margin-top:4px;font-size:22px;line-height:1}
+.referral-stat-card small{font-size:9px;color:var(--blue-2);letter-spacing:1px}
+.referral-link-card{padding:15px}
+.referral-card-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.referral-card-head span{display:block;color:#73847f;font-size:9px;letter-spacing:1.9px;text-transform:uppercase;font-weight:800}
+.referral-card-head h2{margin:4px 0 0;font-size:18px}
+.referral-card-head>svg{width:22px;height:22px;color:#9a86d2;filter:drop-shadow(0 0 7px rgba(178,140,255,.25))}
+.referral-link-row{display:flex;gap:7px;margin-top:12px}
+.referral-link-row input{flex:1;min-width:0;height:45px;padding:0 11px;border-radius:13px;border:1px solid rgba(255,255,255,.065);background:#050b0d;color:#a5b7b3;font-size:10px}
+.referral-link-row button{height:45px;padding:0 13px;border:1px solid rgba(178,140,255,.14);border-radius:13px;background:rgba(178,140,255,.075);color:#d6c9f5;font-size:10px;font-weight:900}
+.referral-link-row button:disabled{opacity:.35}
+.referral-flow-card{padding:15px}
+.referral-flow-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.referral-flow-head span{color:var(--blue-1);font-size:9px;font-weight:900;letter-spacing:2px}
+.referral-flow-head b{color:#7d8f8a;font-size:9px;font-weight:800}
+.referral-flow{display:grid;grid-template-columns:1fr auto 1fr auto 1fr;gap:6px;align-items:center;margin-top:13px}
+.referral-flow>div{min-width:0;text-align:center}
+.referral-flow i{width:31px;height:31px;margin:0 auto 7px;display:grid;place-items:center;border-radius:10px;background:#0b1416;border:1px solid rgba(255,255,255,.06);font-size:8px;font-style:normal;font-weight:900;color:var(--gold-1)}
+.referral-flow strong{display:block;font-size:10px}
+.referral-flow span{display:block;margin-top:2px;color:#61746f;font-size:8px;line-height:1.35}
+.referral-flow em{width:18px;height:1px;background:linear-gradient(90deg,rgba(84,230,212,.15),rgba(227,192,113,.28),rgba(84,230,212,.15))}
+.referral-flow-card>p{margin:13px 0 0;padding-top:11px;border-top:1px solid rgba(255,255,255,.045);color:#60736e;font-size:10px;line-height:1.55}
+@media(max-width:380px){.referrals-stats{gap:8px}.referral-stat-card{padding:11px}.referral-link-row input{font-size:9px}.referral-link-row button{padding:0 10px}.referral-flow{gap:3px}.referral-flow em{width:12px}}

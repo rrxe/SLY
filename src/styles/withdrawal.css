@@ -1,0 +1,348 @@
+.withdrawal-page{
+  display:flex;
+  flex-direction:column;
+  gap:14px;
+  padding:6px 0 22px;
+  animation:withdrawal-enter .28s ease both;
+}
+
+@keyframes withdrawal-enter{
+  from{opacity:0;transform:translateY(8px)}
+  to{opacity:1;transform:translateY(0)}
+}
+
+.withdrawal-page-head{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:14px;
+  padding:4px 2px 2px;
+}
+
+.withdrawal-page-head h1{
+  margin:5px 0 4px;
+  font-size:clamp(30px,8vw,39px);
+  line-height:.98;
+  letter-spacing:-1.5px;
+  font-weight:900;
+}
+
+.withdrawal-page-head p{
+  margin:0;
+  max-width:34ch;
+  color:var(--muted);
+  font-size:13px;
+  line-height:1.55;
+}
+
+.withdrawal-kicker,
+.withdrawal-section-head>div>span{
+  display:inline-flex;
+  align-items:center;
+  gap:7px;
+  color:var(--blue-1);
+  font-size:10px;
+  font-weight:900;
+  letter-spacing:2.6px;
+  text-transform:uppercase;
+}
+
+.withdrawal-live-dot{
+  width:7px;
+  height:7px;
+  border-radius:50%;
+  background:var(--blue-2);
+  box-shadow:0 0 10px rgba(84,230,212,.65);
+  animation:withdrawal-live-pulse 1.8s ease-in-out infinite;
+}
+
+@keyframes withdrawal-live-pulse{
+  0%,100%{transform:scale(.9);opacity:.65}
+  50%{transform:scale(1.12);opacity:1}
+}
+
+.withdrawal-refresh{
+  position:relative;
+  width:42px;
+  height:42px;
+  border-radius:13px;
+  border:1px solid rgba(255,255,255,.07);
+  background:rgba(255,255,255,.035);
+  flex:none;
+}
+
+.withdrawal-refresh::before,
+.withdrawal-refresh::after{
+  content:"";
+  position:absolute;
+  width:15px;
+  height:15px;
+  border:1.7px solid var(--blue-2);
+  border-radius:50%;
+}
+
+.withdrawal-refresh::before{left:10px;top:10px;border-right-color:transparent}
+.withdrawal-refresh::after{right:10px;bottom:10px;border-left-color:transparent}
+.withdrawal-refresh.spinning::before{animation:spin-refresh .7s linear infinite}
+
+@keyframes spin-refresh{to{transform:rotate(360deg)}}
+
+.withdrawal-balance-card,
+.withdrawal-gate-card,
+.withdrawal-section-card{
+  position:relative;
+  border:1px solid rgba(255,255,255,.065);
+  box-shadow:var(--shadow-1);
+  background:linear-gradient(145deg,rgba(16,24,26,.92),rgba(6,11,13,.96));
+  overflow:hidden;
+}
+
+.withdrawal-balance-card{
+  border-radius:24px;
+  padding:18px;
+}
+
+.withdrawal-balance-card::after{
+  content:"";
+  position:absolute;
+  inset:0;
+  background:linear-gradient(115deg,transparent 0 47%,rgba(84,230,212,.06) 50%,transparent 54%),radial-gradient(circle at 82% 20%,rgba(227,192,113,.08),transparent 23%);
+  pointer-events:none;
+}
+
+.withdrawal-balance-glow{
+  position:absolute;
+  width:170px;
+  height:170px;
+  right:-80px;
+  top:-85px;
+  border-radius:50%;
+  border:1px solid rgba(84,230,212,.10);
+  box-shadow:0 0 50px rgba(84,230,212,.07);
+  animation:withdrawal-orbit 10s linear infinite;
+}
+
+@keyframes withdrawal-orbit{to{transform:rotate(360deg)}}
+
+.withdrawal-balance-main,
+.withdrawal-coin-badge,
+.withdrawal-balance-actions{position:relative;z-index:1}
+
+.withdrawal-balance-main span,
+.withdrawal-coin-badge span{
+  display:block;
+  color:#71837f;
+  font-size:10px;
+  text-transform:uppercase;
+  letter-spacing:2px;
+  font-weight:800;
+}
+
+.withdrawal-balance-main strong{
+  display:block;
+  margin-top:5px;
+  font-size:34px;
+  line-height:1;
+  letter-spacing:-1.2px;
+}
+
+.withdrawal-balance-main em{
+  color:var(--blue-2);
+  font-size:12px;
+  font-style:normal;
+  letter-spacing:1.5px;
+}
+
+.withdrawal-balance-main small{
+  display:block;
+  margin-top:7px;
+  color:var(--muted-2);
+  font-size:11px;
+}
+
+.withdrawal-coin-badge{
+  display:flex;
+  align-items:center;
+  gap:9px;
+  width:max-content;
+  margin-top:14px;
+  padding:9px 12px;
+  border:1px solid rgba(227,192,113,.16);
+  border-radius:14px;
+  background:rgba(227,192,113,.045);
+}
+
+.withdrawal-coin-icon{width:19px;height:19px;color:var(--gold-1)}
+.withdrawal-coin-badge strong{display:block;color:var(--gold-0);font-size:14px;line-height:1.1}
+.withdrawal-coin-badge span{font-size:8px;color:#9a8a66;letter-spacing:1.3px}
+
+.withdrawal-balance-actions{
+  display:grid;
+  grid-template-columns:1fr 1.16fr;
+  gap:9px;
+  margin-top:16px;
+}
+
+.withdrawal-action{
+  min-height:50px;
+  border-radius:15px;
+  border:1px solid rgba(255,255,255,.07);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+  font-size:13px;
+  font-weight:900;
+}
+
+.withdrawal-action svg{width:18px;height:18px}
+.withdrawal-action.secondary{background:rgba(84,230,212,.035);color:#b8ccca}
+.withdrawal-action.primary{background:linear-gradient(135deg,var(--blue-2),var(--blue-3));color:#06201c;box-shadow:0 12px 28px rgba(84,230,212,.14)}
+
+.withdrawal-gate-card{
+  display:flex;
+  gap:12px;
+  border-radius:20px;
+  padding:13px;
+  align-items:flex-start;
+}
+
+.withdrawal-gate-icon{
+  width:40px;
+  height:40px;
+  border-radius:13px;
+  display:grid;
+  place-items:center;
+  flex:none;
+  background:rgba(227,192,113,.07);
+  border:1px solid rgba(227,192,113,.12);
+  color:var(--gold-1);
+}
+.withdrawal-gate-icon svg{width:17px;height:17px}
+.withdrawal-gate-content{flex:1;min-width:0}
+.withdrawal-gate-row{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.withdrawal-gate-row span{display:block;color:#8da19c;font-size:12px}
+.withdrawal-gate-row strong{display:block;margin-top:2px;color:var(--text);font-size:13px}
+.withdrawal-gate-row>b{color:var(--blue-2);font-size:14px;white-space:nowrap}
+.withdrawal-progress-track{height:6px;margin:10px 0;border-radius:999px;background:#182123;overflow:hidden}
+.withdrawal-progress-track span{display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,var(--blue-3),var(--blue-2));box-shadow:0 0 10px rgba(84,230,212,.18);transition:width .28s ease}
+.withdrawal-gate-content button{height:37px;padding:0 13px;border-radius:12px;border:1px solid rgba(84,230,212,.14);background:rgba(84,230,212,.06);color:#bafaf2;font-weight:800;font-size:11px}
+
+.withdrawal-section-card{border-radius:22px;padding:15px}
+.withdrawal-section-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.withdrawal-section-head h2{margin:4px 0 3px;color:var(--text);font-size:21px;letter-spacing:-.6px}
+.withdrawal-section-head p{margin:0;color:var(--muted-2);font-size:11px;line-height:1.45}
+.withdrawal-auto-refresh,
+.withdrawal-secure-pill{display:inline-flex;align-items:center;gap:6px;flex:none;color:#72837f;font-size:9px;letter-spacing:1.3px;text-transform:uppercase;font-weight:800}
+.withdrawal-auto-refresh i{width:6px;height:6px;border-radius:50%;background:var(--blue-2);box-shadow:0 0 8px rgba(84,230,212,.55)}
+.withdrawal-secure-pill{padding:6px 9px;border:1px solid rgba(84,230,212,.11);border-radius:999px;background:rgba(84,230,212,.035);color:#8dcfc6}
+
+ .withdrawal-feed-meta{
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
+  margin:13px 0 9px;
+  padding:9px 11px;
+  border:1px solid rgba(255,255,255,.045);
+  border-radius:13px;
+  background:rgba(255,255,255,.018);
+  color:#647874;
+  font-size:10px;
+}
+.withdrawal-feed-meta strong{color:#bfe8e2;font-size:10px;letter-spacing:.7px}
+
+.withdrawal-live-list,
+.withdrawal-my-list{display:flex;flex-direction:column;gap:7px}
+.withdrawal-live-row,
+.withdrawal-my-row{
+  display:grid;
+  grid-template-columns:38px minmax(0,1fr) auto;
+  align-items:center;
+  gap:9px;
+  min-width:0;
+  padding:9px;
+  border-radius:15px;
+  border:1px solid rgba(255,255,255,.045);
+  background:linear-gradient(145deg,rgba(14,21,23,.72),rgba(7,12,13,.88));
+}
+.withdrawal-method-icon,
+.withdrawal-history-icon{width:34px;height:34px;border-radius:11px;display:grid;place-items:center;font-weight:900}
+.withdrawal-method-icon{font-size:12px}
+.withdrawal-method-icon.binance{color:#f3d37e;background:rgba(227,192,113,.08);border:1px solid rgba(227,192,113,.12)}
+.withdrawal-method-icon.bnb{color:#92ede1;background:rgba(84,230,212,.07);border:1px solid rgba(84,230,212,.11)}
+.withdrawal-live-user{min-width:0}
+.withdrawal-live-user strong,
+.withdrawal-my-row strong{display:block;color:var(--text);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.withdrawal-live-user span,
+.withdrawal-my-row div>span{display:block;margin-top:2px;color:#667a75;font-size:9.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.withdrawal-live-amount{text-align:right}
+.withdrawal-live-amount strong{display:block;font-size:11.5px;white-space:nowrap}
+.withdrawal-live-amount strong small{color:#70837f;font-size:8px}
+.withdrawal-status{display:inline-flex;margin-top:3px;padding:3px 6px;border-radius:999px;font-size:7.5px;font-weight:900;letter-spacing:.8px;text-transform:uppercase}
+.withdrawal-status.paid,.withdrawal-status.completed{color:#97f1e5;background:rgba(84,230,212,.065);border:1px solid rgba(84,230,212,.12)}
+.withdrawal-status.pending{color:#f2d895;background:rgba(227,192,113,.065);border:1px solid rgba(227,192,113,.12)}
+.withdrawal-status.rejected{color:#f69a9a;background:rgba(255,107,107,.07);border:1px solid rgba(255,107,107,.12)}
+.withdrawal-status.personal{align-self:center}
+.withdrawal-history-icon{background:rgba(84,230,212,.05);color:var(--blue-2);border:1px solid rgba(84,230,212,.09)}
+.withdrawal-history-icon svg{width:17px;height:17px}
+
+.withdrawal-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:6px;min-height:155px;color:var(--muted)}
+.withdrawal-empty svg{width:24px;height:24px;color:#607572}
+.withdrawal-empty strong{color:#a8b7b4;font-size:13px}
+.withdrawal-empty span{max-width:28ch;color:#5e706c;font-size:10px;line-height:1.5}
+.withdrawal-empty.compact{min-height:105px}
+
+.withdrawal-live-row.skeleton{animation:skeleton-pulse 1.2s ease-in-out infinite alternate}
+.withdrawal-live-row.skeleton>span{width:34px;height:34px;border-radius:11px;background:#151f20}
+.withdrawal-live-row.skeleton>div{display:flex;flex-direction:column;gap:7px}
+.withdrawal-live-row.skeleton>div span{width:70%;height:9px;border-radius:999px;background:#172122}
+.withdrawal-live-row.skeleton>div small{width:45%;height:7px;border-radius:999px;background:#111a1c}
+.withdrawal-live-row.skeleton>div:last-child{align-items:flex-end}
+.withdrawal-live-row.skeleton>div:last-child span{width:55px}
+.withdrawal-live-row.skeleton>div:last-child small{width:36px}
+@keyframes skeleton-pulse{from{opacity:.55}to{opacity:.9}}
+
+@media(max-width:420px){
+  .withdrawal-page{gap:12px}
+  .withdrawal-page-head{padding-top:2px}
+  .withdrawal-page-head h1{font-size:31px}
+  .withdrawal-page-head p{font-size:12px}
+  .withdrawal-balance-card{padding:16px}
+  .withdrawal-balance-main strong{font-size:31px}
+  .withdrawal-section-card{padding:13px}
+  .withdrawal-section-head h2{font-size:19px}
+  .withdrawal-auto-refresh{display:none}
+  .withdrawal-live-row,.withdrawal-my-row{grid-template-columns:34px minmax(0,1fr) auto;padding:8px}
+  .withdrawal-method-icon,.withdrawal-history-icon{width:31px;height:31px}
+}
+
+.withdrawal-live-row{
+  position:relative;
+  overflow:hidden;
+}
+.withdrawal-live-row::after{
+  content:"";position:absolute;left:0;top:9px;bottom:9px;width:2px;border-radius:2px;
+  background:linear-gradient(180deg,rgba(84,230,212,.9),rgba(84,230,212,0));opacity:.55;
+}
+.withdrawal-status{min-width:48px;justify-content:center}
+.withdrawal-status.pending{color:#f0d68d;background:rgba(227,192,113,.07);border-color:rgba(227,192,113,.15)}
+.withdrawal-status.paid,.withdrawal-status.completed{color:#9cf4e8;background:rgba(84,230,212,.065);border-color:rgba(84,230,212,.14)}
+@media(max-width:420px){.withdrawal-feed-meta{margin-top:11px}.withdrawal-live-row::after{top:8px;bottom:8px}}
+
+
+/* SLYMintX page-level withdrawal gate removed */
+
+.withdrawal-page .withdrawal-gate-card{
+  display:none !important;
+}
+
+.withdrawal-live-user strong{
+  max-width:100%;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+
+.withdrawal-live-user span{
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
