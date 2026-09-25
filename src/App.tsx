@@ -82,11 +82,11 @@ type WithdrawalHistoryEntry = {
   createdAt: string;
 };
 
-const ADSGRAM_BLOCK_ID = "int-46084";
-const ADSGRAM_MINING_BLOCK_ID = "46086";
+const ADSGRAM_BLOCK_ID = "int-49836";
+const ADSGRAM_MINING_BLOCK_ID = "49838";
 // عدّل هذا لاحقاً برقم Block ID حقيقي من لوحة Adsgram (سوّي وحدة
 // إعلانية جديدة بالاسم اللي تحب، مثلاً "SLY Games").
-const ADSGRAM_GAMES_BLOCK_ID = "46086";
+const ADSGRAM_GAMES_BLOCK_ID = "49838";
 const ADSGRAM_SCRIPT_SRC = "https://sad.adsgram.ai/js/sad.min.js";
 // كانت 45 ثانية بس هذا قصير: لو المتصفح/تيليگرام WebView حط تبويبنا
 // بالخلفية وقت عرض الإعلان (شي عادي على موبايل)، المؤقتات تتجمّد
