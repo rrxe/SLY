@@ -53,7 +53,7 @@ declare global {
 }
 
 // AdsGram Reward Block ID
-const ADSGRAM_REWARD_BLOCK_ID = "49847";
+const ADSGRAM_REWARD_BLOCK_ID = "46086";
 
 // مهلة بسيطة بس قبل أول قراءة - الانتظار الحقيقي (لين ما يوصل
 // الـwebhook) صار داخل onWatchAd نفسها (App.tsx) اللي تنطر لين
