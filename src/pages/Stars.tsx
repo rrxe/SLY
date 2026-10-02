@@ -215,11 +215,7 @@ export default function Stars({
       <div className="stars-hero">
         <h2>{t("stars.title")}</h2>
         <p>
-          {t("stars.intro", { low: "50", high: "500" })}{" "}
-          <StarIcon className="stars-inline-icon" />
-        </p>
-        <p className="stars-hero-sub">
-          {t("stars.introSub", { low: "15", high: "50" })}{" "}
+          {t("stars.intro")}{" "}
           <StarIcon className="stars-inline-icon" />
         </p>
 

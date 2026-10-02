@@ -164,9 +164,7 @@ const en = {
   stars: {
     title: "Stars Leaderboard",
     intro:
-      "The longer you keep the bot open this week, the higher you climb. Top 3 win real USDT every week — from {{low}} up to {{high}}",
-    introSub:
-      "Ranks #4 and #5 also win a USDT prize — from {{low}} up to {{high}}",
+      "The more ads you watch and the more balance you collect, the higher you climb. Top 3 players win 1 to 3 USDT each via a Spin!",
     yourRank: "Your rank: #{{rank}}",
     watchAdsCardTitle: "Watch Ads for Time",
     cycleRunning: "Cycle running — your time is climbing automatically.",
