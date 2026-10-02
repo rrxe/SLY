@@ -578,3 +578,50 @@
 .stars-footer-icon{
   filter:drop-shadow(0 0 8px rgba(227,192,113,.30));
 }
+
+/* SLY stars-lite: light background, no blur */
+.stars-hero{
+  background:transparent;
+  border:1px solid rgba(227,192,113,.16);
+  box-shadow:none;
+  -webkit-backdrop-filter:none;
+  backdrop-filter:none;
+}
+
+.podium-spot{
+  background:rgba(255,255,255,.025);
+  border-color:rgba(255,255,255,.06);
+  box-shadow:none;
+  -webkit-backdrop-filter:none;
+  backdrop-filter:none;
+  will-change:auto;
+}
+
+.stars-row{
+  background:rgba(255,255,255,.03);
+  border-color:rgba(255,255,255,.06);
+  box-shadow:none;
+  will-change:auto;
+}
+
+.stars-rain{
+  will-change:auto;
+  transform:none;
+}
+
+.stars-rain-star{
+  filter:none;
+}
+
+.stars-ad-progress-fill{
+  box-shadow:none;
+}
+
+.stars-ad-btn,
+.stars-ad-btn:hover{
+  box-shadow:none;
+}
+
+.stars-footer-icon{
+  filter:none;
+}
