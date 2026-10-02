@@ -547,13 +547,21 @@
   background:rgba(227,192,113,.05);
 }
 
-.stars-row,
 .podium-spot{
   background:
     linear-gradient(180deg, rgba(18,25,27,.86), rgba(9,14,16,.82));
   border-color:rgba(255,255,255,.065);
   box-shadow:0 12px 30px rgba(0,0,0,.20);
   backdrop-filter:blur(14px);
+  contain:layout paint style;
+  will-change:transform;
+}
+
+.stars-row{
+  background:
+    linear-gradient(180deg, rgba(20,28,30,.94), rgba(10,15,17,.92));
+  border-color:rgba(255,255,255,.065);
+  box-shadow:0 12px 30px rgba(0,0,0,.20);
   contain:layout paint style;
   will-change:transform;
 }
