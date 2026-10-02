@@ -120,6 +120,8 @@
   border:1px solid rgba(84,230,212,.10);
   box-shadow:0 0 50px rgba(84,230,212,.07);
   animation:withdrawal-orbit 10s linear infinite;
+  contain:layout paint style;
+  will-change:transform;
 }
 
 @keyframes withdrawal-orbit{to{transform:rotate(360deg)}}
