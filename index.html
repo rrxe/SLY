@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>sly</title>
+
+    <!-- خط عربي واضح ومقروء لواجهة اللغة العربية -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
+
+    <!-- تسريع الاتصال بسيرفرات AdsGram قبل ما نحتاجها فعلياً -->
+    <link rel="preconnect" href="https://sad.adsgram.ai" crossorigin>
+    <link rel="dns-prefetch" href="https://sad.adsgram.ai">
+
+    <!-- تحميل SDK الخاص بـ AdsGram أول شي، بالتوازي مع كل شي ثاني،
+         بدل ما ننتظر React يشتغل ويحقن السكربت بجافاسكربت -->
+    <script src="https://sad.adsgram.ai/js/sad.min.js"></script>
+
+    <!-- تسريع الاتصال بسيرفرات GigaPub قبل ما نحتاجها فعلياً -->
+    <link rel="preconnect" href="https://ad.gigapub.tech" crossorigin>
+    <link rel="dns-prefetch" href="https://ad.gigapub.tech">
+
+    <!-- تحميل SDK الخاص بـ GigaPub -->
+    <script src="https://ad.gigapub.tech/script?id=8101"></script>
+  </head>
+  <body>
+    <div id="root"></div>
+
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+

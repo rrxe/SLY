@@ -1,0 +1,332 @@
+import { useEffect, useState } from "react";
+import UiIcons from "../components/UiIcons";
+import LanguageSwitch from "../components/LanguageSwitch";
+import { useLanguage } from "../i18n/LanguageContext";
+import "../styles/profile.css";
+
+type WithdrawalHistoryEntry = {
+  id: number;
+  amount: number;
+  method: "binance" | "bnb";
+  target: string | null;
+  bnbAmount: number | null;
+  status: "pending" | "completed" | "rejected";
+  createdAt: string;
+};
+
+type Props = {
+  lifetimeCoins: number;
+  lifetimeSpent: number;
+  usdtBalance: number;
+  serverWalletAddress?: string | null;
+  withdrawalHistory?: WithdrawalHistoryEntry[];
+  onWalletConnected?: (address: string) => void;
+  onWalletDisconnected?: () => void;
+};
+
+const WALLET_STORAGE_KEY = "sly.wallet.bep20.v1";
+const TON_ADDRESS_PATTERN = /^(-?[0-9]:[a-fA-F0-9]{64}|[A-Za-z0-9_-]{48})$/;
+
+function loadStoredAddress(): string | null {
+  if (typeof window === "undefined") return null;
+
+  try {
+    const raw = window.localStorage.getItem(WALLET_STORAGE_KEY);
+    return raw && TON_ADDRESS_PATTERN.test(raw) ? raw : null;
+  } catch {
+    return null;
+  }
+}
+
+function truncateAddress(address: string) {
+  return `${address.slice(0, 6)}...${address.slice(-4)}`;
+}
+
+function formatHistoryDate(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+
+  return date.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function formatHistoryTarget(entry: {
+  method: "binance" | "bnb";
+  target: string | null;
+}) {
+  if (!entry.target) return "—";
+
+  return entry.method === "bnb" && entry.target.length > 16
+    ? truncateAddress(entry.target)
+    : entry.target;
+}
+
+export default function Profile({
+  lifetimeCoins,
+  lifetimeSpent,
+  usdtBalance,
+  serverWalletAddress,
+  withdrawalHistory,
+  onWalletConnected,
+  onWalletDisconnected,
+}: Props) {
+  const { t } = useLanguage();
+
+  const STATUS_LABELS: Record<string, string> = {
+    pending: t("profile.statusPending"),
+    completed: t("profile.statusApproved"),
+    rejected: t("profile.statusRejected"),
+  };
+
+  const [connectedAddress, setConnectedAddress] = useState<string | null>(() =>
+    serverWalletAddress ?? loadStoredAddress()
+  );
+  const [inputValue, setInputValue] = useState("");
+  const [error, setError] = useState("");
+  const [copied, setCopied] = useState(false);
+  const [confirmingDisconnect, setConfirmingDisconnect] = useState(false);
+
+  useEffect(() => {
+    if (!copied) return;
+    const timer = window.setTimeout(() => setCopied(false), 1600);
+    return () => window.clearTimeout(timer);
+  }, [copied]);
+
+  const syncWalletToServer = async (address: string | null) => {
+    try {
+      const tg = (window as any).Telegram?.WebApp;
+      const initData = tg?.initData || "";
+
+      await fetch("/api/profile/wallet", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `tga ${initData}`,
+        },
+        body: JSON.stringify({ walletAddress: address }),
+      });
+    } catch (err) {
+      console.error("Failed to sync wallet with server", err);
+    }
+  };
+
+  const handleConnect = () => {
+    const trimmed = inputValue.trim();
+
+    if (!trimmed) {
+      setError(t("profile.errorEmptyAddress"));
+      return;
+    }
+
+    if (!TON_ADDRESS_PATTERN.test(trimmed)) {
+      setError(t("profile.errorInvalidAddress"));
+      return;
+    }
+
+    try {
+      window.localStorage.setItem(WALLET_STORAGE_KEY, trimmed);
+    } catch {}
+
+    setConnectedAddress(trimmed);
+    setInputValue("");
+    setError("");
+    syncWalletToServer(trimmed);
+    onWalletConnected?.(trimmed);
+  };
+
+  const handleDisconnect = () => {
+    try {
+      window.localStorage.removeItem(WALLET_STORAGE_KEY);
+    } catch {}
+
+    setConnectedAddress(null);
+    setConfirmingDisconnect(false);
+    syncWalletToServer(null);
+    onWalletDisconnected?.();
+  };
+
+  const handleCopy = async () => {
+    if (!connectedAddress) return;
+    try {
+      await navigator.clipboard.writeText(connectedAddress);
+      setCopied(true);
+    } catch {}
+  };
+
+  return (
+    <section className="profile-page">
+      <section className="wallet-hero">
+        <div className="wallet-hero-top">
+          <div>
+            <p className="wallet-kicker">{t("profile.walletCenter")}</p>
+            <h1>{connectedAddress ? t("profile.walletConnected") : t("profile.connectWallet")}</h1>
+            <p className="wallet-lead">
+              {t("profile.walletLead")}
+            </p>
+          </div>
+
+          <span className="wallet-chip">
+            <span className="wallet-chip-dot" />
+            TON
+          </span>
+        </div>
+
+        {connectedAddress ? (
+          <div className="wallet-connected">
+            <div className="wallet-address-row">
+              <div className="wallet-address-info">
+                <span className="wallet-address-label">{t("profile.connectedAddress")}</span>
+                <strong className="wallet-address-value">
+                  {truncateAddress(connectedAddress)}
+                </strong>
+              </div>
+
+              <div className="wallet-address-actions">
+                <button className="wallet-icon-btn" onClick={handleCopy} type="button">
+                  {copied ? t("profile.copied") : t("profile.copy")}
+                </button>
+                <button
+                  className="wallet-icon-btn danger"
+                  onClick={() => setConfirmingDisconnect(true)}
+                  type="button"
+                >
+                  {t("profile.disconnect")}
+                </button>
+              </div>
+            </div>
+
+            {confirmingDisconnect && (
+              <div className="wallet-confirm">
+                <span>{t("profile.disconnectConfirm")}</span>
+                <div className="wallet-confirm-actions">
+                  <button
+                    className="wallet-confirm-btn ghost"
+                    onClick={() => setConfirmingDisconnect(false)}
+                    type="button"
+                  >
+                    {t("profile.cancel")}
+                  </button>
+                  <button
+                    className="wallet-confirm-btn danger"
+                    onClick={handleDisconnect}
+                    type="button"
+                  >
+                    {t("profile.disconnect")}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="wallet-connect-form">
+            <div className="wallet-input-row">
+              <input
+                className="wallet-input"
+                placeholder={t("profile.walletPlaceholder")}
+                value={inputValue}
+                onChange={(event) => {
+                  setInputValue(event.target.value);
+                  if (error) setError("");
+                }}
+                spellCheck={false}
+                autoCapitalize="off"
+                autoCorrect="off"
+              />
+              <button className="wallet-connect-btn" onClick={handleConnect} type="button">
+                {t("profile.connect")}
+              </button>
+            </div>
+
+            {error ? <span className="wallet-error">{error}</span> : null}
+          </div>
+        )}
+      </section>
+
+      <section className="stats-bar">
+        <div className="stats-bar-item">
+          <span className="stats-bar-icon gold">
+            <UiIcons name="coins" className="stats-bar-svg" />
+          </span>
+          <div className="stats-bar-text">
+            <strong>{lifetimeCoins.toLocaleString()}</strong>
+            <small>{t("profile.earned")}</small>
+          </div>
+        </div>
+
+        <div className="stats-bar-divider" />
+
+        <div className="stats-bar-item">
+          <span className="stats-bar-icon teal">
+            <UiIcons name="coins" className="stats-bar-svg" />
+          </span>
+          <div className="stats-bar-text">
+            <strong>{lifetimeSpent.toLocaleString()}</strong>
+            <small>{t("profile.exchanged")}</small>
+          </div>
+        </div>
+
+        <div className="stats-bar-divider" />
+
+        <div className="stats-bar-item">
+          <span className="stats-bar-icon teal">
+            <UiIcons name="exchange" className="stats-bar-svg" />
+          </span>
+          <div className="stats-bar-text">
+            <strong>{usdtBalance.toFixed(4)}</strong>
+            <small>{t("profile.usdt")}</small>
+          </div>
+        </div>
+      </section>
+
+      <LanguageSwitch />
+
+      <section className="withdraw-history-card">
+        <div className="withdraw-history-head">
+          <div>
+            <p>{t("profile.yourRequests")}</p>
+            <h2>{t("profile.withdrawalHistory")}</h2>
+            <span className="withdraw-history-sub">Your private payout requests and their current status.</span>
+          </div>
+          <span className="withdraw-history-live"><i /> PRIVATE</span>
+        </div>
+
+        <div className="withdraw-history-list">
+          {!withdrawalHistory || withdrawalHistory.length === 0 ? (
+            <div className="withdraw-history-empty">
+              {t("profile.noWithdrawalsYet")}
+            </div>
+          ) : (
+            withdrawalHistory.map((entry) => (
+              <div key={entry.id} className="withdraw-history-item">
+                <div className="withdraw-history-item-icon">
+                  <UiIcons name="exchange" className="withdraw-history-item-svg" />
+                </div>
+
+                <div className="withdraw-history-item-body">
+                  <strong>{Number(entry.amount).toFixed(4)} USDT</strong>
+                  <small>
+                    {entry.method === "binance" ? t("profile.binanceId") : t("profile.gramWallet")}
+                    {" · "}
+                    {formatHistoryTarget(entry)}
+                  </small>
+                  <small className="withdraw-history-date">
+                    {formatHistoryDate(entry.createdAt)}
+                  </small>
+                </div>
+
+                <span className={`withdraw-status-badge ${entry.status}`}>
+                  {STATUS_LABELS[entry.status] || entry.status}
+                </span>
+              </div>
+            ))
+          )}
+        </div>
+      </section>
+    </section>
+  );
+}
+
