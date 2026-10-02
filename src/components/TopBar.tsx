@@ -20,6 +20,7 @@ export default function TopBar({
     home: { label: t("topbar.home.label"), sub: t("topbar.home.sub") },
     tasks: { label: t("topbar.tasks.label"), sub: t("topbar.tasks.sub") },
     games: { label: t("topbar.games.label"), sub: t("topbar.games.sub") },
+    stars: { label: 'Stars', sub: 'Watch ads & earn USDT' },
     withdrawal: { label: t("topbar.withdrawal.label"), sub: t("topbar.withdrawal.sub") },
     referrals: { label: t("topbar.referrals.label"), sub: t("topbar.referrals.sub") },
     profile: { label: t("topbar.profile.label"), sub: t("topbar.profile.sub") },
