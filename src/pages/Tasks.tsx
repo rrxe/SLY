@@ -33,12 +33,12 @@ const GIGA_PUB_CLAIM_DELAY_MS = 0; // صفر لـ GigaPub أيضاً (إعلان
 
 
 // بلوك AdsGram الخاص بمهام المشاهدة (نفس نوع البلوك المستخدم في بوابة السحب)
-const ADSGRAM_TASK_BLOCK_ID = "46262";
+const ADSGRAM_TASK_BLOCK_ID = "51799";
 const ADSGRAM_SCRIPT_SRC = "https://sad.adsgram.ai/js/sad.min.js";
 
 // بلوك AdsGram من نوع "Task" (إعلان أصلي/native يظهر كعنصر بقائمة
 // المهام، منفصل 100% عن بلوكات Reward الموجودة - ما يمس أي منها).
-const ADSGRAM_NATIVE_TASK_BLOCK_ID = "task-46724";
+const ADSGRAM_NATIVE_TASK_BLOCK_ID = "task-51800";
 
 type AdsgramShowResult = {
   done: boolean;
