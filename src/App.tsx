@@ -295,6 +295,13 @@ async function callApi(path: string, options: RequestInit = {}) {
       "Content-Type": "application/json",
       Authorization: `tga ${initData}`,
       "X-Device-Id": getOrCreateDeviceId(),
+      "X-App-Lang": (() => {
+        try {
+          return window.localStorage.getItem("sly.lang.v1") || "";
+        } catch {
+          return "";
+        }
+      })(),
       "X-Client-Signals": getClientSignals(),
       "Cache-Control": "no-cache",
       ...(options.headers || {}),

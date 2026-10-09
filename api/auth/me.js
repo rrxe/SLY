@@ -1258,7 +1258,8 @@ const alreadyCredited = player.stars_cycle_credited_seconds || 0
 
 async function touchLastSeen(
   player,
-  auth
+  auth,
+  appLang
 ) {
   try {
     const now = new Date()
@@ -1292,6 +1293,33 @@ async function touchLastSeen(
           language_code:
             String(auth.languageCode).slice(0, 12),
         })
+        .eq(
+          'telegram_id',
+          player.telegram_id
+        )
+    }
+
+    const notifyUpdate = {}
+
+    if (
+      (appLang === 'ar' || appLang === 'en') &&
+      appLang !== player.app_language
+    ) {
+      notifyUpdate.app_language = appLang
+    }
+
+    if (Number(player.notify_reminder_count || 0) > 0) {
+      notifyUpdate.notify_reminder_count = 0
+    }
+
+    if (player.bot_blocked === true) {
+      notifyUpdate.bot_blocked = false
+    }
+
+    if (Object.keys(notifyUpdate).length > 0) {
+      await supabase
+        .from('players')
+        .update(notifyUpdate)
         .eq(
           'telegram_id',
           player.telegram_id
@@ -2713,7 +2741,10 @@ export default async function handler(
 
     touchLastSeen(
       player,
-      auth
+      auth,
+      String(
+        req.headers['x-app-lang'] || ''
+      ).toLowerCase()
     )
 
     /*
