@@ -25,7 +25,7 @@ import { supabase } from '../../lib/supabase.js'
 // 8) لو فشل كل شي، نعرض سبب تيليجرام الحقيقي للأدمن بدل "فشل N".
 // ============================================================
 
-const BATCH_SIZE = 25 // أقل شوي من حد تيليجرام (~30/ثانية)
+const BATCH_SIZE = 28 // أسرع قليلاً مع البقاء دون حد تيليجرام المجاني (~30/ثانية)
 const BATCH_INTERVAL_MS = 1000
 const REQUEST_TIMEOUT_MS = 15000
 const PHOTO_UPLOAD_TIMEOUT_MS = 60000
@@ -67,6 +67,7 @@ function publicState() {
     processedSoFar: state.processedSoFar,
     done: state.done,
     error: state.error,
+    lastError: state.lastError,
   }
 }
 

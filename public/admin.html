@@ -3893,297 +3893,137 @@
     async function sendBroadcast() {
       const textarea = document.getElementById("broadcastMsg");
       const message = textarea.value.trim();
-
-      if (!message && !broadcastPhotoBase64) {
-        alert("يرجى كتابة رسالة أو إرفاق صورة على الأقل.");
-        return;
-      }
-      if (message.length > 4096) {
-        alert("الرسالة طويلة جداً. الحد الأقصى لتيليجرام هو 4096 حرفاً.");
-        return;
-      }
-
       const linkUrl = document.getElementById("broadcastLinkUrl").value.trim();
       const linkText = document.getElementById("broadcastLinkText").value.trim();
-      if (linkUrl && !/^(https?:\/\/|tg:\/\/)/i.test(linkUrl)) {
-        alert("الرابط لازم يبدأ بـ https:// أو http:// أو tg://");
-        return;
-      }
-
-      const confirmText = broadcastPhotoBase64
-        ? "هل تريد إرسال هذه الصورة (مع الرسالة إن وجدت) إلى جميع اللاعبين؟"
-        : "هل تريد إرسال هذه الرسالة إلى جميع اللاعبين؟";
-      if (!confirm(confirmText)) return;
-
       const btn = document.querySelector('button[onclick="sendBroadcast()"]');
       const originalLabel = btn ? btn.textContent : "";
+
+      const pause = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+      async function monitorBroadcast(clearFormWhenDone) {
+        let pollErrors = 0;
+
+        while (true) {
+          await pause(1500);
+
+          try {
+            const status = await apiCall("/api/admin/broadcast", "GET");
+            pollErrors = 0;
+
+            const total = Number(status.totalPlayers || 0);
+            const processed = Number(status.processedSoFar || 0);
+            const sent = Number(status.sentCount || 0);
+            const failed = Number(status.failedCount || 0);
+            const blocked = Number(status.blockedCount || 0);
+
+            if (btn) {
+              btn.textContent = status.active
+                ? `جاري الإرسال... ${processed}/${total || "..."} | وصل ${sent} | فشل ${failed}`
+                : `اكتمل الإرسال: ${sent}/${total}`;
+            }
+
+            if (status.done) {
+              const errorNote = failed > 0 && status.lastError
+                ? `\nآخر سبب فشل: ${status.lastError}`
+                : "";
+              const stateError = status.error
+                ? `\nملاحظة السيرفر: ${status.error}`
+                : "";
+
+              alert(
+                `انتهى البرودكاست.\nوصلت الرسالة إلى ${sent} من أصل ${total}.\n` +
+                `تمت معالجة ${processed} عضو.\nفشل: ${failed} (منهم ${blocked} حاظرين البوت أو غير متاحين).` +
+                errorNote + stateError
+              );
+
+              if (clearFormWhenDone) {
+                textarea.value = "";
+                clearBroadcastPhoto();
+                document.getElementById("broadcastLinkUrl").value = "";
+                document.getElementById("broadcastLinkText").value = "";
+              }
+              return;
+            }
+          } catch (err) {
+            pollErrors += 1;
+
+            if (btn) {
+              btn.textContent =
+                `الإرسال بالسيرفر مستمر غالباً؛ إعادة الاتصال ${pollErrors}/20`;
+            }
+
+            if (pollErrors >= 20) {
+              alert(
+                "انقطع اتصال المتابعة بعد بدء البث. قد يستمر السيرفر بالإرسال في الخلفية. " +
+                "لا تبدأ بثاً جديداً الآن؛ افتح الأدمن مجدداً وتابع الحالة قبل إعادة الإرسال."
+              );
+              return;
+            }
+          }
+        }
+      }
+
       if (btn) {
         btn.disabled = true;
-        btn.textContent = "جاري تجهيز قائمة الأعضاء...";
+        btn.textContent = "التحقق من حالة البث...";
       }
 
       try {
-        const prepared = await apiCall(
-          "/api/admin/broadcast",
-          "POST",
-          { action: "prepare" }
-        );
-        if (!prepared.success || !Array.isArray(prepared.ids)) {
-          throw new Error(prepared.error || "تعذر جلب قائمة الأعضاء.");
-        }
+        const current = await apiCall("/api/admin/broadcast", "GET");
 
-        const ids = prepared.ids.map((id) => String(id)).filter((id) => id.trim() !== "");
-        if (ids.length === 0) {
-          alert("ماكو أعضاء لديهم Telegram ID بقاعدة البيانات.");
+        if (current.active) {
+          if (!confirm(
+            "يوجد بث يعمل بالفعل على السيرفر. هل تريد متابعة حالته فقط دون بدء بث جديد؟"
+          )) return;
+
+          if (btn) btn.textContent = "متابعة البث الموجود...";
+          await monitorBroadcast(false);
           return;
         }
 
-        const flagged = new Set((prepared.flaggedIds || []).map((id) => String(id)));
-        // Smaller chunks reduce request timeouts.
-        const CHUNK_SIZE = 25;
-        let sentCount = 0;
-        let failedCount = 0;
-        let blockedCount = 0;
-        let processedCount = 0;
-        let fileId = null;
-        let useHtml = true;
-        const failedRecipientQueue = [];
-        let lastError = null;
-        const failedChunks = [];
-        const CHUNK_REQUEST_ATTEMPTS = 5;
-
-        async function sendChunkWithRetry(chunk, offset) {
-          let requestError = null;
-
-          for (
-            let attempt = 0;
-            attempt < CHUNK_REQUEST_ATTEMPTS;
-            attempt += 1
-          ) {
-            const payload = {
-              action: "sendBatch",
-              ids: chunk,
-              message,
-              linkUrl,
-              linkText,
-              fileId,
-              useHtml,
-              flaggedIds: chunk.filter((id) => flagged.has(String(id))),
-            };
-
-            if (broadcastPhotoBase64 && !fileId) {
-              payload.photoBase64 = broadcastPhotoBase64;
-              payload.photoMime = broadcastPhotoMime;
-            }
-
-            try {
-              const result = await apiCall(
-                "/api/admin/broadcast",
-                "POST",
-                payload
-              );
-
-              if (result && result.success) return result;
-
-              requestError = new Error(
-                (result && result.error) ||
-                `فشلت الدفعة التي تبدأ عند ${offset}.`
-              );
-            } catch (err) {
-              requestError = err;
-            }
-
-            if (attempt < CHUNK_REQUEST_ATTEMPTS - 1) {
-              const delay = Math.min(1000 * (2 ** attempt), 10000);
-              await new Promise((resolve) => setTimeout(resolve, delay));
-            }
-          }
-
-          return {
-            success: false,
-            error: requestError?.message ||
-              `تعذر إرسال الدفعة التي تبدأ عند ${offset}.`,
-          };
+        if (!message && !broadcastPhotoBase64) {
+          alert("يرجى كتابة رسالة أو إرفاق صورة على الأقل.");
+          return;
         }
 
-        function collectFailedRecipients(result) {
-          const failed = Array.isArray(result.failedIds)
-            ? result.failedIds.map(String)
-            : [];
-          const blockedCounts = new Map();
-
-          for (const value of (
-            Array.isArray(result.blockedIds) ? result.blockedIds : []
-          )) {
-            const id = String(value);
-            blockedCounts.set(id, (blockedCounts.get(id) || 0) + 1);
-          }
-
-          return failed.map((id) => {
-            const count = blockedCounts.get(id) || 0;
-            if (count > 0) blockedCounts.set(id, count - 1);
-            return { id, blocked: count > 0 };
-          });
+        if (message.length > 4096) {
+          alert("الرسالة طويلة جداً. الحد الأقصى لتيليجرام هو 4096 حرفاً.");
+          return;
         }
 
-        function acceptChunkResult(result, chunk) {
-          sentCount += Number(result.sentCount || 0);
-          failedCount += Number(result.failedCount || 0);
-          blockedCount += Number(result.blockedCount || 0);
-          processedCount += Number(result.processedCount || chunk.length);
-          failedRecipientQueue.push(...collectFailedRecipients(result));
-
-          if (result.lastError) lastError = result.lastError;
-          if (result.fileId) fileId = result.fileId;
-          if (result.useHtml === false) useHtml = false;
+        if (linkUrl && !/^(https?:\/\/|tg:\/\/)/i.test(linkUrl)) {
+          alert("الرابط لازم يبدأ بـ https:// أو http:// أو tg://");
+          return;
         }
 
-        for (let offset = 0; offset < ids.length; offset += CHUNK_SIZE) {
-          const chunk = ids.slice(offset, offset + CHUNK_SIZE);
-          const result = await sendChunkWithRetry(chunk, offset);
+        const confirmText = broadcastPhotoBase64
+          ? "هل تريد إرسال هذه الصورة (مع الرسالة إن وجدت) إلى جميع اللاعبين؟"
+          : "هل تريد إرسال هذه الرسالة إلى جميع اللاعبين؟";
 
-          if (!result.success) {
-            failedChunks.push({ chunk, offset });
-            lastError = result.error || lastError;
-          } else {
-            acceptChunkResult(result, chunk);
-          }
+        if (!confirm(confirmText)) return;
 
-          if (btn) {
-            btn.textContent = `جاري الإرسال... ${processedCount}/${ids.length} | وصل ${sentCount}`;
-          }
-        }
+        if (btn) btn.textContent = "بدء الإرسال على السيرفر...";
 
-        // أكمل بقية الدفعات أولاً، ثم أعد محاولة الدفعات المتعثرة.
-        let pendingChunks = failedChunks;
+        const result = await apiCall("/api/admin/broadcast", "POST", {
+          message,
+          photoBase64: broadcastPhotoBase64,
+          photoMime: broadcastPhotoMime,
+          linkUrl,
+          linkText,
+        });
 
-        for (
-          let retryRound = 1;
-          retryRound <= 3 && pendingChunks.length > 0;
-          retryRound += 1
-        ) {
-          const nextPending = [];
-
-          for (const pending of pendingChunks) {
-            const result = await sendChunkWithRetry(
-              pending.chunk,
-              pending.offset
-            );
-
-            if (!result.success) {
-              nextPending.push(pending);
-              lastError = result.error || lastError;
-            } else {
-              acceptChunkResult(result, pending.chunk);
-            }
-
-            if (btn) {
-              btn.textContent =
-                `إعادة المحاولة ${retryRound}/3... ` +
-                `${processedCount}/${ids.length} | وصل ${sentCount}`;
-            }
-          }
-
-          pendingChunks = nextPending;
-
-          if (pendingChunks.length > 0 && retryRound < 3) {
-            await new Promise((resolve) =>
-              setTimeout(resolve, 1500 * retryRound)
-            );
-          }
-        }
-
-        // Queue chunks whose requests failed after retries.
-        for (const pending of pendingChunks) {
-          processedCount += pending.chunk.length;
-          failedCount += pending.chunk.length;
-          failedRecipientQueue.push(
-            ...pending.chunk.map((id) => ({
-              id: String(id),
-              blocked: false
-            }))
+        if (!result.success || !result.started) {
+          throw new Error(
+            result.error || "تعذر بدء البرودكاست على السيرفر."
           );
         }
 
-        // Retry failed recipient IDs individually in smaller groups.
-        let pendingRecipients = failedRecipientQueue;
-
-        for (
-          let retryRound = 1;
-          retryRound <= 4 && pendingRecipients.length > 0;
-          retryRound += 1
-        ) {
-          const nextRecipients = [];
-
-          for (
-            let offset = 0;
-            offset < pendingRecipients.length;
-            offset += CHUNK_SIZE
-          ) {
-            const group = pendingRecipients.slice(
-              offset,
-              offset + CHUNK_SIZE
-            );
-            const groupIds = group.map((recipient) => recipient.id);
-
-            const result = await sendChunkWithRetry(
-              groupIds,
-              `failed recipients round ${retryRound}, offset ${offset}`
-            );
-
-            if (!result.success) {
-              nextRecipients.push(...group);
-              lastError = result.error || lastError;
-            } else {
-              failedCount = Math.max(0, failedCount - group.length)
-                + Number(result.failedCount || 0);
-
-              blockedCount = Math.max(
-                0,
-                blockedCount - group.filter((recipient) => recipient.blocked).length
-              ) + Number(result.blockedCount || 0);
-
-              sentCount += Number(result.sentCount || 0);
-              nextRecipients.push(...collectFailedRecipients(result));
-
-              if (result.lastError) lastError = result.lastError;
-              if (result.fileId) fileId = result.fileId;
-              if (result.useHtml === false) useHtml = false;
-            }
-
-            if (btn) {
-              btn.textContent =
-                `إعادة إرسال المتعثر ${retryRound}/4... ` +
-                `${processedCount}/${ids.length} | وصل ${sentCount}`;
-            }
-          }
-
-          pendingRecipients = nextRecipients;
-
-          if (pendingRecipients.length > 0 && retryRound < 4) {
-            await new Promise((resolve) =>
-              setTimeout(resolve, 1500 * retryRound)
-            );
-          }
-        }
-
-        const failedNote = failedCount > 0
-          ? `\nفشل: ${failedCount} (منهم ${blockedCount} حاظرين البوت أو غير متاحين).`
-          : "";
-        const successNote = `انتهى البرودكاست.\nوصلت الرسالة إلى ${sentCount} من أصل ${ids.length}.\nتمت معالجة ${processedCount} عضو.`;
-        const errorNote = failedCount > 0 && lastError
-          ? `\nآخر سبب فشل مسجل: ${lastError}`
-          : "";
-        alert(successNote + failedNote + errorNote);
-
-        textarea.value = "";
-        clearBroadcastPhoto();
-        document.getElementById("broadcastLinkUrl").value = "";
-        document.getElementById("broadcastLinkText").value = "";
+        if (btn) btn.textContent = "بدأ الإرسال؛ متابعة التقدم...";
+        await monitorBroadcast(true);
       } catch (err) {
         alert(
           (err.message || "تعذر الاتصال بالسيرفر.") +
-          "\nإذا توقف الاتصال أثناء دفعة، افحص السجل قبل إعادة الإرسال حتى لا تصل رسائل مكررة لبعض الأعضاء."
+          "\nإذا وصل طلب بدء البث للسيرفر لكن انقطع الرد، افحص حالة البث قبل الضغط مجدداً حتى لا تبدأ إرسالاً مكرراً."
         );
       } finally {
         if (btn) {

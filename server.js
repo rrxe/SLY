@@ -59,6 +59,11 @@ app.use(express.static(distDir, {
   maxAge: '1y',
   immutable: true,
   index: false,
+  setHeaders(res, filePath) {
+    if (filePath.endsWith('.html')) {
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate')
+    }
+  },
 }))
 
 app.get(/.*/, (req, res) => {
