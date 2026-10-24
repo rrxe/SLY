@@ -60,7 +60,7 @@ export type RewardPlacement =
   | "withdrawal"
   | "tasks";
 
-const INT_REWARD_BLOCK_ID = "int-46084"; // mining + exchange + games (+ stars/withdrawal)
+const INT_REWARD_BLOCK_ID = "int-55014"; // mining + exchange + games (+ stars/withdrawal)
 const INT_TASKS_BLOCK_ID = "int-54986"; // مهام الإعلانات (task ads)
 
 const REWARD_BLOCK_BY_PLACEMENT: Record<RewardPlacement, string> = {

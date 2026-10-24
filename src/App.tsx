@@ -113,7 +113,7 @@ type WithdrawalHistoryEntry = {
   createdAt: string;
 };
 
-const ADSGRAM_BLOCK_ID = "int-55014";
+const ADSGRAM_BLOCK_ID = "int-46084";
 const ADSGRAM_SCRIPT_SRC = "https://sad.adsgram.ai/js/sad.min.js";
 // بعد النبضة السيرفر يمنح المكافأة فوراً، فالـpolling هنا بس
 // للتأكد من تحديث الحالة المحلية من قاعدة البيانات.
@@ -586,7 +586,7 @@ export default function App() {
     }
   };
 
-  // الإعلان التلقائي (AdsGram int-55014). ما يمنح أي مكافأة.
+  // الإعلان التلقائي (AdsGram int-46084). ما يمنح أي مكافأة.
   const showAutoAd = async (): Promise<boolean> => showAdsgramAd();
 
   // إعلان تلقائي أول ما تفتح اللعبة (قبل بدء الجولة). نحدد سقف انتظار
