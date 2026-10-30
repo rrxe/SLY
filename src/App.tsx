@@ -1,0 +1,1813 @@
+import { useEffect, useMemo, useRef, useState } from "react";
+import "./App.css";
+
+import Background from "./components/Background";
+import BottomNav from "./components/BottomNav";
+import TopBar from "./components/TopBar";
+
+import Home from "./pages/Home";
+import Tasks from "./pages/Tasks";
+import Referrals from "./pages/Referrals";
+import Profile from "./pages/Profile";
+import Games from "./pages/Games";
+import Stars from "./pages/Stars";
+import { STARS_ENABLED } from "./config/features";
+import Withdrawal from "./pages/Withdrawal";
+import GameCanvas from "./components/GameCanvas";
+import type { LaserDifficulty } from "./lib/laserEscape";
+import RunnerGame from "./components/RunnerGame";
+import MandatorySubscription from "./components/MandatorySubscription";
+import SplashScreen from "./components/SplashScreen";
+import { tryAcquireGlobalAdLock, releaseGlobalAdLock } from "./lib/adLock";
+import {
+  showRewardAdWithPulse,
+  isRewardAdReady,
+  notifyRewardAdError,
+  REWARD_AD_FINISHED_EVENT,
+  type RewardPlacement,
+} from "./lib/adsgramReward";
+import RewardAdNotice from "./components/RewardAdNotice";
+import PromoNativeTask from "./components/PromoNativeTask";
+
+import ExchangeModal from "./modals/ExchangeModal";
+import WithdrawalModal from "./modals/WithdrawalModal";
+import RunnerLeaderboardModal from "./modals/RunnerLeaderboardModal";
+import { useLanguage } from "./i18n/LanguageContext";
+
+export type Page = "home" | "tasks" | "stars" | "games" | "withdrawal" | "referrals" | "profile";
+type ActivityTone = "info" | "reward" | "exchange";
+
+type Activity = {
+  id: string;
+  title: string;
+  meta: string;
+  tone: ActivityTone;
+};
+
+type WalletState = {
+  coins: number;
+  usdt: number;
+  spent: number;
+  walletAddress: string | null;
+};
+
+type AdsgramShowResult = {
+  done: boolean;
+  description: string;
+  state: "load" | "render" | "playing" | "destroy";
+  error: boolean;
+};
+
+type AdsgramController = {
+  show: () => Promise<AdsgramShowResult>;
+  addEventListener?: (event: string, callback: () => void) => void;
+};
+
+declare global {
+  interface Window {
+    Adsgram?: {
+      init: (opts: { blockId: string }) => AdsgramController;
+    };
+  }
+}
+
+
+type MiningState = {
+  active: boolean;
+  reward: number;
+  cycleHours: number;
+  startedAt: string | null;
+  claimAvailableAt: string | null;
+  claimReady: boolean;
+  startAdVerified: boolean;
+  claimAdVerified: boolean;
+  // بونص الإحالات: reward هو المبلغ الحقيقي (الأساس + البونص)
+  baseReward?: number;
+  bonusPercent?: number;
+  bonusExpiresAt?: string | null;
+};
+
+type ReferralBonus = {
+  progress: number;
+  tier1Referrals: number;
+  tier1Percent: number;
+  tier2Referrals: number;
+  tier2Percent: number;
+  durationDays: number;
+  activePercent: number;
+  expiresAt: string | null;
+};
+
+type WithdrawalProof = {
+  totalUsdt: number;
+  count: number;
+};
+
+type WithdrawalHistoryEntry = {
+  id: number;
+  amount: number;
+  method: "binance" | "bnb";
+  target: string | null;
+  bnbAmount: number | null;
+  status: "pending" | "completed" | "rejected";
+  createdAt: string;
+};
+
+const ADSGRAM_BLOCK_ID = "int-46084";
+const ADSGRAM_SCRIPT_SRC = "https://sad.adsgram.ai/js/sad.min.js";
+// بعد النبضة السيرفر يمنح المكافأة فوراً، فالـpolling هنا بس
+// للتأكد من تحديث الحالة المحلية من قاعدة البيانات.
+const AD_VERIFY_MAX_ATTEMPTS = 900;
+const AD_VERIFY_POLL_MS = 200;
+const MINING_CACHE_KEY = "sly.mining.cache.v1";
+
+
+function loadCachedMining(): MiningState | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(MINING_CACHE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveCachedMining(mining: MiningState) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(MINING_CACHE_KEY, JSON.stringify(mining));
+  } catch {}
+}
+
+function makeId() {
+  return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+function getInitData() {
+  const tg = (window as any).Telegram?.WebApp;
+  return tg?.initData || "";
+}
+
+const DEVICE_ID_KEY = "sly.device_id.v1";
+
+// معرّف جهاز ثابت يتولّد مرة وحدة ويبقى محفوظ بـ localStorage تبع
+// الـ WebView. يبقى نفسه حتى لو المستخدم بدّل شبكة الإنترنت أو بدّل
+// حساب تيليجرام بنفس تثبيت التطبيق - يستخدم مع IP لمنع تعدد الحسابات.
+function getOrCreateDeviceId() {
+  if (typeof window === "undefined") return "";
+
+  try {
+    let id = window.localStorage.getItem(DEVICE_ID_KEY);
+
+    if (!id) {
+      id =
+        (window.crypto?.randomUUID?.() as string | undefined) ??
+        `${Date.now()}-${Math.random().toString(16).slice(2)}-${Math.random()
+          .toString(16)
+          .slice(2)}`;
+
+      window.localStorage.setItem(DEVICE_ID_KEY, id);
+    }
+
+    return id;
+  } catch {
+    return "";
+  }
+}
+
+
+// هاش بسيط وسريع (FNV-1a 32-bit) نستخدمه بس عشان نضغط بصمة الـ
+// canvas/WebGL (اللي أصلها نص طويل base64) لسطر قصير قبل ما ننزلها
+// جوا X-Client-Signals - عشان ما نتجاوز حد الـ2000 حرف اللي السيرفر
+// يقبله (getClientSignalsHash بـ api/auth/me.js) ونعطل الفحص كامل.
+function hashString32(input: string) {
+  let hash = 0x811c9dc5
+  for (let i = 0; i < input.length; i += 1) {
+    hash ^= input.charCodeAt(i)
+    hash = Math.imul(hash, 0x01000193)
+  }
+  return (hash >>> 0).toString(16)
+}
+
+// بصمة canvas حقيقية - رسم نص/شكل بسيط وقراءة النتيجة كـ pixels،
+// اللي تختلف فعلياً حسب الـGPU/driver/font rendering للجهاز، وأصعب
+// بكثير على المستخدم إنه يزوّرها مقارنة بإعدادات المتصفح الظاهرة
+// (userAgent/timezone/language) اللي نجمعها أصلاً تحت.
+function getCanvasFingerprint() {
+  try {
+    const canvas = document.createElement("canvas")
+    const ctx = canvas.getContext("2d")
+    if (!ctx) return ""
+
+    canvas.width = 220
+    canvas.height = 30
+
+    ctx.textBaseline = "top"
+    ctx.font = "14px 'Arial'"
+    ctx.fillStyle = "#f60"
+    ctx.fillRect(125, 1, 62, 20)
+    ctx.fillStyle = "#069"
+    ctx.fillText("SLY-fp #canvas", 2, 15)
+    ctx.fillStyle = "rgba(102, 204, 0, 0.7)"
+    ctx.fillText("SLY-fp #canvas", 4, 17)
+
+    return hashString32(canvas.toDataURL())
+  } catch {
+    return ""
+  }
+}
+
+// بصمة WebGL (اسم كرت الشاشة/الـdriver الفعلي) - نفس فكرة الـcanvas،
+// بس مصدرها الـGPU نفسه بدل رسم بكسلات.
+function getWebglFingerprint() {
+  try {
+    const canvas = document.createElement("canvas")
+    const gl =
+      (canvas.getContext("webgl") as WebGLRenderingContext | null) ||
+      (canvas.getContext("experimental-webgl") as WebGLRenderingContext | null)
+    if (!gl) return ""
+
+    const dbg = gl.getExtension("WEBGL_debug_renderer_info")
+    const vendor = dbg
+      ? gl.getParameter((dbg as any).UNMASKED_VENDOR_WEBGL)
+      : gl.getParameter(gl.VENDOR)
+    const renderer = dbg
+      ? gl.getParameter((dbg as any).UNMASKED_RENDERER_WEBGL)
+      : gl.getParameter(gl.RENDERER)
+
+    return hashString32(`${vendor}~${renderer}`)
+  } catch {
+    return ""
+  }
+}
+
+function getClientSignals() {
+  if (typeof window === "undefined") return ""
+
+  try {
+    const nav = window.navigator
+    const screenInfo = window.screen
+
+    const timezone =
+      Intl.DateTimeFormat().resolvedOptions().timeZone || ""
+
+    return JSON.stringify({
+      userAgent: nav.userAgent || "",
+      platform: (nav as any).platform || "",
+      language: nav.language || "",
+      timezone,
+      screen:
+        `${screenInfo?.width || 0}x${screenInfo?.height || 0}x${window.devicePixelRatio || 1}`,
+      colorDepth:
+        Number(screenInfo?.colorDepth || 0),
+      hardwareConcurrency:
+        Number(nav.hardwareConcurrency || 0),
+      deviceMemory:
+        Number((nav as any).deviceMemory || 0),
+      canvas:
+        getCanvasFingerprint(),
+      webgl:
+        getWebglFingerprint(),
+    })
+  } catch {
+    return ""
+  }
+
+}
+
+async function callApi(path: string, options: RequestInit = {}) {
+  const initData = getInitData();
+  const res = await fetch(path, {
+    ...options,
+    cache: "no-store",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `tga ${initData}`,
+      "X-Device-Id": getOrCreateDeviceId(),
+      "X-App-Lang": (() => {
+        try {
+          return window.localStorage.getItem("sly.lang.v1") || "";
+        } catch {
+          return "";
+        }
+      })(),
+      "X-Client-Signals": getClientSignals(),
+      "Cache-Control": "no-cache",
+      ...(options.headers || {}),
+    },
+  });
+
+  const data = await res.json().catch(() => ({}));
+
+  if (!res.ok) {
+    throw new Error(data.error || `Request failed (${res.status})`);
+  }
+
+  return data;
+}
+
+
+type RequiredChannel = {
+  id: string;
+  title: string;
+  url: string;
+  joined: boolean;
+};
+
+export default function App() {
+  const { t } = useLanguage();
+  const [page, setPage] = useState<Page>("home");
+  const [exchangeOpen, setExchangeOpen] = useState(false);
+  const [withdrawOpen, setWithdrawOpen] = useState(false);
+
+  const [wallet, setWallet] = useState<WalletState>({
+    coins: 0,
+    usdt: 0,
+    spent: 0,
+    walletAddress: null,
+  });
+
+  const [streak, setStreak] = useState(0);
+  const [activities, setActivities] = useState<Activity[]>([]);
+  void activities;
+  const [booting, setBooting] = useState(true);
+  const [bootError, setBootError] = useState("");
+
+  const [splashVisible, setSplashVisible] = useState(true);
+  const [splashFading, setSplashFading] = useState(false);
+  const [splashProgress, setSplashProgress] = useState(6);
+
+  useEffect(() => {
+    if (!splashVisible || !booting || bootError) return;
+    const id = setInterval(() => {
+      setSplashProgress((prev) => (prev >= 90 ? prev : prev + (90 - prev) * 0.08 + 0.4));
+    }, 120);
+    return () => clearInterval(id);
+  }, [splashVisible, booting, bootError]);
+
+  useEffect(() => {
+    if (bootError) {
+      setSplashVisible(false);
+      return;
+    }
+    if (!booting && splashVisible) {
+      setSplashProgress(100);
+      const fadeTimer = setTimeout(() => setSplashFading(true), 250);
+      const hideTimer = setTimeout(() => setSplashVisible(false), 700);
+      return () => {
+        clearTimeout(fadeTimer);
+        clearTimeout(hideTimer);
+      };
+    }
+  }, [booting, bootError, splashVisible]);
+
+  const [membershipVerified, setMembershipVerified] =
+    useState(true);
+
+  const [requiredChannels, setRequiredChannels] =
+    useState<RequiredChannel[]>([]);
+
+  const [membershipChecking, setMembershipChecking] =
+    useState(false);
+  const [adsgramReady, setAdsgramReady] = useState(false);
+  const adsgramControllerRef = useRef<AdsgramController | null>(null);
+  // true طول ما جولة Laser Escape شغالة. يمنع الإعلان التلقائي
+  // (showAdsgramAd، يشتغل بمؤقت دوري طول عمر التطبيق) من الظهور
+  // فجأة وسط اللعب - نستخدم ref مو state حتى القيمة توصل فورية
+  // لأي setTimeout شغال وقتها بدون ما تنتظر إعادة رندر.
+  const playingLaserEscapeRef = useRef(false);
+  const activeGameRunStartedAtRef = useRef<string | null>(null);
+  // نفس فكرة playingLaserEscapeRef بس للعبة Comet Run - يمنع الإعلان
+  // التلقائي (showAdsgramAd، يشتغل بمؤقت دوري طول عمر التطبيق) من
+  // الظهور فجأة وسط لعبة الجري.
+  const playingRunnerRef = useRef(false);
+
+  // حالة MINING تعيش هنا (بمستوى App) مو داخل صفحة Home، حتى ما تنقطع
+  // عملية start/claim إذا المستخدم بدّل صفحة قبل ما توصل تأكيدة الإعلان
+  const [mining, setMining] = useState<MiningState>(
+    loadCachedMining() ?? {
+      active: false,
+      reward: 0,
+      cycleHours: 2,
+      startedAt: null,
+      claimAvailableAt: null,
+      claimReady: false,
+      startAdVerified: false,
+      claimAdVerified: false,
+    }
+  );
+  const [miningAdBusy, setMiningAdBusy] = useState(false);
+  const miningAdBusyRef = useRef(false);
+  useEffect(() => {
+    miningAdBusyRef.current = miningAdBusy;
+  }, [miningAdBusy]);
+  const [miningReady, setMiningReady] = useState(false);
+  const [miningToast, setMiningToast] = useState("");
+
+  const [starsAdBusy, setStarsAdBusy] = useState(false);
+  const [starsUseBusy, setStarsUseBusy] = useState(false);
+  const [starsAdBatchCount, setStarsAdBatchCount] = useState(0);
+  const starsAdBatchCountUpdatedAtRef = useRef(0);
+  const [starsAdsRequired, setStarsAdsRequired] = useState(7);
+  const [starsCycleUnlocksAt, setStarsCycleUnlocksAt] = useState<string | null>(null);
+  const [starsAdToast, setStarsAdToast] = useState("");
+
+  // ---- حالة قسم Games (Laser Escape) ----
+  const [gamesAdBusy, setGamesAdBusy] = useState(false);
+  const [gamesAdToast, setGamesAdToast] = useState("");
+  const [gamesAttemptsRemaining, setGamesAttemptsRemaining] = useState(0);
+  const [gamesFreeAttempts, setGamesFreeAttempts] = useState(0);
+  const [gamesBonusAttempts, setGamesBonusAttempts] = useState(0);
+  const [gamesPlayBusy, setGamesPlayBusy] = useState(false);
+  const [playingLaserEscape, setPlayingLaserEscape] = useState(false);
+  const [laserDifficulty, setLaserDifficulty] = useState<LaserDifficulty>("normal");
+
+  // ---- لعبة Comet Run (الجري اللانهائي) ----
+  const [playingRunner, setPlayingRunner] = useState(false);
+  const [runnerBestScore, setRunnerBestScore] = useState(0);
+  const [runnerLeaderboardOpen, setRunnerLeaderboardOpen] = useState(false);
+
+  const [duplicateNotice, setDuplicateNotice] = useState(false);
+  const duplicateNoticeDismissedRef = useRef(false);
+  const [channelLeftNotice, setChannelLeftNotice] = useState("");
+
+  // بيانات الإحالة: تتحمل مرة وحدة مع بيانات اللاعب الرئيسية
+  // (أثناء شاشة الـ loading الرئيسية) بدل ما تعمل fetch خاص بها كل مرة تفتح صفحة Referrals
+  const [telegramId, setTelegramId] = useState("");
+  const [referralsCount, setReferralsCount] = useState(0);
+  const [referralRewardUsdt, setReferralRewardUsdt] = useState(0.01);
+  const [referralRequiredTasks, setReferralRequiredTasks] = useState(5);
+  const [referralBonus, setReferralBonus] = useState<ReferralBonus | null>(null);
+  const [withdrawalProof, setWithdrawalProof] = useState<WithdrawalProof>({ totalUsdt: 0, count: 0 });
+
+  // حالة بوابة السحب: عدد الإعلانات المشاهدة + وقت رجوع إمكانية السحب
+  const [withdrawalAdsWatched, setWithdrawalAdsWatched] = useState(0);
+  const [withdrawalAdsRequired, setWithdrawalAdsRequired] = useState(10);
+  const [nextWithdrawalAvailableAt, setNextWithdrawalAvailableAt] = useState<string | null>(null);
+  const [withdrawalHistory, setWithdrawalHistory] = useState<WithdrawalHistoryEntry[]>([]);
+
+  const scrollRef = useRef<HTMLDivElement>(null);
+  // إذا AdsGram رفع onNonStopShow (يعني لاحظ أكتر من إعلان ورا بعض)
+  // نوقف الإعلان التلقائي شوي أطول - هاي أهم خطوة لتحسين "جودة"
+  // الإعلانات بدون ما نقلل عددها بشكل كبير: نوقف بس وقت الشبكة نفسها
+  // تحذرنا إنه في سبام.
+  const adAutoBackoffUntilRef = useRef(0);
+
+  // الإعلان التلقائي: لو نجح (طلع فعلاً وخلص)، الإعلان الجاي بعد 30 ثانية.
+  // لو انلغى/فشل (ما طلع - مثلاً القفل مشغول، أو التطبيق مو ظاهر، أو
+  // AdsGram رفض/ماكو fill)، نحاول أسرع - بعد 10 ثواني بس - لين ينجح
+  // إعلان، وبعدها يرجع الفاصل لـ40 ثانية.
+  const AD_REPEAT_SUCCESS_MS = 30000; // إعلان تلقائي كل 30 ثانية
+  const AD_REPEAT_RETRY_MS = 10000;
+  const AD_AFTER_REWARD_MS = 10000; // إعلان تلقائي بعد إعلان المكافأة بـ10 ثواني
+  const adShowInFlightRef = useRef(false);
+
+
+
+
+  useEffect(() => {
+    scrollRef.current?.scrollTo({ top: 0, left: 0, behavior: "auto" });
+  }, [page]);
+
+  // تحميل SDK الخاص بـ AdsGram
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    // نسجل onBannerNotFound / onError فعلياً بدل ما نتركهم فاضيين -
+    // هذا اللي يفرّق لنا لاحقاً (بفتح الـconsole) بين "ما اكو طلب يوصل
+    // للسيرفر أصلاً" و"الطلب يوصل بس AdsGram ما عنده إعلان يعرضه (no
+    // fill)" و"في مشكلة رندر/تشغيل فعلية". onNonStopShow تحديداً معناه
+    // AdsGram لاحظ إعلانات ورا بعض بسرعة (سبام) - أول ما يصير هذا نوقف
+    // الإعلان التلقائي بالخلفية دقيقة كاملة، عشان الجلسة "تهدى" وما
+    // يستمر AdsGram يعتبرها سبام وما يحسب الظهورات (Impressions) بشكل
+    // صحيح.
+    const attachDiagnostics = (
+      controller: AdsgramController,
+      label: string
+    ) => {
+      controller.addEventListener?.("onTooLongSession", () => {
+        window.location.reload();
+      });
+      controller.addEventListener?.("onBannerNotFound", () => {
+        console.warn(`[AdsGram:${label}] onBannerNotFound (no fill)`);
+      });
+      controller.addEventListener?.("onError", () => {
+        console.warn(`[AdsGram:${label}] onError (render/playback failure)`);
+      });
+      controller.addEventListener?.("onNonStopShow", () => {
+        console.warn(`[AdsGram:${label}] onNonStopShow - backing off auto ads`);
+        adAutoBackoffUntilRef.current = Date.now() + 60000;
+      });
+    };
+
+    const initAdsgram = () => {
+      if (!window.Adsgram) return;
+      if (!adsgramControllerRef.current) {
+        adsgramControllerRef.current = window.Adsgram.init({ blockId: ADSGRAM_BLOCK_ID });
+        attachDiagnostics(adsgramControllerRef.current, "auto");
+      }
+      setAdsgramReady(true);
+      setMiningReady(true);
+    };
+
+    if (window.Adsgram) {
+      initAdsgram();
+      return;
+    }
+
+    const existingScript = document.querySelector(
+      `script[src="${ADSGRAM_SCRIPT_SRC}"]`
+    );
+
+    if (existingScript) {
+      existingScript.addEventListener("load", initAdsgram, { once: true });
+      // Safety net: the script tag lives in index.html's <head> now, so it may
+      // have already finished loading (or failed) before this effect ran and
+      // before the "load" listener above was attached. Poll briefly so we
+      // don't get stuck waiting for an event that already fired.
+      const pollId = window.setInterval(() => {
+        if (window.Adsgram) {
+          window.clearInterval(pollId);
+          initAdsgram();
+        }
+      }, 200);
+      window.setTimeout(() => window.clearInterval(pollId), 15000);
+      return () => window.clearInterval(pollId);
+    }
+
+    const script = document.createElement("script");
+    script.src = ADSGRAM_SCRIPT_SRC;
+    script.async = true;
+
+    script.onload = initAdsgram;
+    script.onerror = () => {
+      setAdsgramReady(false);
+      console.log("Failed to load AdsGram SDK");
+    };
+
+    document.head.appendChild(script);
+
+    return () => {
+      script.onload = null;
+      script.onerror = null;
+    };
+  }, []);
+
+
+
+  const showAdsgramAd = async (): Promise<boolean> => {
+    if (!adsgramControllerRef.current) return false;
+    // ما نعرض إعلان تلقائي وسط جولة لعب شغالة - نستناها تخلص.
+    if (playingLaserEscapeRef.current) return false;
+    if (playingRunnerRef.current) return false;
+
+    if (adShowInFlightRef.current) return false;
+
+    if (typeof document !== "undefined" && document.visibilityState !== "visible") {
+      return false;
+    }
+
+    if (Date.now() < adAutoBackoffUntilRef.current) return false;
+
+    // بدون انتظار: إذا في إعلان ثاني (تلقائي أو ضغطة مستخدم) شغال هلق،
+    // نتخطى هذي الدورة بالكامل بدل ما ننتظر الدور. الانتظار هو اللي كان
+    // يخلي إعلانين يطلعون ورا بعض بلحظات - وهذا بالضبط اللي يخلي AdsGram
+    // يشوفها سبام (onNonStopShow) وما يحسبها Impressions صحيحة.
+    if (!tryAcquireGlobalAdLock(true)) return false;
+
+    adShowInFlightRef.current = true;
+    try {
+      await adsgramControllerRef.current.show();
+      return true;
+    } catch (err) {
+      console.log("AdsGram ad skipped or unavailable", err);
+      return false;
+    } finally {
+      adShowInFlightRef.current = false;
+      releaseGlobalAdLock(true);
+    }
+  };
+
+  // الإعلان التلقائي (AdsGram int-46084). ما يمنح أي مكافأة.
+  const showAutoAd = async (): Promise<boolean> => showAdsgramAd();
+
+  // إعلان تلقائي أول ما تفتح اللعبة (قبل بدء الجولة). نحدد سقف انتظار
+  // حتى ما تتأخر اللعبة إذا الإعلان طوّل.
+  const showGameOpenAd = async () => {
+    try {
+      await Promise.race([
+        showAutoAd(),
+        new Promise((resolve) => window.setTimeout(resolve, 15000)),
+      ]);
+    } catch {}
+  };
+
+  useEffect(() => {
+    if (booting || bootError) return;
+    if (!adsgramReady) return;
+    if (!membershipVerified) return;
+
+    let cancelled = false;
+    let repeatTimer: number | null = null;
+
+    const schedule = (delay: number) => {
+      if (cancelled) return;
+      if (repeatTimer) window.clearTimeout(repeatTimer);
+      repeatTimer = window.setTimeout(async () => {
+        if (cancelled) return;
+        const ok = await showAutoAd();
+        schedule(ok ? AD_REPEAT_SUCCESS_MS : AD_REPEAT_RETRY_MS);
+      }, delay);
+    };
+
+    // بعد كل إعلان مكافأة (يدوي) نعرض إعلان تلقائي بعد 10 ثواني.
+    // الفاصل (20 ثانية) يخص إعلانات المكافآت فقط، التلقائي معفي منه.
+    const onRewardAdFinished = () => schedule(AD_AFTER_REWARD_MS);
+    window.addEventListener(REWARD_AD_FINISHED_EVENT, onRewardAdFinished);
+
+    const FIRST_AD_DELAY_MS = 1000;
+    schedule(FIRST_AD_DELAY_MS);
+
+    return () => {
+      cancelled = true;
+      if (repeatTimer) window.clearTimeout(repeatTimer);
+      window.removeEventListener(REWARD_AD_FINISHED_EVENT, onRewardAdFinished);
+    };
+  }, [booting, bootError, adsgramReady, membershipVerified]);
+
+  const waitForStarsAdVerification = async (batchBefore: number) => {
+    for (let attempt = 0; attempt < AD_VERIFY_MAX_ATTEMPTS; attempt += 1) {
+      try {
+        const data = await loadPlayerData();
+
+        if (
+          typeof data?.starsAdBatchCount === "number" &&
+          data.starsAdBatchCount > batchBefore
+        ) {
+          return true;
+        }
+      } catch {}
+
+      await new Promise((resolve) =>
+        window.setTimeout(resolve, AD_VERIFY_POLL_MS)
+      );
+    }
+
+    return false;
+  };
+
+  // ---------------------------------------------------------------
+  // إعلانات المكافآت عبر AdsGram interstitial: الإعلانات العادية لازم يشوفها
+  // 5 ثواني. إعلان السحب فقط (placement=withdrawal) لازم يضغط عليه ويبقى
+  // 5 ثواني (نبضة anyopen). بعدها السيرفر يتحقق (ad_pulse_confirm) ويمنح
+  // المكافأة، مع فاصل 15 ثانية بين الإعلانات اليدوية.
+  // ---------------------------------------------------------------
+  const showRewardAd = async (placement: RewardPlacement): Promise<number> => {
+    // السيرفر يسجل وقت بداية الإعلان بالتوازي مع عرضه
+    const beginPromise = callApi("/api/auth/me", {
+      method: "POST",
+      body: JSON.stringify({ action: "ad_pulse_begin", placement }),
+    });
+    beginPromise.catch(() => {});
+
+    const { awayMs } = await showRewardAdWithPulse(placement);
+    await beginPromise;
+    return awayMs;
+  };
+
+  const confirmRewardPulse = async (awayMs: number) => {
+    const result = await callApi("/api/auth/me", {
+      method: "POST",
+      body: JSON.stringify({ action: "ad_pulse_confirm", awayMs, pulseAway: true }),
+    });
+
+    if (!result || result.success === false || result.type === "ignored") {
+      throw new Error(t("app.adFailedToLoadOrComplete"));
+    }
+
+    return result;
+  };
+
+  const handleWatchStarsAd = async () => {
+    if (starsAdBusy) return;
+
+    if (!isRewardAdReady()) {
+      setStarsAdToast(t("app.adStillLoading"));
+      return;
+    }
+
+    const batchBefore = starsAdBatchCount;
+
+    setStarsAdBusy(true);
+    setStarsAdToast("");
+
+    try {
+      const prepare = await callApi("/api/auth/me", {
+        method: "POST",
+        body: JSON.stringify({ action: "stars_ad_prepare" }),
+      });
+
+      if (prepare.locked) {
+        setStarsCycleUnlocksAt(prepare.cycleUnlocksAt ?? null);
+        throw new Error(t("app.adsLockedDuringCycle"));
+      }
+
+      let awayMs: number;
+
+      try {
+        awayMs = await showRewardAd("stars");
+      } catch (adErr) {
+        await callApi("/api/auth/me", {
+          method: "POST",
+          body: JSON.stringify({ action: "stars_ad_cancel" }),
+        }).catch(() => {});
+        throw adErr;
+      }
+
+      await confirmRewardPulse(awayMs);
+
+      const verified = await waitForStarsAdVerification(batchBefore);
+
+      if (!verified) {
+        throw new Error(t("app.stillConfirmingAd"));
+      }
+
+      const latest = await callApi("/api/auth/me", {
+        method: "GET",
+      });
+
+      starsAdBatchCountUpdatedAtRef.current = Date.now();
+      setStarsAdBatchCount(
+        latest?.starsAdBatchCount ?? batchBefore + 1
+      );
+      setStarsCycleUnlocksAt(latest?.starsCycleUnlocksAt ?? null);
+      setStarsAdToast(
+        t("app.adVerifiedBy", {
+          count: latest?.starsAdBatchCount ?? batchBefore + 1,
+          required: starsAdsRequired,
+        })
+      );
+    } catch (err: any) {
+      if (!notifyRewardAdError(err, t)) {
+        setStarsAdToast(err?.message || t("app.somethingWentWrong"));
+      }
+    } finally {
+      setStarsAdBusy(false);
+    }
+  };
+
+  const handleUseStarsBalance = async () => {
+    if (starsUseBusy || starsAdBusy) return;
+
+    if (starsAdBatchCount <= 0) {
+      setStarsAdToast(t("app.watchOneAdFirst"));
+      return;
+    }
+
+    setStarsUseBusy(true);
+    setStarsAdToast("");
+
+    try {
+      const result = await callApi("/api/auth/me", {
+        method: "POST",
+        body: JSON.stringify({ action: "stars_ad_use_balance" }),
+      });
+
+      starsAdBatchCountUpdatedAtRef.current = Date.now();
+      setStarsAdBatchCount(result.starsAdBatchCount ?? 0);
+      setStarsCycleUnlocksAt(result.starsCycleUnlocksAt ?? null);
+      setStarsAdToast(t("app.balanceActivated"));
+    } catch (err: any) {
+      setStarsAdToast(err?.message || t("app.couldNotUseBalance"));
+    } finally {
+      setStarsUseBusy(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!starsAdToast) return;
+    const timer = window.setTimeout(() => setStarsAdToast(""), 2600);
+    return () => window.clearTimeout(timer);
+  }, [starsAdToast]);
+
+  const cancelGamesAd = async () => {
+    await callApi("/api/auth/me", {
+      method: "POST",
+      body: JSON.stringify({ action: "games_ad_cancel" }),
+    }).catch(() => {});
+  };
+
+  // نفس أسلوب waitForMiningAdVerification بالضبط: الكلاينت ما يقرر
+  // شي بنفسه، بس ينطر لين الـwebhook الحقيقي من AdsGram يرفع العداد
+  // فعلاً بقاعدة البيانات (أو تنتهي المهلة).
+  const waitForGamesAdVerification = async (bonusBefore: number) => {
+    for (let attempt = 0; attempt < AD_VERIFY_MAX_ATTEMPTS; attempt += 1) {
+      try {
+        const data = await loadPlayerData();
+        if (
+          typeof data?.gamesBonusAttempts === "number" &&
+          data.gamesBonusAttempts > bonusBefore
+        ) {
+          return true;
+        }
+      } catch {}
+
+      await new Promise((resolve) =>
+        window.setTimeout(resolve, AD_VERIFY_POLL_MS)
+      );
+    }
+
+    return false;
+  };
+
+  const handleWatchGamesAd = async () => {
+    if (gamesAdBusy) return;
+    if (!isRewardAdReady()) {
+      setGamesAdToast(t("app.adStillLoading"));
+      return;
+    }
+
+    setGamesAdBusy(true);
+    setGamesAdToast("");
+
+    try {
+      const bonusBefore = gamesBonusAttempts;
+
+      await callApi("/api/auth/me", {
+        method: "POST",
+        body: JSON.stringify({ action: "games_ad_prepare" }),
+      });
+
+      let awayMs: number;
+
+      try {
+        awayMs = await showRewardAd("games");
+      } catch (adErr) {
+        await cancelGamesAd();
+        throw adErr;
+      }
+
+      await confirmRewardPulse(awayMs);
+
+      const verified = await waitForGamesAdVerification(bonusBefore);
+      if (!verified) {
+        throw new Error(t("app.stillConfirmingAd"));
+      }
+
+      setGamesAdToast(t("app.gotBonusAttempt"));
+    } catch (err: any) {
+      if (!notifyRewardAdError(err, t)) {
+        setGamesAdToast(err?.message || t("app.somethingWentWrong"));
+      }
+    } finally {
+      setGamesAdBusy(false);
+    }
+  };
+
+  const handlePlayLaserEscape = async (difficulty: LaserDifficulty = laserDifficulty) => {
+    if (gamesPlayBusy || gamesAttemptsRemaining <= 0) return;
+
+    setGamesPlayBusy(true);
+    setGamesAdToast("");
+
+    try {
+      const data = await callApi("/api/auth/me", {
+        method: "POST",
+        body: JSON.stringify({
+          action: "games_start_attempt",
+          gameMode: "laser_escape",
+          gameDifficulty: difficulty,
+        }),
+      });
+
+      activeGameRunStartedAtRef.current = typeof data.gameRunStartedAt === "string" ? data.gameRunStartedAt : null;
+      setLaserDifficulty(difficulty);
+      setGamesAttemptsRemaining(
+        data.gamesAttemptsRemaining ?? Math.max(0, gamesAttemptsRemaining - 1)
+      );
+      await showGameOpenAd();
+      setPlayingLaserEscape(true);
+      playingLaserEscapeRef.current = true;
+    } catch (err: any) {
+      const gameRunStartedAt = activeGameRunStartedAtRef.current;
+      activeGameRunStartedAtRef.current = null;
+      if (gameRunStartedAt) {
+        callApi("/api/auth/me", {
+          method: "POST",
+          body: JSON.stringify({ action: "games_cancel_run", gameRunStartedAt }),
+        }).catch(() => {});
+      }
+      setGamesAdToast(err?.message || t("app.couldNotStartRun"));
+    } finally {
+      setGamesPlayBusy(false);
+    }
+  };
+
+  const handleLaserEscapeExit = (coinsEarned = 0) => {
+    const gameRunStartedAt = activeGameRunStartedAtRef.current;
+    activeGameRunStartedAtRef.current = null;
+    setPlayingLaserEscape(false);
+    playingLaserEscapeRef.current = false;
+
+    // فور ما الجولة تخلص، نجرب نعرض إعلان تلقائي على طول بدل ما
+    // ننتظر دورة المؤقت العشوائية الجاية.
+    showAutoAd().catch(() => {});
+
+    if (coinsEarned > 0) {
+      callApi("/api/tasks/complete", {
+        method: "POST",
+        body: JSON.stringify({ taskType: "game_run", reward: coinsEarned }),
+      })
+        .then(() => {
+          handleTaskReward(coinsEarned, t("app.gameRewardTitle", { amount: coinsEarned }), t("app.gameRewardMeta"));
+        })
+        .catch(() => {
+          pushActivity(t("app.couldntRecordReward"), t("app.tryReopeningApp"), "info");
+        });
+    } else {
+      if (gameRunStartedAt) {
+        callApi("/api/auth/me", {
+          method: "POST",
+          body: JSON.stringify({ action: "games_cancel_run", gameRunStartedAt }),
+        }).catch(() => {});
+      }
+    }
+  };
+
+  const handlePlayRunner = async () => {
+    if (gamesPlayBusy || gamesAttemptsRemaining <= 0) return;
+
+    setGamesPlayBusy(true);
+    setGamesAdToast("");
+
+    try {
+      const data = await callApi("/api/auth/me", {
+        method: "POST",
+        body: JSON.stringify({ action: "games_start_attempt", gameMode: "comet_run" }),
+      });
+
+      activeGameRunStartedAtRef.current = typeof data.gameRunStartedAt === "string" ? data.gameRunStartedAt : null;
+      setGamesAttemptsRemaining(
+        data.gamesAttemptsRemaining ?? Math.max(0, gamesAttemptsRemaining - 1)
+      );
+      await showGameOpenAd();
+      setPlayingRunner(true);
+      playingRunnerRef.current = true;
+    } catch (err: any) {
+      const gameRunStartedAt = activeGameRunStartedAtRef.current;
+      activeGameRunStartedAtRef.current = null;
+      if (gameRunStartedAt) {
+        callApi("/api/auth/me", {
+          method: "POST",
+          body: JSON.stringify({ action: "games_cancel_run", gameRunStartedAt }),
+        }).catch(() => {});
+      }
+      setGamesAdToast(err?.message || t("app.couldNotStartRun"));
+    } finally {
+      setGamesPlayBusy(false);
+    }
+  };
+
+  const handleRunnerExit = (coinsEarned = 0, score = 0) => {
+    const gameRunStartedAt = activeGameRunStartedAtRef.current;
+    activeGameRunStartedAtRef.current = null;
+    setPlayingRunner(false);
+    playingRunnerRef.current = false;
+
+    // فور ما الجولة تخلص، نجرب نعرض إعلان تلقائي على طول بدل ما
+    // ننتظر دورة المؤقت العشوائية الجاية.
+    showAutoAd().catch(() => {});
+
+    if (score > 0) {
+      setRunnerBestScore((prev) => Math.max(prev, Math.floor(score)));
+
+      callApi("/api/leaderboard", {
+        method: "POST",
+        body: JSON.stringify({ action: "submit_runner_score", score: Math.floor(score) }),
+      })
+        .then((data) => {
+          if (typeof data?.bestScore === "number") {
+            setRunnerBestScore(Math.max(0, Math.floor(data.bestScore)));
+          }
+        })
+        .catch(() => {});
+    }
+
+    if (coinsEarned > 0) {
+      callApi("/api/tasks/complete", {
+        method: "POST",
+        body: JSON.stringify({ taskType: "game_run", reward: coinsEarned, score: Math.floor(score) }),
+      })
+        .then(() => {
+          handleTaskReward(coinsEarned, t("app.gameRewardTitle", { amount: coinsEarned }), t("app.gameRewardMeta"));
+        })
+        .catch(() => {
+          pushActivity(t("app.couldntRecordReward"), t("app.tryReopeningApp"), "info");
+        });
+    } else if (gameRunStartedAt) {
+      callApi("/api/auth/me", {
+        method: "POST",
+        body: JSON.stringify({ action: "games_cancel_run", gameRunStartedAt }),
+      }).catch(() => {});
+    }
+  };
+
+  const loadPlayerData = async () => {
+    const requestStartedAt = Date.now();
+    const data = await callApi("/api/auth/me", { method: "GET" });
+
+    setWallet((prev) => ({
+      ...prev,
+      coins: data.coins ?? 0,
+      usdt: data.usdtBalance ?? 0,
+      walletAddress: data.walletAddress ?? null,
+    }));
+    setStreak(data.streak ?? 0);
+    setWithdrawalAdsWatched(data.withdrawalAdsWatched ?? 0);
+    setWithdrawalAdsRequired(data.withdrawalAdsRequired ?? 10);
+    setNextWithdrawalAvailableAt(data.nextWithdrawalAvailableAt ?? null);
+    setWithdrawalHistory(Array.isArray(data.withdrawalHistory) ? data.withdrawalHistory : []);
+    setTelegramId(String(data.telegramId ?? ""));
+    setReferralsCount(Number(data.referralsCount ?? 0));
+    setReferralRewardUsdt(Number(data.referralRewardUsdt ?? 0.01));
+    setReferralRequiredTasks(Number(data.referralRequiredTasks ?? 5));
+    if (data.referralBonus) {
+      setReferralBonus(data.referralBonus as ReferralBonus);
+    }
+    if (data.withdrawalProof) {
+      setWithdrawalProof({
+        totalUsdt: Number(data.withdrawalProof.totalUsdt ?? 0),
+        count: Number(data.withdrawalProof.count ?? 0),
+      });
+    }
+    setRunnerBestScore(Math.max(0, Math.floor(Number(data.runnerBestScore ?? 0))));
+
+    const channels =
+      Array.isArray(data.requiredChannels)
+        ? data.requiredChannels
+        : [];
+
+    setRequiredChannels(channels);
+
+    if (data.membershipVerified === false) {
+      setMembershipVerified(false);
+    } else {
+      setMembershipVerified(true);
+    }
+
+    if (data.isDuplicateDevice && !duplicateNoticeDismissedRef.current) {
+      setDuplicateNotice(true);
+    }
+
+    if (data.mining) {
+      setMining(data.mining);
+      saveCachedMining(data.mining);
+    }
+
+    if (
+      typeof data.starsAdBatchCount === "number" &&
+      requestStartedAt >= starsAdBatchCountUpdatedAtRef.current
+    ) {
+      setStarsAdBatchCount(data.starsAdBatchCount);
+    }
+    if (typeof data.starsAdsRequired === "number") {
+      setStarsAdsRequired(data.starsAdsRequired);
+    }
+    if ("starsCycleUnlocksAt" in data) {
+      setStarsCycleUnlocksAt(data.starsCycleUnlocksAt ?? null);
+    }
+
+    if (typeof data.gamesAttemptsRemaining === "number") {
+      setGamesAttemptsRemaining(data.gamesAttemptsRemaining);
+    }
+    if (typeof data.gamesFreeAttempts === "number") {
+      setGamesFreeAttempts(data.gamesFreeAttempts);
+    }
+    if (typeof data.gamesBonusAttempts === "number") {
+      setGamesBonusAttempts(data.gamesBonusAttempts);
+    }
+
+    if (Array.isArray(data.channelTasksReset) && data.channelTasksReset.length > 0) {
+      try {
+        const raw = window.localStorage.getItem("sly.tasks.progress.v3");
+        const parsed = raw ? JSON.parse(raw) : {};
+        for (const taskId of data.channelTasksReset) {
+          delete parsed[String(taskId)];
+        }
+        window.localStorage.setItem("sly.tasks.progress.v3", JSON.stringify(parsed));
+      } catch {}
+
+      window.dispatchEvent(
+        new CustomEvent("sly:channel-tasks-reset", { detail: data.channelTasksReset })
+      );
+
+      setChannelLeftNotice(
+        data.channelTasksReset.length === 1
+          ? t("app.channelLeftSingle")
+          : t("app.channelLeftMultiple", { count: data.channelTasksReset.length })
+      );
+    }
+
+    return data;
+  };
+
+  useEffect(() => {
+    if (!miningToast) return;
+    const timer = window.setTimeout(() => setMiningToast(""), 2600);
+    return () => window.clearTimeout(timer);
+  }, [miningToast]);
+
+  const refreshMining = async () => {
+    const data = await callApi("/api/auth/me", { method: "GET" });
+    if (data.mining) {
+      setMining(data.mining);
+      saveCachedMining(data.mining);
+    }
+    return data.mining as MiningState | undefined;
+  };
+
+  // يفحص فوراً (بدون انتظار ثانية أولاً) وبعدها كل ثانية - أسرع بالاستجابة
+  // من فحص كل ثانية بعد انتظار أول ثانية
+  const waitForMiningAdVerification = async (stage: "start" | "claim") => {
+    for (let attempt = 0; attempt < AD_VERIFY_MAX_ATTEMPTS; attempt += 1) {
+      try {
+        const state = await refreshMining();
+
+        // Only backend confirmation unlocks the next action.
+        if (stage === "start" && state?.startAdVerified) {
+          return true;
+        }
+
+        if (stage === "claim" && state?.claimAdVerified) {
+          return true;
+        }
+      } catch {}
+
+      await new Promise((resolve) =>
+        window.setTimeout(resolve, AD_VERIFY_POLL_MS)
+      );
+    }
+
+    return false;
+  };
+
+  const cancelMiningAd = async () => {
+    await callApi("/api/auth/me", {
+      method: "POST",
+      body: JSON.stringify({ action: "mining_cancel_ad" }),
+    }).catch(() => {});
+  };
+
+  // مرحلة إعلان المايننق (start أو claim): prepare ثم إعلان AdsGram ثم
+  // نبضة تأكيد. إذا السيرفر يقول المرحلة مؤكدة سابقاً ما نعرض إعلان.
+  const runMiningAdStage = async (stage: "start" | "claim") => {
+    const prepare = await callApi("/api/auth/me", {
+      method: "POST",
+      body: JSON.stringify({ action: "mining_prepare_ad", stage }),
+    });
+
+    if (prepare.alreadyVerified) return;
+
+    let awayMs: number;
+
+    try {
+      awayMs = await showRewardAd("mining");
+    } catch (adErr) {
+      await cancelMiningAd();
+      throw adErr;
+    }
+
+    await confirmRewardPulse(awayMs);
+
+    const verified = await waitForMiningAdVerification(stage);
+    if (!verified) {
+      throw new Error(
+        t(stage === "start" ? "app.tryStartAgainShortly" : "app.tryClaimAgainShortly")
+      );
+    }
+  };
+
+  const handleMining = async () => {
+    if (miningAdBusy) return;
+
+    if (!isRewardAdReady()) {
+      setMiningToast(t("app.miningAdNotReady"));
+      return;
+    }
+
+    setMiningAdBusy(true);
+    setMiningToast("");
+
+    try {
+      if (!mining.active) {
+        await runMiningAdStage("start");
+
+        const started = await callApi("/api/auth/me", {
+          method: "POST",
+          body: JSON.stringify({ action: "mining_start" }),
+        });
+
+        if (started.mining) {
+          setMining(started.mining);
+          saveCachedMining(started.mining);
+        }
+
+        setMiningToast(t("app.miningStarted"));
+        loadPlayerData().catch(() => {});
+        return;
+      }
+
+      if (!mining.claimReady) {
+        throw new Error(t("app.miningCycleNotReady"));
+      }
+
+      await runMiningAdStage("claim");
+
+      const claimed = await callApi("/api/auth/me", {
+        method: "POST",
+        body: JSON.stringify({ action: "mining_claim" }),
+      });
+
+      if (claimed.success) {
+        const reward = Number(claimed.reward || mining.reward);
+
+        setWallet((prev) => ({ ...prev, coins: prev.coins + reward }));
+        pushActivity(
+          t("app.miningRewardTitle", { amount: reward.toLocaleString() }),
+          t("app.miningRewardMeta"),
+          "reward"
+        );
+
+        setMining(claimed.mining);
+        saveCachedMining(claimed.mining);
+        setMiningToast(t("app.miningRewardToast", { amount: reward.toLocaleString() }));
+        loadPlayerData().catch(() => {});
+      }
+    } catch (err: any) {
+      if (!notifyRewardAdError(err, t)) {
+        setMiningToast(err?.message || t("app.miningActionFailed"));
+      }
+
+      // الفرونت كان يفترض حالة غلط (مثلاً "Ready to Start" بينما
+      // الباك اند يقول التعدين شغال أصلاً) — نعيد مزامنة الحالة
+      // الحقيقية حتى الواجهة تنعكس صح فوراً بدل ما تضل عالقة.
+      try {
+        await refreshMining();
+      } catch {}
+    } finally {
+      setMiningAdBusy(false);
+    }
+  };
+
+  const verifyMandatoryMembership =
+    async () => {
+      if (membershipChecking) {
+        return;
+      }
+
+      setMembershipChecking(true);
+
+      try {
+        const data =
+          await loadPlayerData();
+
+        if (
+          data.membershipVerified === true
+        ) {
+          setMembershipVerified(true);
+          setRequiredChannels(
+            Array.isArray(
+              data.requiredChannels
+            )
+              ? data.requiredChannels
+              : []
+          );
+
+          return;
+        }
+
+        setMembershipVerified(false);
+
+        setRequiredChannels(
+          Array.isArray(
+            data.requiredChannels
+          )
+            ? data.requiredChannels
+            : []
+        );
+      } catch (err) {
+        console.error(
+          "Membership verification failed:",
+          err
+        );
+      } finally {
+        setMembershipChecking(false);
+      }
+    };
+
+  const dismissDuplicateNotice = () => {
+    duplicateNoticeDismissedRef.current = true;
+    setDuplicateNotice(false);
+  };
+
+  const dismissChannelLeftNotice = () => {
+    setChannelLeftNotice("");
+  };
+
+  const pushActivity = (title: string, meta: string, tone: ActivityTone) => {
+    setActivities((prev) => [{ id: makeId(), title, meta, tone }, ...prev].slice(0, 8));
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+
+    loadPlayerData()
+      .then(async (data) => {
+        if (cancelled) return;
+
+        if (
+          data.membershipVerified === false
+        ) {
+          return;
+        }
+
+        if (!data.claimedToday) {
+          try {
+            const checkin = await callApi("/api/daily-checkin", { method: "POST" });
+            if (cancelled) return;
+
+            if (checkin.success) {
+              setWallet((prev) => ({ ...prev, coins: checkin.coins }));
+              setStreak(checkin.streak ?? data.streak ?? 0);
+              pushActivity(
+                t("app.dailyCheckinTitle", { amount: checkin.reward }),
+                t("app.dailyCheckinMeta"),
+                "reward"
+              );
+            }
+          } catch {
+            // فشل صامت هنا؛ يعاد تلقائياً بالمرة الجاية
+          }
+        }
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        const msg = String(err.message || "");
+        setBootError(
+          msg.includes("authentication")
+            ? t("app.bootErrorAuth")
+            : t("app.bootErrorGeneric")
+        );
+      })
+      .finally(() => {
+        if (!cancelled) setBooting(false);
+      });
+
+    const refreshPlayerData = async () => {
+      try {
+        await loadPlayerData();
+      } catch {
+        // تجاهل فشل التحديث الخلفي
+      }
+    };
+
+    const intervalId = window.setInterval(refreshPlayerData, 15 * 1000);
+window.addEventListener("focus", refreshPlayerData);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+window.removeEventListener("focus", refreshPlayerData);
+    };
+  }, []);
+
+  const handleTaskReward = (amount: number, title: string, meta: string) => {
+    setWallet((prev) => ({ ...prev, coins: prev.coins + amount }));
+    pushActivity(title, meta, "reward");
+    loadPlayerData().catch(() => {});
+  };
+
+  const handleExchange = async (amountCoins: number) => {
+    if (amountCoins <= 0 || amountCoins > wallet.coins) return;
+
+    try {
+      const data = await callApi("/api/exchange", {
+        method: "POST",
+        body: JSON.stringify({ amountCoins }),
+      });
+
+      setWallet((prev) => ({
+        ...prev,
+        coins: data.coins,
+        usdt: data.usdtBalance,
+        spent: prev.spent + amountCoins,
+      }));
+
+      pushActivity(
+        t("app.exchangeCompletedTitle"),
+        t("app.exchangeCompletedMeta", { coins: amountCoins.toLocaleString(), usdt: data.usdtGained }),
+        "exchange"
+      );
+
+      loadPlayerData().catch(() => {});
+    } catch (err: any) {
+      pushActivity(t("app.exchangeFailedTitle"), err.message, "info");
+    }
+  };
+
+  const handleRedeemGiftCode = async (code: string) => {
+    try {
+      const data = await callApi("/api/gift-codes/redeem", {
+        method: "POST",
+        body: JSON.stringify({ code }),
+      });
+
+      setWallet((prev) => ({ ...prev, coins: data.coins }));
+
+      pushActivity(
+        t("app.giftCodeRedeemedTitle"),
+        t("app.giftCodeRedeemedMeta", { amount: Number(data.rewardCoins || 0).toLocaleString() }),
+        "reward"
+      );
+
+      loadPlayerData().catch(() => {});
+
+      return {
+        success: true,
+        message: t("app.giftCodeReceived", { amount: Number(data.rewardCoins || 0).toLocaleString() }),
+      };
+    } catch (err: any) {
+      return { success: false, message: err.message || t("app.giftCodeFailed") };
+    }
+  };
+
+  const handleWithdraw = async (
+    amount: number,
+    method: "binance" | "bnb",
+    target: string
+  ) => {
+    if (amount <= 0 || amount > wallet.usdt) return;
+
+    try {
+      const data = await callApi("/api/withdraw", {
+        method: "POST",
+        body: JSON.stringify({ amount, method, target }),
+      });
+
+      setWallet((prev) => ({ ...prev, usdt: data.usdtBalance }));
+      setWithdrawalAdsWatched(0);
+      setWithdrawalAdsRequired(
+        data.withdrawalAdsRequired ?? 10
+      );
+      setNextWithdrawalAvailableAt(null);
+
+      pushActivity(
+        t("app.withdrawalRequestedTitle"),
+        method === "binance"
+          ? t("app.withdrawalToBinance", { amount: amount.toFixed(4), target })
+          : t("app.withdrawalToGram", { amount: amount.toFixed(4), target: `${target.slice(0, 6)}...${target.slice(-4)}` }),
+        "exchange"
+      );
+
+      loadPlayerData().catch(() => {});
+    } catch (err: any) {
+      pushActivity(t("app.withdrawalFailedTitle"), err.message, "info");
+    }
+  };
+
+  const handleWithdrawAdPrepare = async () => {
+    await callApi("/api/auth/me", {
+      method: "POST",
+      body: JSON.stringify({ action: "withdrawal_prepare_ad" }),
+    }).catch(() => {});
+  };
+
+  const handleWatchWithdrawAd = async () => {
+    // إعلان السحب عبر AdsGram (نبضة): prepare ثم إعلان ثم تأكيد السيرفر.
+    // العداد الحقيقي دايماً من السيرفر فقط.
+    if (!isRewardAdReady()) {
+      throw new Error(t("app.adStillLoading"));
+    }
+
+    const baseline = withdrawalAdsWatched;
+
+    await handleWithdrawAdPrepare();
+
+    const awayMs = await showRewardAd("withdrawal");
+
+    await confirmRewardPulse(awayMs);
+
+    for (let attempt = 0; attempt < AD_VERIFY_MAX_ATTEMPTS; attempt += 1) {
+      try {
+        const data = await loadPlayerData();
+        const watched = data.withdrawalAdsWatched ?? 0;
+        const required = data.withdrawalAdsRequired ?? 10;
+
+        setWithdrawalAdsWatched(watched);
+        setWithdrawalAdsRequired(required);
+
+        if (watched > baseline || watched >= required) {
+          return;
+        }
+      } catch (err) {
+        console.log("refresh after watch ad failed", err);
+      }
+
+      await new Promise((resolve) =>
+        window.setTimeout(resolve, AD_VERIFY_POLL_MS)
+      );
+    }
+
+    throw new Error(t("app.stillConfirmingAd"));
+  };
+
+  const handleWalletConnected = (address: string) => {
+    setWallet((prev) => ({ ...prev, walletAddress: address }));
+  };
+
+  const handleWalletDisconnected = () => {
+    setWallet((prev) => ({ ...prev, walletAddress: null }));
+  };
+
+  const lifetimeCoins = useMemo(() => wallet.coins + wallet.spent, [wallet.coins, wallet.spent]);
+
+  if (splashVisible) {
+    return <SplashScreen progress={splashProgress} fading={splashFading} />;
+  }
+
+  if (bootError) {
+    return (
+      <div className="app">
+        <Background />
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            height: "100%",
+            color: "#eaf4f2",
+            padding: 24,
+            textAlign: "center",
+          }}
+        >
+          {bootError}
+        </div>
+      </div>
+    );
+  }
+
+  if (!membershipVerified) {
+    return (
+      <div className="app">
+        <Background />
+
+        <MandatorySubscription
+          channels={requiredChannels}
+          loading={membershipChecking}
+          onVerify={verifyMandatoryMembership}
+        />
+      </div>
+    );
+  }
+
+  if (playingLaserEscape) {
+    return <GameCanvas difficulty={laserDifficulty} onExit={handleLaserEscapeExit} />;
+  }
+
+  if (playingRunner) {
+    return <RunnerGame bestScore={runnerBestScore} onExit={handleRunnerExit} />;
+  }
+
+  return (
+    <div className={`app app-page-${page}`}>
+      <Background />
+      <TopBar page={page} coins={wallet.coins} usdt={wallet.usdt} />
+
+      {duplicateNotice ? (
+        <div
+          style={{
+            position: "fixed",
+            top: 76,
+            left: "50%",
+            transform: "translateX(-50%)",
+            background: "rgba(120,20,20,0.94)",
+            color: "#fff0f0",
+            padding: "10px 16px",
+            borderRadius: 12,
+            fontSize: 12.5,
+            fontWeight: 500,
+            zIndex: 1000,
+            boxShadow: "0 8px 24px rgba(0,0,0,0.35)",
+            border: "1px solid rgba(255,120,120,0.35)",
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            maxWidth: "88%",
+            textAlign: "center",
+          }}
+        >
+          <span>{t("app.duplicateNotice")}</span>
+          <button
+            onClick={dismissDuplicateNotice}
+            style={{
+              background: "transparent",
+              border: "none",
+              color: "#fff0f0",
+              fontSize: 16,
+              lineHeight: 1,
+              cursor: "pointer",
+              padding: 0,
+            }}
+            aria-label={t("app.dismiss")}
+          >
+            ×
+          </button>
+        </div>
+      ) : null}
+
+      {channelLeftNotice ? (
+        <div
+          style={{
+            position: "fixed",
+            top: 76,
+            left: "50%",
+            transform: "translateX(-50%)",
+            background: "rgba(120,20,20,0.94)",
+            color: "#fff0f0",
+            padding: "10px 16px",
+            borderRadius: 12,
+            fontSize: 12.5,
+            fontWeight: 500,
+            zIndex: 1000,
+            boxShadow: "0 8px 24px rgba(0,0,0,0.35)",
+            border: "1px solid rgba(255,120,120,0.35)",
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            maxWidth: "88%",
+            textAlign: "center",
+          }}
+        >
+          <span>{channelLeftNotice}</span>
+          <button
+            onClick={dismissChannelLeftNotice}
+            style={{
+              background: "transparent",
+              border: "none",
+              color: "#fff0f0",
+              fontSize: 16,
+              lineHeight: 1,
+              cursor: "pointer",
+              padding: 0,
+            }}
+            aria-label={t("app.dismiss")}
+          >
+            ×
+          </button>
+        </div>
+      ) : null}
+
+      {miningToast ? (
+        <div
+          className="app-toast-ok"
+          style={{
+            position: "fixed",
+            top: 76,
+            left: "50%",
+            transform: "translateX(-50%)",
+            background: "rgba(18,28,26,0.94)",
+            color: "#eaf4f2",
+            padding: "10px 18px",
+            borderRadius: 12,
+            fontSize: 13,
+            fontWeight: 500,
+            zIndex: 999,
+            boxShadow: "0 8px 24px rgba(0,0,0,0.35)",
+            border: "1px solid rgba(64,224,208,0.25)",
+            whiteSpace: "nowrap",
+          }}
+        >
+          {miningToast}
+        </div>
+      ) : null}
+
+      <RewardAdNotice />
+
+      {!booting && !bootError && membershipVerified ? (
+        <PromoNativeTask
+          paused={playingLaserEscape || playingRunner}
+          onRewardCoins={handleTaskReward}
+        />
+      ) : null}
+
+      <main className="page-container">
+        <div className="page-scroll" ref={scrollRef}>
+          {page === "home" && (
+            <Home
+              streak={streak}
+              mining={mining}
+              miningReady={miningReady}
+              miningAdBusy={miningAdBusy}
+              onMining={handleMining}
+              onRedeemGiftCode={handleRedeemGiftCode}
+            />
+          )}
+
+          {page === "tasks" && <Tasks onRewardCoins={handleTaskReward} />}
+
+          {STARS_ENABLED && page === "stars" && (
+            <Stars
+              telegramId={telegramId}
+              adBusy={starsAdBusy}
+              useBusy={starsUseBusy}
+              adBatchCount={starsAdBatchCount}
+              adsRequired={starsAdsRequired}
+              cycleUnlocksAt={starsCycleUnlocksAt}
+              adToast={starsAdToast}
+              onWatchAd={handleWatchStarsAd}
+              onUseBalance={handleUseStarsBalance}
+            />
+          )}
+
+          {page === "referrals" && (
+            <Referrals
+              telegramId={telegramId}
+              referralsCount={referralsCount}
+              referralRewardUsdt={referralRewardUsdt}
+              referralRequiredTasks={referralRequiredTasks}
+              referralBonus={referralBonus}
+              withdrawalProof={withdrawalProof}
+            />
+          )}
+
+          {page === "games" && (
+            <Games
+              attemptsRemaining={gamesAttemptsRemaining}
+              freeAttempts={gamesFreeAttempts}
+              bonusAttempts={gamesBonusAttempts}
+              adBusy={gamesAdBusy}
+              playBusy={gamesPlayBusy}
+              adToast={gamesAdToast}
+              onWatchAd={handleWatchGamesAd}
+              onPlay={handlePlayLaserEscape}
+              onPlayRunner={handlePlayRunner}
+              onOpenRunnerLeaderboard={() => setRunnerLeaderboardOpen(true)}
+              runnerBestScore={runnerBestScore}
+            />
+          )}
+
+          {page === "withdrawal" && (
+            <Withdrawal
+              coins={wallet.coins}
+              usdt={wallet.usdt}
+              withdrawalAdsWatched={withdrawalAdsWatched}
+              withdrawalAdsRequired={withdrawalAdsRequired}
+              onOpenExchange={() => setExchangeOpen(true)}
+              onOpenWithdraw={() => setWithdrawOpen(true)}
+            />
+          )}
+
+          {page === "profile" && (
+            <Profile
+              lifetimeCoins={lifetimeCoins}
+              lifetimeSpent={wallet.spent}
+              usdtBalance={wallet.usdt}
+              serverWalletAddress={wallet.walletAddress}
+              withdrawalHistory={withdrawalHistory}
+              onWalletConnected={handleWalletConnected}
+              onWalletDisconnected={handleWalletDisconnected}
+            />
+          )}
+        </div>
+      </main>
+
+      <BottomNav page={page} setPage={setPage} />
+
+      <ExchangeModal
+        open={exchangeOpen}
+        coins={wallet.coins}
+        onClose={() => setExchangeOpen(false)}
+        onConfirm={handleExchange}
+      />
+
+      <WithdrawalModal
+        open={withdrawOpen}
+        usdtBalance={wallet.usdt}
+        walletAddress={wallet.walletAddress}
+        withdrawalAdsWatched={withdrawalAdsWatched}
+        withdrawalAdsRequired={withdrawalAdsRequired}
+        nextWithdrawalAvailableAt={nextWithdrawalAvailableAt}
+        onWatchAd={handleWatchWithdrawAd}
+        onClose={() => setWithdrawOpen(false)}
+        onConfirm={handleWithdraw}
+      />
+
+      <RunnerLeaderboardModal
+        open={runnerLeaderboardOpen}
+        telegramId={telegramId}
+        onClose={() => setRunnerLeaderboardOpen(false)}
+      />
+    </div>
+  );
+}
+
