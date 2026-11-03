@@ -310,13 +310,6 @@ export default function WithdrawalModal({
             />
           </div>
 
-          {!adsComplete ? (
-            <p className="withdraw-ad-tap-hint">
-              <span aria-hidden="true">👆</span>
-              {t("withdrawModal.adTapHint")}
-            </p>
-          ) : null}
-
           <button
             type="button"
             className="withdraw-watch-ad-btn"
