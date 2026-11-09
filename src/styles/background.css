@@ -1,0 +1,139 @@
+/* خلفية "فضاء" خفيفة على المعالج:
+   - ولا فلتر blur (كان أثقل شي بالنسخة القديمة)
+   - ولا 3D transform / mix-blend-mode
+   - النجوم background-image ثابت (يترسم مرة وحدة، مو 48 عنصر DOM كل وحد له animation)
+   - الحركة الوحيدة: opacity على طبقتين بس (أرخص خاصية ممكن تتحرك، ما تسبب أي إعادة رسم) */
+
+.app-bg{
+  position:fixed;
+  inset:0;
+  z-index:0;
+  overflow:hidden;
+  pointer-events:none;
+  background:
+    radial-gradient(circle at 50% -10%, rgba(84,230,212,.05) 0%, transparent 45%),
+    radial-gradient(circle at 100% 100%, rgba(227,192,113,.035) 0%, transparent 42%),
+    radial-gradient(circle at 0% 60%, rgba(84,230,212,.025) 0%, transparent 40%),
+    #000000;
+}
+
+.app-bg__stars{
+  position:absolute;
+  inset:0;
+  background-repeat:no-repeat;
+  background-size:100% 100%;
+  will-change:opacity;
+}
+
+.app-bg__stars--a{
+  background-image:
+    radial-gradient(1.1px 1.1px at 0% 0%, rgba(255,255,255,0.5), transparent 60%),
+    radial-gradient(1.7px 1.7px at 44% 72%, rgba(255,255,255,0.66), transparent 60%),
+    radial-gradient(1.4px 1.4px at 88% 44%, rgba(255,255,255,0.82), transparent 60%),
+    radial-gradient(1.1px 1.1px at 32% 16%, rgba(255,255,255,0.5), transparent 60%),
+    radial-gradient(1.7px 1.7px at 76% 55%, rgba(255,255,255,0.66), transparent 60%),
+    radial-gradient(1.4px 1.4px at 20% 27%, rgba(255,255,255,0.82), transparent 60%),
+    radial-gradient(1.1px 1.1px at 21% 99%, rgba(255,255,255,0.5), transparent 60%),
+    radial-gradient(1.7px 1.7px at 65% 38%, rgba(255,255,255,0.66), transparent 60%),
+    radial-gradient(1.4px 1.4px at 9% 10%, rgba(255,255,255,0.82), transparent 60%),
+    radial-gradient(1.1px 1.1px at 53% 82%, rgba(255,255,255,0.5), transparent 60%),
+    radial-gradient(1.7px 1.7px at 97% 54%, rgba(255,255,255,0.66), transparent 60%),
+    radial-gradient(1.4px 1.4px at 98% 93%, rgba(255,255,255,0.82), transparent 60%),
+    radial-gradient(1.1px 1.1px at 42% 65%, rgba(255,255,255,0.5), transparent 60%),
+    radial-gradient(1.7px 1.7px at 86% 37%, rgba(255,255,255,0.66), transparent 60%),
+    radial-gradient(1.4px 1.4px at 30% 76%, rgba(255,255,255,0.82), transparent 60%),
+    radial-gradient(1.1px 1.1px at 74% 48%, rgba(255,255,255,0.5), transparent 60%),
+    radial-gradient(1.7px 1.7px at 18% 20%, rgba(255,255,255,0.66), transparent 60%),
+    radial-gradient(1.4px 1.4px at 19% 92%, rgba(255,255,255,0.82), transparent 60%),
+    radial-gradient(1.1px 1.1px at 63% 31%, rgba(255,255,255,0.5), transparent 60%),
+    radial-gradient(1.7px 1.7px at 7% 3%, rgba(255,255,255,0.66), transparent 60%),
+    radial-gradient(1.4px 1.4px at 51% 75%, rgba(255,255,255,0.82), transparent 60%),
+    radial-gradient(1.1px 1.1px at 95% 14%, rgba(255,255,255,0.5), transparent 60%),
+    radial-gradient(1.7px 1.7px at 96% 86%, rgba(255,255,255,0.66), transparent 60%),
+    radial-gradient(1.4px 1.4px at 40% 58%, rgba(255,255,255,0.82), transparent 60%),
+    radial-gradient(1.1px 1.1px at 84% 30%, rgba(255,255,255,0.5), transparent 60%),
+    radial-gradient(1.7px 1.7px at 28% 69%, rgba(255,255,255,0.66), transparent 60%),
+    radial-gradient(1.4px 1.4px at 72% 41%, rgba(255,255,255,0.82), transparent 60%),
+    radial-gradient(1.1px 1.1px at 16% 13%, rgba(255,255,255,0.5), transparent 60%);
+  animation:app-bg-twinkle-a 7s ease-in-out infinite;
+}
+
+.app-bg__stars--b{
+  background-image:
+    radial-gradient(1.3px 1.3px at 22% 36%, rgba(255,255,255,0.58), transparent 60%),
+    radial-gradient(1.0px 1.0px at 66% 8%, rgba(255,255,255,0.74), transparent 60%),
+    radial-gradient(1.6px 1.6px at 10% 80%, rgba(255,255,255,0.9), transparent 60%),
+    radial-gradient(1.3px 1.3px at 54% 19%, rgba(255,255,255,0.58), transparent 60%),
+    radial-gradient(1.0px 1.0px at 98% 91%, rgba(255,255,255,0.74), transparent 60%),
+    radial-gradient(1.6px 1.6px at 99% 63%, rgba(255,255,255,0.9), transparent 60%),
+    radial-gradient(1.3px 1.3px at 43% 35%, rgba(255,255,255,0.58), transparent 60%),
+    radial-gradient(1.0px 1.0px at 87% 74%, rgba(255,255,255,0.74), transparent 60%),
+    radial-gradient(1.6px 1.6px at 31% 46%, rgba(255,255,255,0.9), transparent 60%),
+    radial-gradient(1.3px 1.3px at 75% 18%, rgba(255,255,255,0.58), transparent 60%),
+    radial-gradient(1.0px 1.0px at 19% 57%, rgba(255,255,255,0.74), transparent 60%),
+    radial-gradient(1.6px 1.6px at 20% 29%, rgba(255,255,255,0.9), transparent 60%),
+    radial-gradient(1.3px 1.3px at 64% 1%, rgba(255,255,255,0.58), transparent 60%),
+    radial-gradient(1.0px 1.0px at 8% 73%, rgba(255,255,255,0.74), transparent 60%),
+    radial-gradient(1.6px 1.6px at 52% 12%, rgba(255,255,255,0.9), transparent 60%),
+    radial-gradient(1.3px 1.3px at 96% 84%, rgba(255,255,255,0.58), transparent 60%),
+    radial-gradient(1.0px 1.0px at 97% 56%, rgba(255,255,255,0.74), transparent 60%),
+    radial-gradient(1.6px 1.6px at 41% 95%, rgba(255,255,255,0.9), transparent 60%),
+    radial-gradient(1.3px 1.3px at 85% 67%, rgba(255,255,255,0.58), transparent 60%),
+    radial-gradient(1.0px 1.0px at 29% 39%, rgba(255,255,255,0.74), transparent 60%),
+    radial-gradient(1.6px 1.6px at 73% 11%, rgba(255,255,255,0.9), transparent 60%),
+    radial-gradient(1.3px 1.3px at 17% 50%, rgba(255,255,255,0.58), transparent 60%),
+    radial-gradient(1.0px 1.0px at 18% 22%, rgba(255,255,255,0.74), transparent 60%),
+    radial-gradient(1.6px 1.6px at 62% 94%, rgba(255,255,255,0.9), transparent 60%),
+    radial-gradient(1.3px 1.3px at 6% 33%, rgba(255,255,255,0.58), transparent 60%),
+    radial-gradient(1.0px 1.0px at 50% 5%, rgba(255,255,255,0.74), transparent 60%),
+    radial-gradient(1.6px 1.6px at 94% 77%, rgba(255,255,255,0.9), transparent 60%),
+    radial-gradient(1.3px 1.3px at 95% 49%, rgba(255,255,255,0.58), transparent 60%);
+  animation:app-bg-twinkle-b 9s ease-in-out infinite;
+}
+
+@keyframes app-bg-twinkle-a{
+  0%,100%{opacity:.35}
+  50%{opacity:.9}
+}
+
+@keyframes app-bg-twinkle-b{
+  0%,100%{opacity:.8}
+  50%{opacity:.25}
+}
+
+/* Refined SLY space layer: deep black remains dominant; cyan/gold are accents only. */
+.app-bg{
+  background:
+    radial-gradient(circle at 50% -8%,rgba(84,230,212,.045) 0,transparent 38%),
+    radial-gradient(circle at 96% 78%,rgba(227,192,113,.032) 0,transparent 30%),
+    radial-gradient(circle at 4% 52%,rgba(84,230,212,.018) 0,transparent 32%),
+    #05090b;
+}
+
+.app-bg::before{
+  content:"";
+  position:absolute;
+  width:360px;
+  height:360px;
+  right:-220px;
+  top:16%;
+  border-radius:50%;
+  border:1px solid rgba(84,230,212,.045);
+  box-shadow:0 0 90px rgba(84,230,212,.025),inset 0 0 70px rgba(84,230,212,.018);
+  animation:bg-orbit 18s linear infinite;
+}
+
+.app-bg::after{
+  content:"";
+  position:absolute;
+  width:220px;
+  height:1px;
+  left:-80px;
+  top:35%;
+  background:linear-gradient(90deg,transparent,rgba(227,192,113,.18),transparent);
+  transform:rotate(-18deg);
+  animation:bg-scan 9s ease-in-out infinite;
+}
+
+@keyframes bg-orbit{to{transform:rotate(360deg)}}
+@keyframes bg-scan{0%,100%{opacity:0;transform:translateX(0) rotate(-18deg)}25%{opacity:.7}55%{opacity:0;transform:translateX(560px) rotate(-18deg)}}

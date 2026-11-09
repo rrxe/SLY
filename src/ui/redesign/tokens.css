@@ -1,0 +1,32 @@
+/* ============================================================
+   SLYMintX V2 — design tokens
+   The ORIGINAL palette is untouched (teal / gold on dark).
+   These tokens only expose it to the new components, per theme.
+   ============================================================ */
+:root {
+  --rd-font: "Geist", "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --rd-font-ar: "IBM Plex Sans Arabic", "Geist", "Inter", system-ui, sans-serif;
+  --rd-ease: cubic-bezier(0.22, 0.8, 0.2, 1);
+  --nav-h: 78px;
+}
+
+/* color theme: original teal + gold */
+:root,
+:root[data-theme="color"] {
+  --rd-acc: #2fbfae;
+  --rd-acc-hi: #54e6d4;
+  --rd-acc-rgb: 84, 230, 212;
+  --rd-gold: #e3c071;
+  --rd-gold-rgb: 227, 192, 113;
+  --rd-mythic-rgb: 230, 110, 214;
+}
+
+/* mono theme: original black & white */
+:root[data-theme="mono"] {
+  --rd-acc: #dcdcdc;
+  --rd-acc-hi: #ffffff;
+  --rd-acc-rgb: 255, 255, 255;
+  --rd-gold: #ffffff;
+  --rd-gold-rgb: 255, 255, 255;
+  --rd-mythic-rgb: 255, 255, 255;
+}

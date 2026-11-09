@@ -1,0 +1,47 @@
+.promo-task-card {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: calc(var(--nav-h, 64px) + 16px);
+  z-index: 9000;
+  width: min(92vw, 380px);
+  box-sizing: border-box;
+  padding: 14px 14px 12px;
+  border-radius: 18px;
+  background: linear-gradient(180deg, #172021 0%, #121a1b 100%);
+  border: 1px solid rgba(227, 192, 113, 0.3);
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.55);
+  animation: promo-task-in 0.25s ease-out;
+}
+
+.promo-task-title {
+  margin: 0 28px 2px 0;
+  font-size: 15px;
+  font-weight: 800;
+  color: #fff;
+}
+
+.promo-task-sub {
+  margin: 0 0 10px;
+  font-size: 12px;
+  color: #93a3a1;
+}
+
+.promo-task-close {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 50%;
+  font-size: 13px;
+  color: #cfdad8;
+  background: rgba(255, 255, 255, 0.08);
+  cursor: pointer;
+}
+
+@keyframes promo-task-in {
+  from { opacity: 0; transform: translate(-50%, 12px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
+}
