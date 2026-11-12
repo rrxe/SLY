@@ -33,7 +33,7 @@ import RunnerLeaderboardModal from "./modals/RunnerLeaderboardModal";
 import { useLanguage } from "./i18n/LanguageContext";
 
 // V2 redesign layer (presentation only). Keep this import last so its CSS wins the cascade.
-import { BottomNav, TopBar, AmbientSpotlight, TierFlair } from "./ui/redesign";
+import { BottomNav, TopBar, TierFlair } from "./ui/redesign";
 
 export type Page = "home" | "tasks" | "stars" | "games" | "withdrawal" | "referrals" | "profile";
 type ActivityTone = "info" | "reward" | "exchange";
@@ -1782,7 +1782,6 @@ window.removeEventListener("focus", refreshPlayerData);
         </div>
       </main>
 
-      <AmbientSpotlight />
       <TierFlair />
       <BottomNav page={page} setPage={setPage} />
 
