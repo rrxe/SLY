@@ -1,0 +1,35 @@
+
+.app{
+  position:relative;
+  width:100%;
+  height:100vh;
+  height:100dvh;
+  overflow:hidden;
+  background:#05090b;
+}
+
+.page-container{
+  position:absolute;
+  inset:0;
+  z-index:2;
+  padding:calc(var(--header-h) + 8px) 14px calc(var(--nav-h) + 16px);
+  overflow:hidden;
+}
+.page-scroll{
+  width:100%;
+  height:100%;
+  overflow-y:auto;
+  -webkit-overflow-scrolling:touch;
+  overscroll-behavior:contain;
+  scroll-behavior:smooth;
+  scrollbar-width:none;
+  transform:translateZ(0);
+}
+.page-scroll::-webkit-scrollbar{display:none}
+.page-scroll>section{min-height:100%;}
+button{transition:transform .16s ease,box-shadow .16s ease,opacity .16s ease,background .16s ease,border-color .16s ease}
+button:active{transform:scale(.975)}
+input:focus{outline:none;box-shadow:0 0 0 1px rgba(84,230,212,.38),0 0 18px rgba(84,230,212,.10)}
+.modal-backdrop{animation:app-fade-in .22s ease both}
+@keyframes app-fade-in{from{opacity:0}to{opacity:1}}
+@media(max-width:420px){.page-container{padding-left:10px;padding-right:10px}}

@@ -1,0 +1,51 @@
+/* مشغّل الموسيقى: مدموج مع خلفية الشريط العلوي (بدون صندوق ولا إطار) وبألوان هادية.
+   يعتمد على متغيرات الثيم، فيتغير مع ملوّن/أبيض وأسود تلقائياً */
+.music-slot{flex:1;min-width:0;display:flex;justify-content:center}
+
+.music{
+  display:flex;align-items:center;gap:3px;
+  max-width:100%;min-width:0;
+  padding:0;
+  background:none;
+  border:0;
+  box-shadow:none;
+}
+
+/* موجات صغيرة هادية: حركتها transform فقط وتوقف لما الموسيقى مو شغّالة */
+.music-eq{display:flex;align-items:flex-end;gap:2px;height:12px;flex:none;margin-inline-end:5px;color:var(--muted);opacity:.9}
+.music-eq.on{color:var(--blue-2);opacity:1}
+.music-eq i{
+  display:block;width:2.5px;height:100%;border-radius:2px;
+  background:currentColor;
+  transform-origin:bottom;
+  transform:scaleY(.35);
+}
+.music-eq.on i{animation:music-eq 1.4s ease-in-out infinite}
+.music-eq.on i:nth-child(2){animation-delay:-.5s}
+.music-eq.on i:nth-child(3){animation-delay:-1s}
+@keyframes music-eq{0%,100%{transform:scaleY(.3)}50%{transform:scaleY(1)}}
+
+.music-meta{min-width:0;flex:1 1 auto;margin-inline-end:2px}
+.music-meta strong{display:block;color:var(--text);font-size:12px;line-height:1;letter-spacing:1px;font-weight:800}
+.music-meta small{display:block;margin-top:3px;color:var(--muted);font-size:9px;line-height:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* أزرار بدون خلفية: الأيقونة بس، ومساحة اللمس 28px */
+.music-ctl{
+  flex:none;width:30px;height:30px;padding:0;
+  display:grid;place-items:center;
+  border-radius:50%;
+  background:rgba(255,255,255,.045);
+  border:0;
+  color:var(--text);
+  cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+}
+.music-ctl svg{width:15px;height:15px}
+.music-ctl:active{background:rgba(255,255,255,.12)}
+
+@media(max-width:380px){
+  .music-eq{display:none}
+}
+@media(prefers-reduced-motion:reduce){
+  .music-eq.on i{animation:none;transform:scaleY(.7)}
+}
